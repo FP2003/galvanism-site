@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+/*
+  Galvanism design tokens — see DESIGN.md (normative source).
+  Hex values are canonical; Tailwind utilities are generated from the @theme block.
+*/
+
+@theme {
+  /* Color — Neutral (the near-monochrome base) */
+  --color-void-navy: #0a0021;
+  --color-ledger-teal: #023a3b;
+  --color-elevated-ledger: #0b4a4c;
+  --color-case-file-white: #ffffff;
+  --color-muted-ink: #9dbbcb;
+
+  /* Color — Primary (the cyan ramp: the only "alive" color) */
+  --color-steel-blue: #1481ba;
+  --color-signal-cyan: #0caadc;
+  --color-live-cyan: #11b5e4;
+
+  /* Color — Tertiary (the one reserved danger hue) */
+  --color-stamp-red: #c9502e;
+
+  /* Color — Card categories (the Committed exception; card component only) */
+  --color-combat-violet: #4a3b7a;
+  --color-defense-slate: #34506e;
+  --color-mod-moss: #3f6b4a;
+  --color-movement-amber: #a9691f;
+  --color-resilience-rose: #7a2942;
+  --color-tech-mauve: #8c3f66;
+
+  /* Typography — families wired from next/font in layout.tsx */
+  --font-display: var(--font-rajdhani), "Segoe UI", sans-serif;
+  --font-title: var(--font-chakra), "Segoe UI", sans-serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-data: var(--font-jetbrains), "Fira Code", monospace;
+
+  /* Radius — hard corners everywhere except sanctioned circles */
+  --radius-none: 0px;
+  --radius-full: 9999px;
+
+  /* Motion */
+  --animate-pulse-live: pulse-live 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+@keyframes pulse-live {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  border-radius: 0;
+}
+
+html {
+  background-color: var(--color-void-navy);
+}
+
+body {
+  background-color: var(--color-void-navy);
+  color: var(--color-case-file-white);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Focus ring — visible, never removed (DESIGN.md Components §5) */
+:focus-visible {
+  outline: 2px solid var(--color-case-file-white);
+  outline-offset: 2px;
+}
+
+/* Selection uses the live/interactive color, never a card hue */
+::selection {
+  background-color: var(--color-signal-cyan);
+  color: var(--color-void-navy);
+}
+
+/* Reduced motion: the live-status pulse becomes static (DESIGN.md §5) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
