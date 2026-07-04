@@ -7,7 +7,7 @@ import { CommandDashboard } from "@/components/command-dashboard";
 // from the sign-in page. No sidebar/case-file links here — those are auth-gated,
 // so the preview stays a single self-contained screen. Whitelisted in proxy.ts.
 export const metadata = {
-  title: "Preview — F.C.B. Command",
+  title: "Preview",
 };
 
 export default function PreviewPage() {

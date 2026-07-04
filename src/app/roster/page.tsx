@@ -8,7 +8,7 @@ import { StatusLabel } from "@/components/ui/status-dot";
 import { operators, type OperatorStatus } from "@/lib/mock-data";
 
 export const metadata: Metadata = {
-  title: "Personnel Roster — Regiment Foxtrot",
+  title: "Personnel Roster",
 };
 
 const statusTone: Record<OperatorStatus, "live" | "critical" | "neutral"> = {
