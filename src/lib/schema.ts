@@ -102,12 +102,13 @@ export const usersRelations = relations(users, ({ one }) => ({
   player: one(players, { fields: [users.id], references: [players.userId] }),
 }));
 
-export const playersRelations = relations(players, ({ one }) => ({
+export const playersRelations = relations(players, ({ one, many }) => ({
   user: one(users, { fields: [players.userId], references: [users.id] }),
   character: one(characters, {
     fields: [players.id],
     references: [characters.playerId],
   }),
+  ledger: many(goldLedger),
 }));
 
 export const charactersRelations = relations(characters, ({ one }) => ({
@@ -117,6 +118,39 @@ export const charactersRelations = relations(characters, ({ one }) => ({
   }),
 }));
 
+// Append-only record of every gold change (Phase 2 — the player's read-only gold
+// ledger). `players.gold` stays the live balance; each adjustment writes one row
+// here with the resulting `balanceAfter` for display. Phase 4's audit log builds
+// on this table. Never updated in place — corrections are new (reversing) rows.
+export const goldLedger = pgTable(
+  "gold_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    delta: integer("delta").notNull(),
+    balanceAfter: integer("balance_after").notNull(),
+    refCode: text("ref_code"), // optional op/requisition reference (e.g. OP-0142)
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("gold_ledger_player_idx").on(t.playerId, t.createdAt)],
+);
+
+export const goldLedgerRelations = relations(goldLedger, ({ one }) => ({
+  player: one(players, {
+    fields: [goldLedger.playerId],
+    references: [players.id],
+  }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Character = typeof characters.$inferSelect;
+export type GoldLedgerEntry = typeof goldLedger.$inferSelect;
