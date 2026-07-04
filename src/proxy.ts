@@ -1,6 +1,15 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default clerkMiddleware();
+// Everything is behind auth except the sign-in flow and the public sample-data
+// preview. Accounts are created by the admin (info/roadmap.md Phase 1) — there is
+// no public sign-up route.
+const isPublicRoute = createRouteMatcher(["/sign-in(.*)", "/preview(.*)"]);
+
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    await auth.protect();
+  }
+});
 
 export const config = {
   matcher: [

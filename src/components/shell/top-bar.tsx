@@ -1,10 +1,19 @@
 import Link from "next/link";
+import { UserButton } from "@clerk/nextjs";
+import { ShieldCheck } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { regiment } from "@/lib/mock-data";
+import type { User } from "@/lib/schema";
 
 // Global top bar. Sticky, sits above the sidebar rail. Carries the F.C.B. seal +
-// wordmark, the regiment designation, and the current operator badge.
-export function TopBar() {
+// wordmark, the regiment designation, the signed-in operator badge, and (for the
+// DM) an admin link. Sign-out lives in the Clerk UserButton.
+export function TopBar({ user }: { user: User | null }) {
+  const isAdmin = user?.role === "admin";
+  const displayName = user?.displayName || user?.email || "Unidentified";
+  const initials = displayName.slice(0, 2).toUpperCase();
+  const clearance = isAdmin ? "COMMAND" : "OPERATOR";
+
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-ledger-teal bg-void-navy px-3 sm:px-4">
       <Link href="/" className="flex items-center gap-3">
@@ -23,18 +32,37 @@ export function TopBar() {
         <span className="hidden font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.1em] text-muted-ink lg:inline">
           {regiment.designation} · {regiment.sector}
         </span>
-        <div className="flex items-center gap-2.5 border border-ledger-teal px-3 py-1.5">
-          <span className="flex size-6 items-center justify-center bg-ledger-teal font-[family-name:var(--font-chakra)] text-[0.625rem] font-bold text-signal-cyan">
-            {regiment.operator.callsign.slice(0, 2)}
-          </span>
-          <span className="flex flex-col leading-none">
+
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan"
+          >
+            <ShieldCheck size={14} />
+            Admin
+          </Link>
+        )}
+
+        <div className="flex items-center gap-2.5 border border-ledger-teal py-1.5 pl-3 pr-1.5">
+          <span className="flex flex-col text-right leading-none">
             <span className="font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-case-file-white">
-              OPR. {regiment.operator.callsign}
+              {displayName}
             </span>
             <span className="mt-0.5 font-[family-name:var(--font-jetbrains)] text-[0.5625rem] uppercase text-muted-ink">
-              CLR · {regiment.operator.clearance}
+              CLR · {clearance}
             </span>
           </span>
+          <span className="flex size-6 items-center justify-center bg-ledger-teal font-[family-name:var(--font-chakra)] text-[0.625rem] font-bold text-signal-cyan">
+            {initials}
+          </span>
+          <UserButton
+            appearance={{
+              elements: {
+                userButtonAvatarBox: "size-7 rounded-none",
+                userButtonPopoverCard: "bg-ledger-teal border border-elevated-ledger",
+              },
+            }}
+          />
         </div>
       </div>
     </header>
