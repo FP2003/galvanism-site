@@ -17,7 +17,7 @@ function SubmitButton() {
   );
 }
 
-// Edits player-account fields (operator name). Email is Clerk-owned; gold is
+// Edits player-account fields (gaming alias). Email is Clerk-owned; gold is
 // handled by the ledger form so every balance change is audited.
 export function PlayerForm({
   playerId,
@@ -43,13 +43,13 @@ export function PlayerForm({
         )}
       </Field>
 
-      <Field label="Operator name">
+      <Field label="Gaming alias">
         {(id) => (
           <TextInput
             id={id}
             name="name"
             autoComplete="off"
-            placeholder="M. Okonkwo"
+            placeholder="EpicGamerName"
             defaultValue={name}
           />
         )}
