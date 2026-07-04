@@ -2,6 +2,7 @@
 
 import { clerkClient } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -131,6 +132,7 @@ function parseCharacterFields(formData: FormData):
     hpCurrent: clampResource(intField(formData, "hpCurrent"), hpMax),
     energyMax,
     energyCurrent: clampResource(intField(formData, "energyCurrent"), energyMax),
+    energyRegen: intField(formData, "energyRegen", 3),
     ammoMax,
     ammoCurrent: clampResource(intField(formData, "ammoCurrent"), ammoMax),
     statTech: intField(formData, "statTech"),
@@ -170,9 +172,10 @@ export async function createCharacter(
 
   const db = getDb();
   try {
+    // Admin-created sheets are approved on creation (no application review).
     await db
       .insert(characters)
-      .values({ ...parsed.values, playerId, slug });
+      .values({ ...parsed.values, playerId, slug, approved: true });
   } catch (err) {
     return { error: dbErrorMessage(err, slug) };
   }
@@ -290,6 +293,90 @@ export async function adjustGold(
     ok: true,
     message: `${parsedDelta.value >= 0 ? "+" : ""}${parsedDelta.value} Cr — new balance ${result.value}.`,
   };
+}
+
+// Approves a pending character application → it joins the active roster.
+export async function approveCharacter(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireAdmin();
+  const characterId = textField(formData, "characterId");
+  if (!characterId) return { error: "Missing character reference." };
+
+  const db = getDb();
+  const [row] = await db
+    .update(characters)
+    .set({ approved: true, updatedAt: new Date() })
+    .where(eq(characters.id, characterId))
+    .returning({ slug: characters.slug, playerId: characters.playerId });
+  if (!row) return { error: "Application not found." };
+
+  revalidateCharacter(row.slug, row.playerId);
+  return { ok: true, message: "Application approved." };
+}
+
+// Denies an application by deleting the sheet (denial is final — the player
+// re-applies from scratch). The player account itself is untouched.
+export async function denyCharacter(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireAdmin();
+  const characterId = textField(formData, "characterId");
+  if (!characterId) return { error: "Missing character reference." };
+
+  const db = getDb();
+  const [row] = await db
+    .delete(characters)
+    .where(eq(characters.id, characterId))
+    .returning({ playerId: characters.playerId });
+  if (!row) return { error: "Application not found." };
+
+  revalidatePath("/admin");
+  revalidatePath(`/admin/players/${row.playerId}`);
+  return { ok: true, message: "Application denied and removed." };
+}
+
+// Permanently removes a player account: the Clerk identity first, then the DB
+// user row (cascades the player, character, and ledger). Admin accounts are
+// protected. Redirects to the roster on success.
+export async function deletePlayerAccount(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireAdmin();
+  const playerId = textField(formData, "playerId");
+  if (!playerId) return { error: "Missing player reference." };
+
+  const db = getDb();
+  const player = await db.query.players.findFirst({
+    where: eq(players.id, playerId),
+    with: { user: true },
+  });
+  if (!player) return { error: "Player not found." };
+  if (player.user?.role === "admin") {
+    return { error: "Admin accounts can't be removed here." };
+  }
+
+  try {
+    const client = await clerkClient();
+    await client.users.deleteUser(player.userId);
+  } catch (err) {
+    return {
+      error: `Could not remove the Clerk identity: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    };
+  }
+
+  // Cascades to players → characters → gold_ledger via FK onDelete.
+  await db.delete(users).where(eq(users.id, player.userId));
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/roster");
+  redirect("/admin");
 }
 
 // Postgres unique-violation → a friendly message; slug and email are the two

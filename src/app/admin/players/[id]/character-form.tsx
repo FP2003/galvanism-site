@@ -12,6 +12,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { CHARACTER_STATUSES } from "@/lib/status";
+import {
+  BASE_HP,
+  BASE_ENERGY,
+  BASE_ENERGY_REGEN,
+  IMMUNITY_BASE,
+} from "@/lib/game-rules";
 import type { CharacterView } from "@/lib/characters";
 import {
   createCharacter,
@@ -149,15 +155,15 @@ export function CharacterForm({
             label="Health"
             currentName="hpCurrent"
             maxName="hpMax"
-            current={character?.hp.current ?? 0}
-            max={character?.hp.max ?? 0}
+            current={character?.hp.current ?? BASE_HP}
+            max={character?.hp.max ?? BASE_HP}
           />
           <ResourcePair
             label="Energy"
             currentName="energyCurrent"
             maxName="energyMax"
-            current={character?.energy.current ?? 0}
-            max={character?.energy.max ?? 0}
+            current={character?.energy.current ?? BASE_ENERGY}
+            max={character?.energy.max ?? BASE_ENERGY}
           />
           <ResourcePair
             label="Ammo"
@@ -167,6 +173,13 @@ export function CharacterForm({
             max={character?.ammo.max ?? 0}
           />
         </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <NumberField
+            label="Energy Regen"
+            name="energyRegen"
+            defaultValue={character?.energyRegen ?? BASE_ENERGY_REGEN}
+          />
+        </div>
       </Section>
 
       <Section title="Attributes">
@@ -174,7 +187,7 @@ export function CharacterForm({
           <NumberField label="Tech" name="statTech" defaultValue={character?.stats.tech ?? 0} />
           <NumberField label="Precision" name="statPrecision" defaultValue={character?.stats.precision ?? 0} />
           <NumberField label="Strength" name="statStrength" defaultValue={character?.stats.strength ?? 0} />
-          <NumberField label="Immunity" name="statImmunity" defaultValue={character?.stats.immunity ?? 0} />
+          <NumberField label="Immunity" name="statImmunity" defaultValue={character?.stats.immunity ?? IMMUNITY_BASE} />
           <NumberField label="Resilience" name="statResilience" defaultValue={character?.stats.resilience ?? 0} />
           <NumberField label="Agility" name="statAgility" defaultValue={character?.stats.agility ?? 0} />
         </div>

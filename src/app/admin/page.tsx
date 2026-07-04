@@ -2,20 +2,27 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
+import { StatusLabel } from "@/components/ui/status-dot";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { getPendingApplications } from "@/lib/characters";
+import { POINT_BUY_ATTRIBUTES } from "@/lib/game-rules";
 import { CreatePlayerForm } from "./create-player-form";
+import { ApplicationActions } from "./application-actions";
 
-// Admin console (DM only). Phase 1 scope: provision player accounts and see the
-// resulting roster. Character CRUD arrives in Phase 2.
+// Admin console (DM only). Reviews character applications, provisions accounts,
+// and manages the roster (info/roadmap.md Phase 2).
 export default async function AdminPage() {
   await requireAdmin();
 
   const db = getDb();
-  const roster = await db.query.players.findMany({
-    with: { user: true, character: true },
-    orderBy: (p, { desc }) => [desc(p.createdAt)],
-  });
+  const [roster, pending] = await Promise.all([
+    db.query.players.findMany({
+      with: { user: true, character: true },
+      orderBy: (p, { desc }) => [desc(p.createdAt)],
+    }),
+    getPendingApplications(),
+  ]);
 
   return (
     <AppShell>
@@ -25,10 +32,63 @@ export default async function AdminPage() {
             Personnel Command
           </h1>
           <p className="mt-2 max-w-prose text-sm text-muted-ink">
-            Provision operator accounts for Regiment Foxtrot. Each account grants
-            the operator sign-in access to their own case file.
+            Review enlistment applications and manage operator accounts for
+            Regiment Foxtrot.
           </p>
         </div>
+
+        {pending.length > 0 && (
+          <Panel
+            title="Enlistment Applications"
+            className="mb-6"
+            meta={
+              <StatusLabel tone="live" pulse>
+                {pending.length} awaiting review
+              </StatusLabel>
+            }
+            bodyClassName="p-0"
+          >
+            <ul>
+              {pending.map(({ view, applicantName, applicantEmail }) => (
+                <li
+                  key={view.id}
+                  className="flex flex-col gap-4 border-b border-elevated-ledger px-5 py-4 last:border-b-0 lg:flex-row lg:items-center lg:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-signal-cyan">
+                        {view.callsign}
+                      </span>
+                      <span className="truncate text-xs text-muted-ink">
+                        {view.name} · {applicantName} · {applicantEmail}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+                      {POINT_BUY_ATTRIBUTES.map((a) => (
+                        <span key={a.key}>
+                          {a.label.slice(0, 3).toUpperCase()}{" "}
+                          <span className="text-case-file-white">
+                            {view.stats[
+                              a.key.replace("stat", "").toLowerCase() as keyof typeof view.stats
+                            ]}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                    {view.bio && (
+                      <p className="mt-2 max-w-2xl text-pretty text-xs text-muted-ink">
+                        {view.bio}
+                      </p>
+                    )}
+                  </div>
+                  <div className="shrink-0">
+                    <ApplicationActions characterId={view.id} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <Panel title="Active Personnel" meta={`${roster.length} on file`}>

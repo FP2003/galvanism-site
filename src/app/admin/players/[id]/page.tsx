@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
+import { StatusLabel } from "@/components/ui/status-dot";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
@@ -11,6 +12,8 @@ import { toCharacterView } from "@/lib/characters";
 import { PlayerForm } from "./player-form";
 import { GoldForm } from "./gold-form";
 import { CharacterForm } from "./character-form";
+import { DeleteAccount } from "./delete-account";
+import { ApplicationActions } from "../../application-actions";
 
 // Admin player-management console (info/roadmap.md Phase 2). Full CRUD for one
 // player: account info, gold ledger, and the character sheet.
@@ -82,7 +85,11 @@ export default async function AdminPlayerPage({
           <Panel
             title={characterView ? "Character Sheet" : "Provision Character"}
             meta={
-              !characterView ? (
+              characterView && !characterView.approved ? (
+                <StatusLabel tone="live" pulse>
+                  Pending review
+                </StatusLabel>
+              ) : !characterView ? (
                 <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-steel-blue">
                   Unassigned
                 </span>
@@ -94,6 +101,16 @@ export default async function AdminPlayerPage({
                 This operator has no character yet. Fill in the sheet to bring them
                 online.
               </p>
+            )}
+            {characterView && !characterView.approved && (
+              <div className="mb-5 flex flex-col gap-3 border border-signal-cyan/40 bg-signal-cyan/5 p-4">
+                <p className="font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
+                  This is a submitted application. Approve to add it to the roster,
+                  or deny to remove it (the player can then re-apply). You may edit
+                  the sheet below before approving.
+                </p>
+                <ApplicationActions characterId={characterView.id} />
+              </div>
             )}
             <CharacterForm playerId={player.id} character={characterView} />
           </Panel>
@@ -159,6 +176,8 @@ export default async function AdminPlayerPage({
                 </table>
               )}
             </Panel>
+
+            <DeleteAccount playerId={player.id} label={displayName} />
           </div>
         </div>
       </div>
