@@ -18,10 +18,12 @@ export interface CharacterView {
   rank: string | null;
   role: string | null;
   status: CharacterStatus;
+  approved: boolean;
   level: number;
   xp: number;
   hp: { current: number; max: number };
   energy: { current: number; max: number };
+  energyRegen: number;
   ammo: { current: number; max: number };
   stats: Record<StatKey, number>;
   gold: number;
@@ -41,10 +43,12 @@ export function toCharacterView(
     rank: c.rank,
     role: c.role,
     status: c.status,
+    approved: c.approved,
     level: c.level,
     xp: c.xp,
     hp: { current: c.hpCurrent, max: c.hpMax },
     energy: { current: c.energyCurrent, max: c.energyMax },
+    energyRegen: c.energyRegen,
     ammo: { current: c.ammoCurrent, max: c.ammoMax },
     stats: {
       tech: c.statTech,
@@ -59,14 +63,65 @@ export function toCharacterView(
   };
 }
 
-/** All provisioned characters, callsign-ordered, for the roster + dashboard. */
+/** Approved characters only, callsign-ordered, for the roster + dashboard. */
 export async function getRosterViews(): Promise<CharacterView[]> {
   const db = getDb();
   const rows = await db.query.characters.findMany({
+    where: eq(characters.approved, true),
     with: { player: true },
     orderBy: [asc(characters.callsign)],
   });
   return rows.map((c) => toCharacterView(c, c.player));
+}
+
+export interface PendingApplication {
+  view: CharacterView;
+  applicantName: string;
+  applicantEmail: string;
+  submittedAt: Date;
+}
+
+/** Unapproved character applications awaiting DM review (admin queue). */
+export async function getPendingApplications(): Promise<PendingApplication[]> {
+  const db = getDb();
+  const rows = await db.query.characters.findMany({
+    where: eq(characters.approved, false),
+    with: { player: { with: { user: true } } },
+    orderBy: [asc(characters.createdAt)],
+  });
+  return rows.map((c) => ({
+    view: toCharacterView(c, c.player),
+    applicantName:
+      c.player.name || c.player.user?.displayName || c.player.user?.email || "—",
+    applicantEmail: c.player.user?.email ?? "",
+    submittedAt: c.createdAt,
+  }));
+}
+
+export type ViewerCharacterState =
+  | { kind: "none"; player: Player | null }
+  | { kind: "pending"; player: Player; character: Character }
+  | { kind: "approved"; player: Player; character: Character };
+
+/**
+ * The signed-in player's character situation, used to gate the apply flow and
+ * render the right home-page prompt. Admins have no player row → "none".
+ */
+export async function getViewerCharacterState(
+  userId: string,
+): Promise<ViewerCharacterState> {
+  const db = getDb();
+  const player = await db.query.players.findFirst({
+    where: eq(players.userId, userId),
+    with: { character: true },
+  });
+  if (!player) return { kind: "none", player: null };
+  if (!player.character) return { kind: "none", player };
+  return {
+    kind: player.character.approved ? "approved" : "pending",
+    player,
+    character: player.character,
+  };
 }
 
 export interface CharacterDetail {

@@ -34,6 +34,28 @@ export function applyGoldDelta(current: number, delta: number): Result<number> {
   return { ok: true, value: next };
 }
 
+/**
+ * Validates a level-1 attribute point-buy: every value a non-negative integer,
+ * summing to exactly `budget`. Returns the values on success. Enforced on submit
+ * so a tampered client can't over-allocate.
+ */
+export function validateAttributeAllocation(
+  values: number[],
+  budget: number,
+): Result<number[]> {
+  if (values.some((v) => !Number.isInteger(v) || v < 0)) {
+    return { ok: false, error: "Each attribute must be a whole number ≥ 0." };
+  }
+  const total = values.reduce((sum, v) => sum + v, 0);
+  if (total !== budget) {
+    return {
+      ok: false,
+      error: `Allocate exactly ${budget} points (you used ${total}).`,
+    };
+  }
+  return { ok: true, value: values };
+}
+
 /** Clamps a resource's current value into [0, max]. Used for HP/Energy/Ammo. */
 export function clampResource(value: number, max: number): number {
   if (!Number.isFinite(value)) return 0;

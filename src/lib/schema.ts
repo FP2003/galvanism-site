@@ -12,6 +12,7 @@ import {
   integer,
   uuid,
   timestamp,
+  boolean,
   index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -70,6 +71,10 @@ export const characters = pgTable(
     rank: text("rank"),
     role: text("role"),
     status: characterStatus("status").notNull().default("standby"),
+    // Player applications land as approved=false; the DM approves (→ true) or
+    // denies (row deleted, player re-applies). Admin-created sheets are approved
+    // on creation. Only approved characters appear on the roster/dashboard.
+    approved: boolean("approved").notNull().default(true),
     level: integer("level").notNull().default(1),
     xp: integer("xp").notNull().default(0),
 
@@ -77,6 +82,7 @@ export const characters = pgTable(
     hpMax: integer("hp_max").notNull().default(0),
     energyCurrent: integer("energy_current").notNull().default(0),
     energyMax: integer("energy_max").notNull().default(0),
+    energyRegen: integer("energy_regen").notNull().default(3),
     ammoCurrent: integer("ammo_current").notNull().default(0),
     ammoMax: integer("ammo_max").notNull().default(0),
 

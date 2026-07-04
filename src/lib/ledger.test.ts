@@ -3,6 +3,7 @@ import {
   applyGoldDelta,
   clampResource,
   parseSignedInt,
+  validateAttributeAllocation,
   MAX_GOLD,
 } from "./ledger";
 
@@ -56,6 +57,35 @@ describe("clampResource", () => {
 
   it("treats non-finite input as zero", () => {
     expect(clampResource(NaN, 20)).toBe(0);
+  });
+});
+
+describe("validateAttributeAllocation", () => {
+  it("accepts a distribution summing to the budget", () => {
+    expect(validateAttributeAllocation([2, 1, 1, 1, 1], 6)).toEqual({
+      ok: true,
+      value: [2, 1, 1, 1, 1],
+    });
+  });
+
+  it("accepts all points dumped on one attribute", () => {
+    expect(validateAttributeAllocation([6, 0, 0, 0, 0], 6).ok).toBe(true);
+  });
+
+  it("rejects under-allocation", () => {
+    expect(validateAttributeAllocation([1, 1, 1, 1, 1], 6).ok).toBe(false);
+  });
+
+  it("rejects over-allocation", () => {
+    expect(validateAttributeAllocation([2, 2, 2, 1, 0], 6).ok).toBe(false);
+  });
+
+  it("rejects negative values", () => {
+    expect(validateAttributeAllocation([-1, 3, 2, 1, 1], 6).ok).toBe(false);
+  });
+
+  it("rejects non-integers", () => {
+    expect(validateAttributeAllocation([1.5, 1.5, 1, 1, 1], 6).ok).toBe(false);
   });
 });
 
