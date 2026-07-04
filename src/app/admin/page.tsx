@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { requireAdmin } from "@/lib/auth";
@@ -43,16 +45,24 @@ export default async function AdminPage() {
                       <th className="py-2 pr-4 font-semibold">Email</th>
                       <th className="py-2 pr-4 font-semibold">Character</th>
                       <th className="py-2 pr-4 text-right font-semibold">Gold</th>
+                      <th className="py-2 pl-4 text-right font-semibold">
+                        <span className="sr-only">Manage</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="font-[family-name:var(--font-inter)] text-sm">
                     {roster.map((p) => (
                       <tr
                         key={p.id}
-                        className="border-b border-elevated-ledger/50"
+                        className="group relative border-b border-elevated-ledger/50 transition-colors hover:bg-elevated-ledger/40"
                       >
                         <td className="py-2.5 pr-4 text-case-file-white">
-                          {p.name || p.user?.displayName || "—"}
+                          <Link
+                            href={`/admin/players/${p.id}`}
+                            className="block after:absolute after:inset-0"
+                          >
+                            {p.name || p.user?.displayName || "—"}
+                          </Link>
                         </td>
                         <td className="py-2.5 pr-4 text-muted-ink">
                           {p.user?.email}
@@ -70,6 +80,13 @@ export default async function AdminPage() {
                         </td>
                         <td className="py-2.5 pr-4 text-right font-[family-name:var(--font-jetbrains)] text-case-file-white">
                           {p.gold.toLocaleString()}
+                        </td>
+                        <td className="py-2.5 pl-4 text-right">
+                          <ChevronRight
+                            size={16}
+                            className="ml-auto text-steel-blue transition-colors group-hover:text-signal-cyan"
+                            aria-hidden="true"
+                          />
                         </td>
                       </tr>
                     ))}
