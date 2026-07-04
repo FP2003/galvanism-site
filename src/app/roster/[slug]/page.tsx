@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, Shield, Zap, Crosshair, Layers } from "lucide-react";
+import { ArrowLeft, Shield, Zap, Crosshair, Layers, Activity, Clock } from "lucide-react";
 import { eq, desc } from "drizzle-orm";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
@@ -50,6 +50,9 @@ export default async function CaseFilePage({
   const canEdit =
     viewer?.id === detail.ownerUserId || viewer?.role === "admin";
 
+  // A pending application is visible only to its owner and the DM.
+  if (!op.approved && !canEdit) notFound();
+
   const db = getDb();
   const ledger = await db.query.goldLedger.findMany({
     where: eq(goldLedger.playerId, op.playerId),
@@ -66,6 +69,15 @@ export default async function CaseFilePage({
         >
           <ArrowLeft size={14} aria-hidden="true" /> Personnel
         </Link>
+
+        {!op.approved && (
+          <div className="mb-3 flex items-center gap-2 border-l-2 border-signal-cyan bg-signal-cyan/10 px-4 py-2.5 font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
+            <Clock size={15} className="shrink-0 text-signal-cyan" aria-hidden="true" />
+            {viewer?.role === "admin"
+              ? "This application is awaiting your review in Personnel Command."
+              : "Your application is awaiting DM approval. You'll join the roster once it's approved."}
+          </div>
+        )}
 
         {/* Classification banner */}
         <div className="flex items-center justify-between gap-3 border border-ledger-teal bg-ledger-teal px-4 py-2">
@@ -163,6 +175,16 @@ export default async function CaseFilePage({
                   />
                 </div>
               )}
+              <div className="mt-4 flex items-center justify-between border-t border-elevated-ledger pt-3">
+                <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
+                  <Activity size={14} className="text-steel-blue" aria-hidden="true" />
+                  Energy Regen
+                </span>
+                <span className="font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
+                  +{op.energyRegen}
+                  <span className="text-muted-ink"> / turn</span>
+                </span>
+              </div>
             </Panel>
 
             <Panel title="Attributes">
