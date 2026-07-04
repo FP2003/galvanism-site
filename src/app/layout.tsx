@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import { Rajdhani, Chakra_Petch, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -40,11 +41,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${rajdhani.variable} ${chakraPetch.variable} ${inter.variable} ${jetBrainsMono.variable} h-full`}
-    >
-      <body className="min-h-full">{children}</body>
-    </html>
+    <ClerkProvider>
+      <html
+        lang="en"
+        className={`${rajdhani.variable} ${chakraPetch.variable} ${inter.variable} ${jetBrainsMono.variable} h-full`}
+      >
+        <body className="min-h-full">{children}</body>
+      </html>
+    </ClerkProvider>
   );
 }
