@@ -2,6 +2,7 @@ import { LogIn } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ButtonLink } from "@/components/ui/button";
 import { CommandDashboard } from "@/components/command-dashboard";
+import { operators } from "@/lib/mock-data";
 
 // Public, unauthenticated tour of the Ops Terminal using sample fixtures. Linked
 // from the sign-in page. No sidebar/case-file links here — those are auth-gated,
@@ -38,7 +39,7 @@ export default function PreviewPage() {
       </header>
 
       <main className="min-w-0 flex-1">
-        <CommandDashboard linkOperators={false} />
+        <CommandDashboard operators={operators} linkOperators={false} />
       </main>
     </div>
   );

@@ -2,14 +2,23 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ArrowLeft, Shield, Zap, Crosshair, Layers } from "lucide-react";
+import { eq, desc } from "drizzle-orm";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
-import { operators, regiment, type OperatorStatus } from "@/lib/mock-data";
-
-export function generateStaticParams() {
-  return operators.map((o) => ({ slug: o.slug }));
-}
+import { getCurrentUser } from "@/lib/auth";
+import { getDb } from "@/lib/db";
+import { goldLedger } from "@/lib/schema";
+import { getCharacterBySlug } from "@/lib/characters";
+import { regiment } from "@/lib/mock-data";
+import {
+  stampStyle,
+  stampWord,
+  combatStats,
+  passiveStats,
+} from "@/lib/status";
+import { BioEditor } from "./bio-editor";
+import { ResourceTracker } from "./resource-tracker";
 
 export async function generateMetadata({
   params,
@@ -17,37 +26,13 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const op = operators.find((o) => o.slug === slug);
+  const detail = await getCharacterBySlug(slug);
   return {
-    title: op ? `OPR. ${op.callsign} — Personnel File` : "Personnel File",
+    title: detail
+      ? `OPR. ${detail.view.callsign} — Personnel File`
+      : "Personnel File",
   };
 }
-
-const stampStyle: Record<OperatorStatus, string> = {
-  active: "bg-signal-cyan text-void-navy",
-  standby: "bg-elevated-ledger text-muted-ink",
-  injured: "bg-stamp-red text-case-file-white",
-  kia: "bg-stamp-red text-case-file-white",
-};
-
-const stampWord: Record<OperatorStatus, string> = {
-  active: "Active Duty",
-  standby: "Standby",
-  injured: "Med Hold",
-  kia: "K.I.A.",
-};
-
-const combatStats = [
-  { key: "tech", label: "Tech", note: "ATK / DEF modifier" },
-  { key: "precision", label: "Precision", note: "Melee + ranged accuracy" },
-  { key: "strength", label: "Strength", note: "Melee bonus damage" },
-] as const;
-
-const passiveStats = [
-  { key: "immunity", label: "Immunity", note: "Resist mod-card rebuke", suffix: "%" },
-  { key: "resilience", label: "Resilience", note: "Condition resist / +HP" },
-  { key: "agility", label: "Agility", note: "Melee DEF rolls" },
-] as const;
 
 export default async function CaseFilePage({
   params,
@@ -55,10 +40,22 @@ export default async function CaseFilePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const op = operators.find((o) => o.slug === slug);
-  if (!op) notFound();
+  const [detail, viewer] = await Promise.all([
+    getCharacterBySlug(slug),
+    getCurrentUser(),
+  ]);
+  if (!detail) notFound();
 
-  const balance = op.ledger.reduce((n, e) => n + e.delta, 0);
+  const op = detail.view;
+  const canEdit =
+    viewer?.id === detail.ownerUserId || viewer?.role === "admin";
+
+  const db = getDb();
+  const ledger = await db.query.goldLedger.findMany({
+    where: eq(goldLedger.playerId, op.playerId),
+    orderBy: [desc(goldLedger.createdAt)],
+    limit: 50,
+  });
 
   return (
     <AppShell>
@@ -99,14 +96,19 @@ export default async function CaseFilePage({
               {op.callsign}
             </h1>
             <p className="mt-1.5 text-sm text-muted-ink">
-              {op.name} · {op.rank}
+              {op.name}
+              {op.rank ? ` · ${op.rank}` : ""}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
               <span>
-                ROLE <span className="text-case-file-white">{op.role}</span>
+                ROLE{" "}
+                <span className="text-case-file-white">{op.role ?? "—"}</span>
               </span>
               <span>
                 LEVEL <span className="text-case-file-white">{op.level}</span>
+              </span>
+              <span>
+                XP <span className="text-case-file-white">{op.xp}</span>
               </span>
               <span>
                 CREDITS <span className="text-signal-cyan">{op.gold}</span>
@@ -128,26 +130,39 @@ export default async function CaseFilePage({
           {/* Left column: resources + attributes */}
           <div className="flex flex-col gap-3">
             <Panel title="Resources">
-              <div className="flex flex-col gap-4">
-                <ResourceRow
-                  icon={<Shield size={14} aria-hidden="true" />}
-                  label="Health"
-                  value={op.hp}
-                  tone={op.hp.current / op.hp.max <= 0.33 ? "critical" : "live"}
+              {canEdit ? (
+                <ResourceTracker
+                  characterId={op.id}
+                  hp={op.hp}
+                  energy={op.energy}
+                  ammo={op.ammo}
                 />
-                <ResourceRow
-                  icon={<Zap size={14} aria-hidden="true" />}
-                  label="Energy"
-                  value={op.energy}
-                  tone="steel"
-                />
-                <ResourceRow
-                  icon={<Crosshair size={14} aria-hidden="true" />}
-                  label="Ammo"
-                  value={op.ammo}
-                  tone="steel"
-                />
-              </div>
+              ) : (
+                <div className="flex flex-col gap-4">
+                  <ResourceRow
+                    icon={<Shield size={14} aria-hidden="true" />}
+                    label="Health"
+                    value={op.hp}
+                    tone={
+                      op.hp.max > 0 && op.hp.current / op.hp.max <= 0.33
+                        ? "critical"
+                        : "live"
+                    }
+                  />
+                  <ResourceRow
+                    icon={<Zap size={14} aria-hidden="true" />}
+                    label="Energy"
+                    value={op.energy}
+                    tone="steel"
+                  />
+                  <ResourceRow
+                    icon={<Crosshair size={14} aria-hidden="true" />}
+                    label="Ammo"
+                    value={op.ammo}
+                    tone="steel"
+                  />
+                </div>
+              )}
             </Panel>
 
             <Panel title="Attributes">
@@ -178,56 +193,56 @@ export default async function CaseFilePage({
           {/* Right column: biography + ledger */}
           <div className="flex flex-col gap-3 lg:col-span-2">
             <Panel title="Service Record">
-              <p className="max-w-[68ch] text-pretty leading-relaxed text-case-file-white/90">
-                {op.bio}
-              </p>
+              <BioEditor characterId={op.id} bio={op.bio} canEdit={canEdit} />
             </Panel>
 
             <Panel
               title="Credit Ledger"
               meta={
                 <span className="font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
-                  BAL{" "}
-                  <span className="text-signal-cyan">
-                    {balance >= 0 ? "+" : ""}
-                    {balance}
-                  </span>
+                  BAL <span className="text-signal-cyan">{op.gold}</span>
                 </span>
               }
               bodyClassName="p-0"
             >
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-elevated-ledger text-left font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                    <th className="px-5 py-2 font-semibold">Entry</th>
-                    <th className="px-5 py-2 font-semibold">Ref</th>
-                    <th className="px-5 py-2 text-right font-semibold">Δ Cr</th>
-                  </tr>
-                </thead>
-                <tbody className="font-[family-name:var(--font-jetbrains)] text-xs">
-                  {op.ledger.map((e, i) => (
-                    <tr
-                      key={i}
-                      className="border-b border-elevated-ledger last:border-b-0"
-                    >
-                      <td className="px-5 py-2.5 font-[family-name:var(--font-inter)] text-sm text-case-file-white">
-                        {e.entry}
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-2.5 text-muted-ink">
-                        {e.op}
-                      </td>
-                      <td
-                        className={`whitespace-nowrap px-5 py-2.5 text-right ${
-                          e.delta >= 0 ? "text-signal-cyan" : "text-muted-ink"
-                        }`}
-                      >
-                        {e.delta >= 0 ? "+" : ""}
-                        {e.delta}
-                      </td>
+              {ledger.length === 0 ? (
+                <p className="px-5 py-8 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
+                  No credit movement recorded yet.
+                </p>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-elevated-ledger text-left font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink">
+                      <th className="px-5 py-2 font-semibold">Entry</th>
+                      <th className="px-5 py-2 font-semibold">Ref</th>
+                      <th className="px-5 py-2 text-right font-semibold">Δ Cr</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="font-[family-name:var(--font-jetbrains)] text-xs">
+                    {ledger.map((e) => (
+                      <tr
+                        key={e.id}
+                        className="border-b border-elevated-ledger last:border-b-0"
+                      >
+                        <td className="px-5 py-2.5 font-[family-name:var(--font-inter)] text-sm text-case-file-white">
+                          {e.description}
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-2.5 text-muted-ink">
+                          {e.refCode ?? "—"}
+                        </td>
+                        <td
+                          className={`whitespace-nowrap px-5 py-2.5 text-right ${
+                            e.delta >= 0 ? "text-signal-cyan" : "text-stamp-red"
+                          }`}
+                        >
+                          {e.delta >= 0 ? "+" : ""}
+                          {e.delta}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </Panel>
 
             <Panel

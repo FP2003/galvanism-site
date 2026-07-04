@@ -4,27 +4,24 @@ import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
 import { StatusLabel } from "@/components/ui/status-dot";
 import {
-  operators,
   missions,
   facilityProcesses,
   openBallot,
   regiment,
-  type OperatorStatus,
 } from "@/lib/mock-data";
+import { statusTone, statusWord, type CharacterStatus } from "@/lib/status";
 
-const statusTone: Record<OperatorStatus, "live" | "critical" | "neutral"> = {
-  active: "live",
-  standby: "neutral",
-  injured: "critical",
-  kia: "critical",
-};
-
-const statusWord: Record<OperatorStatus, string> = {
-  active: "Active",
-  standby: "Standby",
-  injured: "Injured",
-  kia: "K.I.A.",
-};
+// The subset of a character the dashboard renders. Satisfied by both the live
+// CharacterView (authenticated `/`) and the mock fixtures (public `/preview`).
+export interface DashboardOperator {
+  callsign: string;
+  slug: string;
+  role: string | null;
+  rank: string | null;
+  status: CharacterStatus;
+  level: number;
+  hp: { current: number; max: number };
+}
 
 const riskLabel = {
   low: "LOW",
@@ -34,14 +31,17 @@ const riskLabel = {
 } as const;
 
 /*
- * The Ops Terminal overview. Presentational — renders the sample fixtures today
- * (converted to live data in Phase 2). Shared by the authenticated `/` command
- * page and the public `/preview`. When `linkOperators` is false (preview mode),
- * operator rows are static so they don't lead into auth-gated case files.
+ * The Ops Terminal overview. Presentational — the caller supplies `operators`
+ * (live roster on the authenticated `/`, mock fixtures on the public `/preview`).
+ * Missions, facility processes, and the ballot are still mock pending their own
+ * phases. When `linkOperators` is false (preview mode), operator rows are static
+ * so they don't lead into auth-gated case files.
  */
 export function CommandDashboard({
+  operators,
   linkOperators = true,
 }: {
+  operators: DashboardOperator[];
   linkOperators?: boolean;
 }) {
   const activeCount = operators.filter((o) => o.status === "active").length;
@@ -87,6 +87,11 @@ export function CommandDashboard({
             }
             bodyClassName="p-0"
           >
+            {operators.length === 0 && (
+              <p className="px-5 py-8 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
+                No operators assigned yet.
+              </p>
+            )}
             <ul>
               {operators.map((op) => {
                 const rowInner = (
@@ -100,7 +105,7 @@ export function CommandDashboard({
                           {op.callsign}
                         </span>
                         <span className="truncate text-xs text-muted-ink">
-                          {op.role} · {op.rank}
+                          {[op.role, op.rank].filter(Boolean).join(" · ") || "—"}
                         </span>
                       </div>
                       <div className="mt-1.5 flex items-center gap-2">
@@ -108,7 +113,9 @@ export function CommandDashboard({
                           value={op.hp.current}
                           max={op.hp.max}
                           tone={
-                            op.hp.current / op.hp.max <= 0.33 ? "critical" : "live"
+                            op.hp.max > 0 && op.hp.current / op.hp.max <= 0.33
+                              ? "critical"
+                              : "live"
                           }
                           className="max-w-32"
                         />
