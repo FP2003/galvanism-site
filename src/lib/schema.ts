@@ -46,7 +46,7 @@ export const players = pgTable("players", {
     .notNull()
     .unique()
     .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name"), // operator's real name, distinct from the character callsign
+  name: text("name"), // operator's gaming alias (e.g. "EpicGamerName"), distinct from the character callsign
   gold: integer("gold").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

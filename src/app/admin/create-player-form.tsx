@@ -36,14 +36,14 @@ export function CreatePlayerForm() {
     <form ref={formRef} action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="name" className={labelClass}>
-          Operator name
+          Gaming alias
         </label>
         <input
           id="name"
           name="name"
           type="text"
           autoComplete="off"
-          placeholder="M. Okonkwo"
+          placeholder="EpicGamerName"
           className={inputClass}
         />
       </div>

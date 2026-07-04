@@ -49,7 +49,7 @@ export default async function AdminPage() {
             bodyClassName="p-0"
           >
             <ul>
-              {pending.map(({ view, applicantName, applicantEmail }) => (
+              {pending.map(({ view, applicantName }) => (
                 <li
                   key={view.id}
                   className="flex flex-col gap-4 border-b border-elevated-ledger px-5 py-4 last:border-b-0 lg:flex-row lg:items-center lg:justify-between"
@@ -60,7 +60,7 @@ export default async function AdminPage() {
                         {view.callsign}
                       </span>
                       <span className="truncate text-xs text-muted-ink">
-                        {view.name} · {applicantName} · {applicantEmail}
+                        {view.name} · {applicantName}
                       </span>
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
