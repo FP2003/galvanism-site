@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FormMessage } from "@/components/ui/form";
 import { deletePlayerAccount, type FormState } from "@/app/admin/actions";
 
 // Destructive: permanently removes the player's account, character, and ledger.
@@ -51,10 +52,9 @@ export function DeleteAccount({
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
-            variant="secondary"
+            variant="danger"
             disabled={pending}
             onClick={remove}
-            className="border-stamp-red text-stamp-red hover:text-stamp-red"
           >
             <Trash2 size={15} />
             {pending ? "Removing…" : "Confirm removal"}
@@ -62,7 +62,7 @@ export function DeleteAccount({
           <button
             type="button"
             onClick={() => setConfirming(false)}
-            className="font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-ink hover:text-case-file-white"
+            className="inline-flex items-center px-2 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-ink hover:text-case-file-white pointer-coarse:min-h-11"
           >
             Cancel
           </button>
@@ -71,9 +71,8 @@ export function DeleteAccount({
         <div>
           <Button
             type="button"
-            variant="secondary"
+            variant="danger"
             onClick={() => setConfirming(true)}
-            className="border-stamp-red text-stamp-red hover:text-stamp-red"
           >
             <Trash2 size={15} />
             Remove account
@@ -81,14 +80,7 @@ export function DeleteAccount({
         </div>
       )}
 
-      {error && (
-        <p
-          role="alert"
-          className="border-l-2 border-stamp-red bg-stamp-red/10 px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-stamp-red"
-        >
-          {error}
-        </p>
-      )}
+      <FormMessage state={{ error: error ?? undefined }} />
     </div>
   );
 }

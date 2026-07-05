@@ -101,11 +101,11 @@ export default async function AdminPage() {
                 <table className="w-full border-collapse text-left">
                   <thead>
                     <tr className="border-b border-elevated-ledger font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase tracking-[0.1em] text-muted-ink">
-                      <th className="py-2 pr-4 font-semibold">Operator</th>
-                      <th className="py-2 pr-4 font-semibold">Email</th>
-                      <th className="py-2 pr-4 font-semibold">Character</th>
-                      <th className="py-2 pr-4 text-right font-semibold">Gold</th>
-                      <th className="py-2 pl-4 text-right font-semibold">
+                      <th scope="col" className="py-2 pr-4 font-semibold">Operator</th>
+                      <th scope="col" className="py-2 pr-4 font-semibold">Email</th>
+                      <th scope="col" className="py-2 pr-4 font-semibold">Character</th>
+                      <th scope="col" className="py-2 pr-4 text-right font-semibold">Gold</th>
+                      <th scope="col" className="py-2 pl-4 text-right font-semibold">
                         <span className="sr-only">Manage</span>
                       </th>
                     </tr>

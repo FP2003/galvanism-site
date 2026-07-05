@@ -4,12 +4,9 @@ import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Field, TextInput, FormMessage } from "@/components/ui/form";
+import { TEXT_LIMITS } from "@/lib/game-rules";
 import { createPlayerAccount, type CreatePlayerState } from "./actions";
-
-const labelClass =
-  "font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-muted-ink";
-const inputClass =
-  "w-full border border-elevated-ledger bg-void-navy px-3 py-2.5 font-[family-name:var(--font-inter)] text-sm text-case-file-white placeholder:text-muted-ink/60 outline-none focus:border-signal-cyan";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -34,70 +31,58 @@ export function CreatePlayerForm() {
 
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="name" className={labelClass}>
-          Gaming alias
-        </label>
-        <input
-          id="name"
-          name="name"
-          type="text"
-          autoComplete="off"
-          placeholder="EpicGamerName"
-          className={inputClass}
-        />
-      </div>
+      <Field label="Gaming alias">
+        {(id) => (
+          <TextInput
+            id={id}
+            name="name"
+            type="text"
+            maxLength={TEXT_LIMITS.name}
+            autoComplete="off"
+            placeholder="EpicGamerName"
+          />
+        )}
+      </Field>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className={labelClass}>
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="off"
-          placeholder="operator@foxtrot.fcb"
-          className={inputClass}
-        />
-      </div>
+      <Field label="Email">
+        {(id) => (
+          <TextInput
+            id={id}
+            name="email"
+            type="email"
+            required
+            autoComplete="off"
+            placeholder="operator@foxtrot.fcb"
+          />
+        )}
+      </Field>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="password" className={labelClass}>
-          Initial password
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="text"
-          required
-          minLength={8}
-          autoComplete="off"
-          placeholder="Share with the operator; they can change it later"
-          className={inputClass}
-        />
-        <p className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
-          Minimum 8 characters. The operator signs in with this and can reset it.
-        </p>
-      </div>
+      <Field
+        label="Initial password"
+        hint="Minimum 8 characters. The operator signs in with this and can reset it."
+      >
+        {(id) => (
+          <TextInput
+            id={id}
+            name="password"
+            type="text"
+            required
+            minLength={8}
+            autoComplete="off"
+            placeholder="Share with the operator; they can change it later"
+          />
+        )}
+      </Field>
 
-      {state.error && (
-        <p
-          role="alert"
-          className="border-l-2 border-stamp-red bg-stamp-red/10 px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-stamp-red"
-        >
-          {state.error}
-        </p>
-      )}
-      {state.ok && (
-        <p
-          role="status"
-          className="border-l-2 border-signal-cyan bg-signal-cyan/10 px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-signal-cyan"
-        >
-          Account provisioned for {state.createdEmail}.
-        </p>
-      )}
+      <FormMessage
+        state={{
+          ok: state.ok,
+          error: state.error,
+          message: state.ok
+            ? `Account provisioned for ${state.createdEmail}.`
+            : undefined,
+        }}
+      />
 
       <SubmitButton />
     </form>

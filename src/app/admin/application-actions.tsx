@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { FormMessage } from "@/components/ui/form";
 import { approveCharacter, denyCharacter, type FormState } from "./actions";
 
 // Approve / deny controls for a pending application. Deny is destructive (it
@@ -16,8 +17,12 @@ export function ApplicationActions({ characterId }: { characterId: string }) {
     const fd = new FormData();
     fd.set("characterId", characterId);
     startTransition(async () => {
-      const result = await fn({}, fd);
-      setError(result.error ?? null);
+      try {
+        const result = await fn({}, fd);
+        setError(result.error ?? null);
+      } catch {
+        setError("Couldn't reach the server. Check your connection and try again.");
+      }
     });
   }
 
@@ -36,10 +41,9 @@ export function ApplicationActions({ characterId }: { characterId: string }) {
           <>
             <Button
               type="button"
-              variant="secondary"
+              variant="danger"
               disabled={pending}
               onClick={() => run(denyCharacter)}
-              className="border-stamp-red text-stamp-red hover:text-stamp-red"
             >
               <X size={15} />
               {pending ? "Removing…" : "Confirm deny"}
@@ -47,7 +51,7 @@ export function ApplicationActions({ characterId }: { characterId: string }) {
             <button
               type="button"
               onClick={() => setConfirmingDeny(false)}
-              className="font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-ink hover:text-case-file-white"
+              className="inline-flex items-center px-2 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted-ink hover:text-case-file-white pointer-coarse:min-h-11"
             >
               Cancel
             </button>
@@ -64,14 +68,7 @@ export function ApplicationActions({ characterId }: { characterId: string }) {
           </Button>
         )}
       </div>
-      {error && (
-        <p
-          role="alert"
-          className="border-l-2 border-stamp-red bg-stamp-red/10 px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-stamp-red"
-        >
-          {error}
-        </p>
-      )}
+      <FormMessage state={{ error: error ?? undefined }} />
     </div>
   );
 }

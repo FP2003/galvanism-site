@@ -65,13 +65,13 @@ export default async function CaseFilePage({
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:py-8">
         <Link
           href="/roster"
-          className="mb-5 inline-flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink transition-colors hover:text-signal-cyan"
+          className="mb-5 inline-flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink transition-colors hover:text-signal-cyan pointer-coarse:min-h-11"
         >
           <ArrowLeft size={14} aria-hidden="true" /> Personnel
         </Link>
 
         {!op.approved && (
-          <div className="mb-3 flex items-center gap-2 border-l-2 border-signal-cyan bg-signal-cyan/10 px-4 py-2.5 font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
+          <div className="mb-3 flex items-center gap-2 border border-signal-cyan/40 bg-signal-cyan/10 px-4 py-2.5 font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
             <Clock size={15} className="shrink-0 text-signal-cyan" aria-hidden="true" />
             {viewer?.role === "admin"
               ? "This application is awaiting your review in Personnel Command."
@@ -104,10 +104,10 @@ export default async function CaseFilePage({
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="font-[family-name:var(--font-rajdhani)] text-4xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white">
+            <h1 className="font-[family-name:var(--font-rajdhani)] text-4xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white break-words">
               {op.callsign}
             </h1>
-            <p className="mt-1.5 text-sm text-muted-ink">
+            <p className="mt-1.5 text-sm text-muted-ink break-words">
               {op.name}
               {op.rank ? ` · ${op.rank}` : ""}
             </p>
@@ -232,12 +232,13 @@ export default async function CaseFilePage({
                   No credit movement recorded yet.
                 </p>
               ) : (
+                <div className="overflow-x-auto bg-void-navy">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-elevated-ledger text-left font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                      <th className="px-5 py-2 font-semibold">Entry</th>
-                      <th className="px-5 py-2 font-semibold">Ref</th>
-                      <th className="px-5 py-2 text-right font-semibold">Δ Cr</th>
+                      <th scope="col" className="px-5 py-2 font-semibold">Entry</th>
+                      <th scope="col" className="px-5 py-2 font-semibold">Ref</th>
+                      <th scope="col" className="px-5 py-2 text-right font-semibold">Δ Cr</th>
                     </tr>
                   </thead>
                   <tbody className="font-[family-name:var(--font-jetbrains)] text-xs">
@@ -264,13 +265,14 @@ export default async function CaseFilePage({
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </Panel>
 
             <Panel
               title="Loadout"
               meta={
-                <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-steel-blue">
+                <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
                   Phase 3
                 </span>
               }
@@ -320,7 +322,7 @@ function ResourceRow({
           <span className="text-muted-ink">/{value.max}</span>
         </span>
       </div>
-      <Meter value={value.current} max={value.max} tone={tone} />
+      <Meter value={value.current} max={value.max} tone={tone} label={`${label} ${value.current}/${value.max}`} />
     </div>
   );
 }

@@ -70,6 +70,7 @@ export default async function RosterPage() {
                         <Meter
                           value={op.hp.current}
                           max={op.hp.max}
+                          label={`HP ${op.hp.current}/${op.hp.max}`}
                           tone={
                             op.hp.max > 0 && op.hp.current / op.hp.max <= 0.33
                               ? "critical"

@@ -4,12 +4,13 @@
  * status styling (DESIGN.md §5). Field wires label↔control via a generated id.
  */
 import { useId } from "react";
+import { AlertTriangle, Check } from "lucide-react";
 
 export const fieldLabelClass =
   "font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-muted-ink";
 
 const controlClass =
-  "w-full border border-elevated-ledger bg-void-navy px-3 py-2.5 font-[family-name:var(--font-inter)] text-sm text-case-file-white placeholder:text-muted-ink/60 outline-none focus:border-signal-cyan disabled:opacity-60";
+  "w-full border border-elevated-ledger bg-void-navy px-3 py-2.5 font-[family-name:var(--font-inter)] text-sm text-case-file-white placeholder:text-muted-ink/70 outline-none focus:border-signal-cyan disabled:opacity-60";
 
 type FieldProps = {
   label: string;
@@ -66,12 +67,16 @@ export function FormMessage({
 }: {
   state: { ok?: boolean; error?: string; message?: string };
 }) {
+  // Filled treatments, not tinted text: raw stamp-red / signal-cyan text fails
+  // contrast on Ledger-Teal panels, where these forms live (DESIGN.md §2). A solid
+  // fill reads correctly on any surface and drops the banned side-stripe accent.
   if (state.error) {
     return (
       <p
         role="alert"
-        className="border-l-2 border-stamp-red bg-stamp-red/10 px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-stamp-red"
+        className="flex items-start gap-2 bg-stamp-red px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-case-file-white"
       >
+        <AlertTriangle size={15} className="mt-px shrink-0" aria-hidden="true" />
         {state.error}
       </p>
     );
@@ -80,8 +85,9 @@ export function FormMessage({
     return (
       <p
         role="status"
-        className="border-l-2 border-signal-cyan bg-signal-cyan/10 px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-signal-cyan"
+        className="flex items-start gap-2 bg-signal-cyan px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-void-navy"
       >
+        <Check size={15} className="mt-px shrink-0" aria-hidden="true" />
         {state.message}
       </p>
     );

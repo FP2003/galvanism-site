@@ -53,7 +53,7 @@ export default async function CommandPage() {
         <div className="mx-auto max-w-[1600px] px-4 pt-6 sm:px-6">
           <Link
             href={`/roster/${viewer.character.slug}`}
-            className="group flex items-center gap-3 border-l-2 border-signal-cyan bg-signal-cyan/10 px-5 py-3.5 transition-colors hover:bg-signal-cyan/15"
+            className="group flex items-center gap-3 border border-signal-cyan/40 bg-signal-cyan/10 px-5 py-3.5 transition-colors hover:bg-signal-cyan/15"
           >
             <Clock size={18} className="shrink-0 text-signal-cyan" aria-hidden="true" />
             <div className="min-w-0 flex-1">

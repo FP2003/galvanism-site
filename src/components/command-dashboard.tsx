@@ -112,6 +112,7 @@ export function CommandDashboard({
                         <Meter
                           value={op.hp.current}
                           max={op.hp.max}
+                          label={`HP ${op.hp.current}/${op.hp.max}`}
                           tone={
                             op.hp.max > 0 && op.hp.current / op.hp.max <= 0.33
                               ? "critical"
@@ -266,6 +267,7 @@ export function CommandDashboard({
                   <Meter
                     value={opt.votes}
                     max={totalVotes || 1}
+                    label={`${opt.label}: ${opt.votes} of ${totalVotes} votes`}
                     tone="steel"
                     className="mt-1.5"
                   />
