@@ -14,6 +14,7 @@ import {
   timestamp,
   boolean,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -23,6 +24,41 @@ export const characterStatus = pgEnum("character_status", [
   "standby",
   "injured",
   "kia",
+]);
+
+// Phase 3 — Card system enums (info/roadmap.md §Phase 3, info/card_system.md).
+// The six colored categories match the reference designs' one-color-per-category
+// scheme; "ability"/"item" are the generic (neutral) cards.
+export const cardCategory = pgEnum("card_category", [
+  "combat",
+  "defense",
+  "mod",
+  "movement",
+  "resilience",
+  "tech",
+  "ability",
+  "item",
+]);
+// The ACTIVE/PASSIVE tag on the card face.
+export const cardActivation = pgEnum("card_activation", ["active", "passive"]);
+// A card is either mechanical (structured effect) or descriptive (feat-like text)
+// — never both (info/card_system.md).
+export const cardEffectKind = pgEnum("card_effect_kind", [
+  "mechanical",
+  "descriptive",
+]);
+// Structured mechanical effect types. Deliberately narrow for Phase 3 (targets
+// that exist today); "grant_item" / "unlock_ability" join in Phase 4+.
+export const cardEffectType = pgEnum("card_effect_type", [
+  "stat_modifier",
+  "resource_modifier",
+]);
+// When a mechanical effect applies. on_equip + passive contribute to the sheet's
+// effective stats while equipped; on_use is momentary (adjudicated at the table).
+export const cardTrigger = pgEnum("card_trigger", [
+  "on_equip",
+  "on_use",
+  "passive",
 ]);
 
 // One row per Clerk account. Admins have no player/character rows.
@@ -156,7 +192,91 @@ export const goldLedgerRelations = relations(goldLedger, ({ one }) => ({
   }),
 }));
 
+// ---------------------------------------------------------------------------
+// Phase 3 — Cards (info/roadmap.md §Phase 3).
+// ---------------------------------------------------------------------------
+
+// The card library: definitions the DM authors once and assigns to any number of
+// operators. A card is mechanical (structured effect fields below) OR descriptive
+// (free-text `descriptiveText`), guarded by `effectKind`. Mechanical stat/resource
+// effects are NOT written into character columns — they're computed on top of the
+// live base stats at read time (see lib/cards.ts computeEffectiveStats), so
+// unequipping is lossless and level-up base bumps stay independent.
+export const cards = pgTable("cards", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  category: cardCategory("category").notNull(),
+  title: text("title").notNull(),
+  // Card-face body copy (the DESCRIPTION area). Distinct from `descriptiveText`,
+  // which is the mechanical Effects-section text for descriptive cards.
+  description: text("description"),
+  activation: cardActivation("activation").notNull().default("passive"),
+  level: integer("level").notNull().default(1), // Roman-numeral pip
+  colorOverride: text("color_override"), // hex for one-off custom cards; null = category preset
+  effectKind: cardEffectKind("effect_kind").notNull(),
+
+  // Descriptive cards: the feat-like text shown under the sheet's Effects section.
+  descriptiveText: text("descriptive_text"),
+
+  // Mechanical cards: the structured effect. All null for descriptive cards.
+  effectType: cardEffectType("effect_type"),
+  effectTarget: text("effect_target"), // stat key (statTech…) or resource key (hpMax/energyMax/ammoMax)
+  effectAmount: integer("effect_amount"),
+  trigger: cardTrigger("trigger"),
+
+  createdByUserId: text("created_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// A character's ownership of a card (inventory), plus whether it's equipped. Only
+// equipped cards contribute to effective stats / show in the Loadout. Unique per
+// (character, card) — a duplicate assignment is a no-op, not a second copy.
+export const characterCards = pgTable(
+  "character_cards",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    equipped: boolean("equipped").notNull().default(false),
+    acquiredAt: timestamp("acquired_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("character_cards_character_idx").on(t.characterId),
+    uniqueIndex("character_cards_unique").on(t.characterId, t.cardId),
+  ],
+);
+
+export const cardsRelations = relations(cards, ({ many }) => ({
+  assignments: many(characterCards),
+}));
+
+export const characterCardsRelations = relations(characterCards, ({ one }) => ({
+  character: one(characters, {
+    fields: [characterCards.characterId],
+    references: [characters.id],
+  }),
+  card: one(cards, {
+    fields: [characterCards.cardId],
+    references: [cards.id],
+  }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Character = typeof characters.$inferSelect;
 export type GoldLedgerEntry = typeof goldLedger.$inferSelect;
+export type Card = typeof cards.$inferSelect;
+export type NewCard = typeof cards.$inferInsert;
+export type CharacterCard = typeof characterCards.$inferSelect;
