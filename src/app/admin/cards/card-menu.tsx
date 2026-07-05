@@ -289,7 +289,7 @@ function RemoveItem({ label, suffix }: { label: string; suffix: string }) {
       disabled={pending}
       className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-case-file-white transition-colors hover:bg-ledger-teal hover:text-stamp-red focus:bg-ledger-teal focus:text-stamp-red focus:outline-none disabled:opacity-60 pointer-coarse:py-2.5"
     >
-      <Minus size={13} className="shrink-0 text-signal-cyan" aria-hidden="true" />
+      <Minus size={13} className="shrink-0 text-stamp-red" aria-hidden="true" />
       <span className="truncate">
         {label}
         {suffix}
