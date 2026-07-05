@@ -69,7 +69,7 @@ export function CreatePlayerForm() {
             required
             minLength={8}
             autoComplete="off"
-            placeholder="Share with the operator; they can change it later"
+            placeholder="Share with the operator"
           />
         )}
       </Field>

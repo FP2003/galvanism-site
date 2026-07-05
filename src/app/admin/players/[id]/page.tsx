@@ -9,9 +9,11 @@ import { getDb } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
 import { players, goldLedger } from "@/lib/schema";
 import { toCharacterView } from "@/lib/characters";
+import { getCardLibrary, getCharacterCards } from "@/lib/card-data";
 import { PlayerForm } from "./player-form";
 import { GoldForm } from "./gold-form";
 import { CharacterForm } from "./character-form";
+import { CardAssignment } from "./card-assignment";
 import { DeleteAccount } from "./delete-account";
 import { ApplicationActions } from "../../application-actions";
 
@@ -41,6 +43,14 @@ export default async function AdminPlayerPage({
   const characterView = player.character
     ? toCharacterView(player.character, player)
     : null;
+
+  // Card inventory + the shared library, only when there's a character to hold them.
+  const [cardLibrary, ownedCards] = player.character
+    ? await Promise.all([
+        getCardLibrary(),
+        getCharacterCards(player.character.id),
+      ])
+    : [[], []];
   const displayName = player.name || player.user?.displayName || player.user?.email || "Operator";
 
   return (
@@ -81,7 +91,8 @@ export default async function AdminPlayerPage({
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          {/* Character sheet CRUD */}
+          {/* Character sheet CRUD + card loadout */}
+          <div className="flex flex-col gap-6">
           <Panel
             title={characterView ? "Character Sheet" : "Provision Character"}
             meta={
@@ -114,6 +125,25 @@ export default async function AdminPlayerPage({
             )}
             <CharacterForm playerId={player.id} character={characterView} />
           </Panel>
+
+          {characterView && (
+            <Panel
+              title="Card Loadout"
+              meta={
+                <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
+                  {ownedCards.filter((o) => o.equipped).length} equipped ·{" "}
+                  {ownedCards.length} held
+                </span>
+              }
+            >
+              <CardAssignment
+                characterId={characterView.id}
+                library={cardLibrary}
+                owned={ownedCards}
+              />
+            </Panel>
+          )}
+          </div>
 
           {/* Right rail: account + gold */}
           <div className="flex flex-col gap-6">

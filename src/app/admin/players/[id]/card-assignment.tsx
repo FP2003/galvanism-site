@@ -1,0 +1,198 @@
+"use client";
+
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
+import { Plus, X, Power, PowerOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Select, FormMessage } from "@/components/ui/form";
+import { cardAccent, effectSummary, CARD_CATEGORY_META } from "@/lib/cards";
+import type { Card } from "@/lib/schema";
+import type { OwnedCard } from "@/lib/card-data";
+import {
+  assignCard,
+  unassignCard,
+  type FormState,
+} from "@/app/admin/card-actions";
+import { setCardEquipped, type SheetState } from "@/app/roster/actions";
+
+/*
+ * Admin card assignment (Phase 3). Attaches library cards to one character's
+ * inventory, toggles equipped, and removes them. Equip/unequip reuses the same
+ * owner-or-admin action the player uses on their own case file.
+ */
+export function CardAssignment({
+  characterId,
+  library,
+  owned,
+}: {
+  characterId: string;
+  library: Card[];
+  owned: OwnedCard[];
+}) {
+  const [state, formAction] = useActionState<FormState, FormData>(
+    assignCard,
+    {},
+  );
+
+  const ownedIds = new Set(owned.map((o) => o.card.id));
+  const assignable = library.filter((c) => !ownedIds.has(c.id));
+
+  return (
+    <div className="flex flex-col gap-5">
+      {library.length === 0 ? (
+        <p className="border border-signal-cyan/40 bg-signal-cyan/10 px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
+          No cards in the library yet. Author some in the{" "}
+          <span className="text-signal-cyan">Card Library</span> first.
+        </p>
+      ) : (
+        <form action={formAction} className="flex flex-col gap-3">
+          <input type="hidden" name="characterId" value={characterId} />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Select
+              name="cardId"
+              aria-label="Card to assign"
+              defaultValue=""
+              disabled={assignable.length === 0}
+            >
+              <option value="" disabled>
+                {assignable.length === 0
+                  ? "Every card is already assigned"
+                  : "Select a card…"}
+              </option>
+              {assignable.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {CARD_CATEGORY_META[c.category].label} · {c.title}
+                </option>
+              ))}
+            </Select>
+            <AssignButton disabled={assignable.length === 0} />
+          </div>
+          <FormMessage state={state} />
+        </form>
+      )}
+
+      {owned.length > 0 && (
+        <ul className="flex flex-col divide-y divide-elevated-ledger border-y border-elevated-ledger">
+          {owned.map((o) => (
+            <OwnedRow key={o.assignmentId} characterId={characterId} owned={o} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function AssignButton({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button
+      type="submit"
+      variant="secondary"
+      disabled={pending || disabled}
+      className="shrink-0"
+    >
+      <Plus size={15} />
+      {pending ? "Assigning…" : "Assign"}
+    </Button>
+  );
+}
+
+function OwnedRow({
+  characterId,
+  owned,
+}: {
+  characterId: string;
+  owned: OwnedCard;
+}) {
+  const [, equipAction] = useActionState<SheetState, FormData>(
+    setCardEquipped,
+    {},
+  );
+  const [, removeAction] = useActionState<FormState, FormData>(
+    unassignCard,
+    {},
+  );
+  const { card } = owned;
+  const summary = effectSummary(card);
+
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <span
+        className="size-2.5 shrink-0"
+        style={{ backgroundColor: cardAccent(card.category, card.colorOverride) }}
+        aria-hidden="true"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
+          {card.title}
+        </p>
+        <p className="truncate font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+          {CARD_CATEGORY_META[card.category].label}
+          {summary ? ` · ${summary}` : " · Descriptive"}
+        </p>
+      </div>
+
+      <form action={equipAction}>
+        <input type="hidden" name="characterId" value={characterId} />
+        <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+        <input type="hidden" name="equipped" value={String(!owned.equipped)} />
+        <EquipToggle equipped={owned.equipped} />
+      </form>
+
+      <form action={removeAction}>
+        <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+        <IconButton label={`Remove ${card.title}`} tone="danger">
+          <X size={14} aria-hidden="true" />
+        </IconButton>
+      </form>
+    </li>
+  );
+}
+
+function EquipToggle({ equipped }: { equipped: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className={`inline-flex items-center gap-1.5 border px-2.5 py-1.5 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] transition-colors disabled:opacity-60 pointer-coarse:min-h-11 ${
+        equipped
+          ? "border-signal-cyan bg-signal-cyan/10 text-signal-cyan hover:bg-signal-cyan/20"
+          : "border-steel-blue text-muted-ink hover:bg-elevated-ledger hover:text-signal-cyan"
+      }`}
+    >
+      {equipped ? (
+        <Power size={13} aria-hidden="true" />
+      ) : (
+        <PowerOff size={13} aria-hidden="true" />
+      )}
+      {equipped ? "Equipped" : "Equip"}
+    </button>
+  );
+}
+
+function IconButton({
+  label,
+  tone,
+  children,
+}: {
+  label: string;
+  tone: "danger";
+  children: React.ReactNode;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      aria-label={label}
+      disabled={pending}
+      className={`flex size-8 shrink-0 items-center justify-center border transition-colors disabled:opacity-60 pointer-coarse:size-11 ${
+        tone === "danger"
+          ? "border-elevated-ledger text-muted-ink hover:border-stamp-red hover:text-stamp-red"
+          : ""
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
