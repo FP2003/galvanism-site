@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
-import { ShieldCheck } from "lucide-react";
+import { Layers, ShieldCheck } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { regiment } from "@/lib/mock-data";
 import type { User } from "@/lib/schema";
@@ -34,13 +34,22 @@ export function TopBar({ user }: { user: User | null }) {
         </span>
 
         {isAdmin && (
-          <Link
-            href="/admin"
-            className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:py-2.5"
-          >
-            <ShieldCheck size={14} />
-            Admin
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/cards"
+              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:py-2.5"
+            >
+              <Layers size={14} />
+              <span className="hidden sm:inline">Card library</span>
+            </Link>
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:py-2.5"
+            >
+              <ShieldCheck size={14} />
+              Admin
+            </Link>
+          </div>
         )}
 
         <div className="flex items-center gap-2.5 border border-ledger-teal py-1.5 pl-3 pr-1.5">

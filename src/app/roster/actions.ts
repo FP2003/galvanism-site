@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { characters } from "@/lib/schema";
+import { characters, characterCards } from "@/lib/schema";
 import { clampResource } from "@/lib/ledger";
+import { effectiveResourceMaxes } from "@/lib/card-data";
 import { TEXT_LIMITS } from "@/lib/game-rules";
 
 /*
@@ -63,8 +64,9 @@ export async function updateResources(
   if ("error" in auth) return { error: auth.error };
 
   const c = auth.character;
-  // Clamp each current value to its (immutable-here) max; players adjust current
-  // resources only — maxes are set by the DM on the admin sheet.
+  // Clamp each current value to its effective max — base plus any equipped
+  // resource-modifier cards — so a +Max HP card lets the player fill past the
+  // base. Players adjust current only; base maxes are DM-set on the admin sheet.
   const read = (key: string, fallback: number) => {
     const raw = String(formData.get(key) ?? "").trim();
     if (raw === "") return fallback;
@@ -72,16 +74,52 @@ export async function updateResources(
     return Number.isFinite(n) ? n : fallback;
   };
 
+  const max = await effectiveResourceMaxes(characterId, {
+    hpMax: c.hpMax,
+    energyMax: c.energyMax,
+    ammoMax: c.ammoMax,
+  });
+
   await auth.db
     .update(characters)
     .set({
-      hpCurrent: clampResource(read("hpCurrent", c.hpCurrent), c.hpMax),
-      energyCurrent: clampResource(read("energyCurrent", c.energyCurrent), c.energyMax),
-      ammoCurrent: clampResource(read("ammoCurrent", c.ammoCurrent), c.ammoMax),
+      hpCurrent: clampResource(read("hpCurrent", c.hpCurrent), max.hpMax),
+      energyCurrent: clampResource(read("energyCurrent", c.energyCurrent), max.energyMax),
+      ammoCurrent: clampResource(read("ammoCurrent", c.ammoCurrent), max.ammoMax),
       updatedAt: new Date(),
     })
     .where(eq(characters.id, characterId));
 
   revalidatePath(`/roster/${c.slug}`);
   return { ok: true, message: "Resources updated." };
+}
+
+// Equip / unequip a card the character owns (Phase 3). Owner or admin only. Only
+// equipped cards contribute to effective stats; the modifier is computed at read
+// time, so toggling is lossless (lib/card-data computeLoadout). The assignment
+// must belong to this character — a caller can't equip someone else's card.
+export async function setCardEquipped(
+  _prev: SheetState,
+  formData: FormData,
+): Promise<SheetState> {
+  const characterId = String(formData.get("characterId") ?? "");
+  const assignmentId = String(formData.get("assignmentId") ?? "");
+  const equipped = String(formData.get("equipped") ?? "") === "true";
+  const auth = await authorizeEdit(characterId);
+  if ("error" in auth) return { error: auth.error };
+
+  const [row] = await auth.db
+    .update(characterCards)
+    .set({ equipped })
+    .where(
+      and(
+        eq(characterCards.id, assignmentId),
+        eq(characterCards.characterId, characterId),
+      ),
+    )
+    .returning({ id: characterCards.id });
+  if (!row) return { error: "Card not found in this inventory." };
+
+  revalidatePath(`/roster/${auth.character.slug}`);
+  return { ok: true, message: equipped ? "Card equipped." : "Card unequipped." };
 }

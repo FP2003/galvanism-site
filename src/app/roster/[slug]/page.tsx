@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, Shield, Zap, Crosshair, Layers, Activity, Clock } from "lucide-react";
+import { ArrowLeft, Shield, Zap, Crosshair, Activity, Clock, Sparkles } from "lucide-react";
 import { eq, desc } from "drizzle-orm";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
@@ -10,6 +10,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { goldLedger } from "@/lib/schema";
 import { getCharacterBySlug } from "@/lib/characters";
+import { getCharacterCards, computeLoadout } from "@/lib/card-data";
+import { CARD_CATEGORY_META } from "@/lib/cards";
 import { regiment } from "@/lib/mock-data";
 import {
   stampStyle,
@@ -19,6 +21,7 @@ import {
 } from "@/lib/status";
 import { BioEditor } from "./bio-editor";
 import { ResourceTracker } from "./resource-tracker";
+import { Loadout } from "./loadout";
 
 export async function generateMetadata({
   params,
@@ -54,11 +57,19 @@ export default async function CaseFilePage({
   if (!op.approved && !canEdit) notFound();
 
   const db = getDb();
-  const ledger = await db.query.goldLedger.findMany({
-    where: eq(goldLedger.playerId, op.playerId),
-    orderBy: [desc(goldLedger.createdAt)],
-    limit: 50,
-  });
+  const [ledger, ownedCards] = await Promise.all([
+    db.query.goldLedger.findMany({
+      where: eq(goldLedger.playerId, op.playerId),
+      orderBy: [desc(goldLedger.createdAt)],
+      limit: 50,
+    }),
+    getCharacterCards(op.id),
+  ]);
+
+  // Effective sheet = base stats + equipped card modifiers (computed, never
+  // written back — see lib/card-data). Cards on a pending, non-owner-visible
+  // sheet are already gated by the approval check above.
+  const loadout = computeLoadout(op, ownedCards);
 
   return (
     <AppShell>
@@ -145,18 +156,19 @@ export default async function CaseFilePage({
               {canEdit ? (
                 <ResourceTracker
                   characterId={op.id}
-                  hp={op.hp}
-                  energy={op.energy}
-                  ammo={op.ammo}
+                  hp={loadout.resources.hp}
+                  energy={loadout.resources.energy}
+                  ammo={loadout.resources.ammo}
                 />
               ) : (
                 <div className="flex flex-col gap-4">
                   <ResourceRow
                     icon={<Shield size={14} aria-hidden="true" />}
                     label="Health"
-                    value={op.hp}
+                    value={loadout.resources.hp}
                     tone={
-                      op.hp.max > 0 && op.hp.current / op.hp.max <= 0.33
+                      loadout.resources.hp.max > 0 &&
+                      loadout.resources.hp.current / loadout.resources.hp.max <= 0.33
                         ? "critical"
                         : "live"
                     }
@@ -164,13 +176,13 @@ export default async function CaseFilePage({
                   <ResourceRow
                     icon={<Zap size={14} aria-hidden="true" />}
                     label="Energy"
-                    value={op.energy}
+                    value={loadout.resources.energy}
                     tone="steel"
                   />
                   <ResourceRow
                     icon={<Crosshair size={14} aria-hidden="true" />}
                     label="Ammo"
-                    value={op.ammo}
+                    value={loadout.resources.ammo}
                     tone="steel"
                   />
                 </div>
@@ -187,14 +199,24 @@ export default async function CaseFilePage({
               </div>
             </Panel>
 
-            <Panel title="Attributes">
+            <Panel
+              title="Attributes"
+              meta={
+                loadout.equipped.length > 0 ? (
+                  <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-signal-cyan">
+                    Card-adjusted
+                  </span>
+                ) : undefined
+              }
+            >
               <StatGroup heading="Combat">
                 {combatStats.map((s) => (
                   <StatRow
                     key={s.key}
                     label={s.label}
                     note={s.note}
-                    value={String(op.stats[s.key])}
+                    base={op.stats[s.key]}
+                    delta={loadout.statDeltas[s.key]}
                   />
                 ))}
               </StatGroup>
@@ -205,7 +227,9 @@ export default async function CaseFilePage({
                     key={s.key}
                     label={s.label}
                     note={s.note}
-                    value={`${op.stats[s.key]}${"suffix" in s ? s.suffix : ""}`}
+                    base={op.stats[s.key]}
+                    delta={loadout.statDeltas[s.key]}
+                    suffix={"suffix" in s ? s.suffix : ""}
                   />
                 ))}
               </StatGroup>
@@ -269,28 +293,73 @@ export default async function CaseFilePage({
               )}
             </Panel>
 
+            {(loadout.activeModifiers.length > 0 ||
+              loadout.descriptiveEffects.length > 0) && (
+              <Panel
+                title="Effects"
+                meta={
+                  <span className="flex items-center gap-1.5 font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-signal-cyan">
+                    <Sparkles size={12} aria-hidden="true" /> Equipped
+                  </span>
+                }
+              >
+                <div className="flex flex-col gap-4">
+                  {loadout.activeModifiers.length > 0 && (
+                    <ul className="flex flex-col gap-2">
+                      {loadout.activeModifiers.map((m, i) => (
+                        <li
+                          key={`mod-${i}`}
+                          className="flex items-center gap-3"
+                        >
+                          <span
+                            className="size-2.5 shrink-0"
+                            style={{
+                              backgroundColor:
+                                CARD_CATEGORY_META[m.category].color,
+                            }}
+                            aria-hidden="true"
+                          />
+                          <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-inter)] text-sm text-case-file-white">
+                            {m.cardTitle}
+                          </span>
+                          <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
+                            {m.summary}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {loadout.descriptiveEffects.map((e, i) => (
+                    <div
+                      key={`desc-${i}`}
+                      className="border-l-2 pl-3"
+                      style={{ borderColor: CARD_CATEGORY_META[e.category].color }}
+                    >
+                      <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.06em] text-case-file-white">
+                        {e.cardTitle}
+                      </p>
+                      <p className="mt-1 text-pretty font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
+                        {e.text}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            )}
+
             <Panel
               title="Loadout"
               meta={
                 <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
-                  Phase 3
+                  {loadout.equipped.length} equipped
                 </span>
               }
             >
-              <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-                <Layers
-                  size={28}
-                  className="text-steel-blue"
-                  aria-hidden="true"
-                />
-                <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                  No cards or weapons assigned
-                </p>
-                <p className="max-w-xs text-pretty text-xs text-muted-ink">
-                  Ability cards, weapons, and item loadout come online with the
-                  card system.
-                </p>
-              </div>
+              <Loadout
+                characterId={op.id}
+                owned={loadout.owned}
+                canEdit={canEdit}
+              />
             </Panel>
           </div>
         </div>
@@ -347,12 +416,18 @@ function StatGroup({
 function StatRow({
   label,
   note,
-  value,
+  base,
+  delta,
+  suffix = "",
 }: {
   label: string;
   note: string;
-  value: string;
+  base: number;
+  delta: number;
+  suffix?: string;
 }) {
+  const effective = Math.max(0, base + delta);
+  const modified = delta !== 0;
   return (
     <div className="flex items-baseline justify-between gap-3">
       <div className="min-w-0">
@@ -361,9 +436,23 @@ function StatRow({
         </dt>
         <dd className="truncate text-xs text-muted-ink">{note}</dd>
       </div>
-      <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-lg text-signal-cyan">
-        {value}
-      </span>
+      <div className="flex shrink-0 items-baseline gap-2">
+        {modified && (
+          <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
+            {base}
+            {suffix}
+            <span className={delta > 0 ? "text-signal-cyan" : "text-stamp-red"}>
+              {" "}
+              {delta > 0 ? "+" : "−"}
+              {Math.abs(delta)}
+            </span>
+          </span>
+        )}
+        <span className="font-[family-name:var(--font-jetbrains)] text-lg text-signal-cyan">
+          {effective}
+          {suffix}
+        </span>
+      </div>
     </div>
   );
 }

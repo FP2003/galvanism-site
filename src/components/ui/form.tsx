@@ -4,7 +4,7 @@
  * status styling (DESIGN.md §5). Field wires label↔control via a generated id.
  */
 import { useId } from "react";
-import { AlertTriangle, Check } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown } from "lucide-react";
 
 export const fieldLabelClass =
   "font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.1em] text-muted-ink";
@@ -56,9 +56,19 @@ export function Select(
 ) {
   const { className = "", children, ...rest } = props;
   return (
-    <select className={`${controlClass} ${className}`} {...rest}>
-      {children}
-    </select>
+    <div className="relative min-w-0 flex-1">
+      <select
+        className={`${controlClass} appearance-none pr-9 ${className}`}
+        {...rest}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        size={16}
+        aria-hidden="true"
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-steel-blue"
+      />
+    </div>
   );
 }
 
