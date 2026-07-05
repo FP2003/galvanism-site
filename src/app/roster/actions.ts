@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { characters } from "@/lib/schema";
 import { clampResource } from "@/lib/ledger";
+import { TEXT_LIMITS } from "@/lib/game-rules";
 
 /*
  * Player self-service on the Case File (Phase 2): a player edits their own bio
@@ -13,8 +14,6 @@ import { clampResource } from "@/lib/ledger";
  * sheet. Stats, level, and gold are admin-only and live in app/admin/actions.ts.
  */
 export type SheetState = { ok?: boolean; error?: string; message?: string };
-
-const MAX_BIO = 4000;
 
 // Loads the character and confirms the caller may edit it (owner or admin).
 // Returns the row plus its slug for revalidation, or an error state.
@@ -44,7 +43,7 @@ export async function updateBio(
   const auth = await authorizeEdit(characterId);
   if ("error" in auth) return { error: auth.error };
 
-  const bio = String(formData.get("bio") ?? "").trim().slice(0, MAX_BIO);
+  const bio = String(formData.get("bio") ?? "").trim().slice(0, TEXT_LIMITS.bio);
 
   await auth.db
     .update(characters)

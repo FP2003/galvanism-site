@@ -9,6 +9,7 @@ import { getDb } from "@/lib/db";
 import { users, players, characters, goldLedger } from "@/lib/schema";
 import { slugifyCallsign } from "@/lib/characters";
 import { CHARACTER_STATUSES, type CharacterStatus } from "@/lib/status";
+import { TEXT_LIMITS } from "@/lib/game-rules";
 import { applyGoldDelta, clampResource, parseSignedInt } from "@/lib/ledger";
 
 export type CreatePlayerState = {
@@ -26,8 +27,8 @@ export async function createPlayerAccount(
 ): Promise<CreatePlayerState> {
   await requireAdmin();
 
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 254);
+  const name = String(formData.get("name") ?? "").trim().slice(0, TEXT_LIMITS.name);
   const password = String(formData.get("password") ?? "");
 
   if (!email || !email.includes("@")) {
@@ -96,8 +97,9 @@ function intField(formData: FormData, key: string, fallback = 0): number {
   return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : fallback;
 }
 
-function textField(formData: FormData, key: string): string {
-  return String(formData.get(key) ?? "").trim();
+function textField(formData: FormData, key: string, max?: number): string {
+  const value = String(formData.get(key) ?? "").trim();
+  return max ? value.slice(0, max) : value;
 }
 
 // The full set of editable character columns, shared by create + update. Current
@@ -105,8 +107,8 @@ function textField(formData: FormData, key: string): string {
 function parseCharacterFields(formData: FormData):
   | { ok: true; values: typeof characters.$inferInsert }
   | { ok: false; error: string } {
-  const callsign = textField(formData, "callsign");
-  const name = textField(formData, "name");
+  const callsign = textField(formData, "callsign", TEXT_LIMITS.callsign);
+  const name = textField(formData, "name", TEXT_LIMITS.name);
   if (!callsign) return { ok: false, error: "Callsign is required." };
   if (!name) return { ok: false, error: "Operator name is required." };
 
@@ -123,8 +125,8 @@ function parseCharacterFields(formData: FormData):
     slug: "",
     callsign,
     name,
-    rank: textField(formData, "rank") || null,
-    role: textField(formData, "role") || null,
+    rank: textField(formData, "rank", TEXT_LIMITS.rank) || null,
+    role: textField(formData, "role", TEXT_LIMITS.role) || null,
     status,
     level: Math.max(1, intField(formData, "level", 1)),
     xp: intField(formData, "xp"),
@@ -141,7 +143,7 @@ function parseCharacterFields(formData: FormData):
     statImmunity: intField(formData, "statImmunity"),
     statResilience: intField(formData, "statResilience"),
     statAgility: intField(formData, "statAgility"),
-    bio: textField(formData, "bio") || null,
+    bio: textField(formData, "bio", TEXT_LIMITS.bio) || null,
   };
   return { ok: true, values };
 }
@@ -232,12 +234,18 @@ export async function updatePlayer(
   const playerId = textField(formData, "playerId");
   if (!playerId) return { error: "Missing player reference." };
 
-  const name = textField(formData, "name");
+  const name = textField(formData, "name", TEXT_LIMITS.name);
   const db = getDb();
-  await db
-    .update(players)
-    .set({ name: name || null, updatedAt: new Date() })
-    .where(eq(players.id, playerId));
+  try {
+    await db
+      .update(players)
+      .set({ name: name || null, updatedAt: new Date() })
+      .where(eq(players.id, playerId));
+  } catch (err) {
+    return {
+      error: `Database error: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
 
   revalidatePath("/admin");
   revalidatePath(`/admin/players/${playerId}`);
@@ -253,8 +261,8 @@ export async function adjustGold(
   const admin = await requireAdmin();
 
   const playerId = textField(formData, "playerId");
-  const description = textField(formData, "description");
-  const refCode = textField(formData, "refCode");
+  const description = textField(formData, "description", TEXT_LIMITS.ledgerDescription);
+  const refCode = textField(formData, "refCode", TEXT_LIMITS.refCode);
   if (!playerId) return { error: "Missing player reference." };
   if (!description) return { error: "A description is required for the ledger." };
 
@@ -371,7 +379,17 @@ export async function deletePlayerAccount(
   }
 
   // Cascades to players → characters → gold_ledger via FK onDelete.
-  await db.delete(users).where(eq(users.id, player.userId));
+  try {
+    await db.delete(users).where(eq(users.id, player.userId));
+  } catch (err) {
+    // The Clerk identity is already gone at this point; surface the DB failure
+    // so the DM knows the records still need clearing (rather than a silent hang).
+    return {
+      error: `Removed the sign-in, but clearing the records failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    };
+  }
 
   revalidatePath("/admin");
   revalidatePath("/");

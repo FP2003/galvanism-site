@@ -17,6 +17,7 @@ import {
   BASE_ENERGY,
   BASE_ENERGY_REGEN,
   IMMUNITY_BASE,
+  TEXT_LIMITS,
 } from "@/lib/game-rules";
 import type { CharacterView } from "@/lib/characters";
 import {
@@ -78,6 +79,7 @@ export function CharacterForm({
                 id={id}
                 name="callsign"
                 required
+                maxLength={TEXT_LIMITS.callsign}
                 autoComplete="off"
                 placeholder="HALYARD"
                 defaultValue={character?.callsign ?? ""}
@@ -90,6 +92,7 @@ export function CharacterForm({
                 id={id}
                 name="name"
                 required
+                maxLength={TEXT_LIMITS.name}
                 autoComplete="off"
                 placeholder="M. Okonkwo"
                 defaultValue={character?.name ?? ""}
@@ -101,6 +104,7 @@ export function CharacterForm({
               <TextInput
                 id={id}
                 name="rank"
+                maxLength={TEXT_LIMITS.rank}
                 autoComplete="off"
                 placeholder="Custodian, Grade II"
                 defaultValue={character?.rank ?? ""}
@@ -112,6 +116,7 @@ export function CharacterForm({
               <TextInput
                 id={id}
                 name="role"
+                maxLength={TEXT_LIMITS.role}
                 autoComplete="off"
                 placeholder="Breacher"
                 defaultValue={character?.role ?? ""}
@@ -200,6 +205,7 @@ export function CharacterForm({
               id={id}
               name="bio"
               rows={5}
+              maxLength={TEXT_LIMITS.bio}
               placeholder="Background, notable operations, disposition…"
               defaultValue={character?.bio ?? ""}
             />

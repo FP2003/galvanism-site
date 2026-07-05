@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, TextInput, FormMessage } from "@/components/ui/form";
+import { TEXT_LIMITS } from "@/lib/game-rules";
 import { adjustGold, type FormState } from "@/app/admin/actions";
 
 function SubmitButton() {
@@ -70,6 +71,7 @@ export function GoldForm({
             id={id}
             name="description"
             required
+            maxLength={TEXT_LIMITS.ledgerDescription}
             autoComplete="off"
             placeholder="Operation payout — Sublevel sweep"
           />
@@ -81,6 +83,7 @@ export function GoldForm({
           <TextInput
             id={id}
             name="refCode"
+            maxLength={TEXT_LIMITS.refCode}
             autoComplete="off"
             placeholder="OP-0142"
           />

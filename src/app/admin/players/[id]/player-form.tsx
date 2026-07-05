@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, TextInput, FormMessage } from "@/components/ui/form";
+import { TEXT_LIMITS } from "@/lib/game-rules";
 import { updatePlayer, type FormState } from "@/app/admin/actions";
 
 function SubmitButton() {
@@ -48,6 +49,7 @@ export function PlayerForm({
           <TextInput
             id={id}
             name="name"
+            maxLength={TEXT_LIMITS.name}
             autoComplete="off"
             placeholder="EpicGamerName"
             defaultValue={name}

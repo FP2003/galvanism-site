@@ -28,9 +28,15 @@ export function BioEditor({
 
   function action(formData: FormData) {
     startTransition(async () => {
-      const result = await updateBio({}, formData);
-      setState(result);
-      if (result.ok) setEditing(false);
+      try {
+        const result = await updateBio({}, formData);
+        setState(result);
+        if (result.ok) setEditing(false);
+      } catch {
+        setState({
+          error: "Couldn't reach the server. Check your connection and try again.",
+        });
+      }
     });
   }
 

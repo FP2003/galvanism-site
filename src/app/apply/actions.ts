@@ -15,6 +15,7 @@ import {
   IMMUNITY_BASE,
   ATTRIBUTE_BUDGET,
   POINT_BUY_ATTRIBUTES,
+  TEXT_LIMITS,
 } from "@/lib/game-rules";
 
 export type ApplicationState = { error?: string };
@@ -32,9 +33,9 @@ export async function submitApplication(
     return { error: "Admins manage sheets from Personnel Command, not here." };
   }
 
-  const callsign = String(formData.get("callsign") ?? "").trim();
-  const name = String(formData.get("name") ?? "").trim();
-  const bio = String(formData.get("bio") ?? "").trim();
+  const callsign = String(formData.get("callsign") ?? "").trim().slice(0, TEXT_LIMITS.callsign);
+  const name = String(formData.get("name") ?? "").trim().slice(0, TEXT_LIMITS.name);
+  const bio = String(formData.get("bio") ?? "").trim().slice(0, TEXT_LIMITS.bio);
   if (!callsign) return { error: "A callsign is required." };
   if (!name) return { error: "An operator name is required." };
 

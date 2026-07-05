@@ -26,3 +26,17 @@ export type PointBuyKey = (typeof POINT_BUY_ATTRIBUTES)[number]["key"];
 
 // Points a level-1 character allocates across the five point-buy attributes.
 export const ATTRIBUTE_BUDGET = 6;
+
+// Text-length caps for free-text fields. Enforced twice: as `maxLength` on the
+// inputs (stops the layout-breaking / DB-bloating input before it's typed) and
+// re-clamped server-side (the client can't be trusted). Headings that render
+// these values still guard with `break-words` for any pre-existing long data.
+export const TEXT_LIMITS = {
+  callsign: 32,
+  name: 64,
+  rank: 48,
+  role: 48,
+  bio: 4000,
+  ledgerDescription: 140,
+  refCode: 32,
+} as const;
