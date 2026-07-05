@@ -37,6 +37,13 @@ export interface AssignmentTarget {
   approved: boolean;
 }
 
+/** An {@link AssignmentTarget} merged with per-card ownership: null when the
+ *  operator doesn't hold the card (assignable), an assignment id when they
+ *  already do (removable). */
+export interface CardAssignmentTarget extends AssignmentTarget {
+  assignmentId: string | null;
+}
+
 /** Every character, callsign-ordered — for the "assign to operator" picker on the card library. */
 export async function getAssignmentTargets(): Promise<AssignmentTarget[]> {
   const db = getDb();
@@ -44,6 +51,28 @@ export async function getAssignmentTargets(): Promise<AssignmentTarget[]> {
     columns: { id: true, callsign: true, approved: true },
     orderBy: [asc(characters.callsign)],
   });
+}
+
+/** cardId → characterId → assignment id, so the library's per-card operator
+ *  list knows who already holds a card (and can remove it) vs. who doesn't
+ *  (and can be assigned it). */
+export async function getCardOwnershipMap(): Promise<
+  Map<string, Map<string, string>>
+> {
+  const db = getDb();
+  const rows = await db.query.characterCards.findMany({
+    columns: { id: true, cardId: true, characterId: true },
+  });
+  const map = new Map<string, Map<string, string>>();
+  for (const r of rows) {
+    let byCharacter = map.get(r.cardId);
+    if (!byCharacter) {
+      byCharacter = new Map();
+      map.set(r.cardId, byCharacter);
+    }
+    byCharacter.set(r.characterId, r.id);
+  }
+  return map;
 }
 
 /** The cards a character owns (inventory), equipped ones first. */

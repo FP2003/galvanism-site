@@ -5,7 +5,11 @@ import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { GameCard } from "@/components/cards/game-card";
 import { requireAdmin } from "@/lib/auth";
-import { getCardLibrary, getAssignmentTargets } from "@/lib/card-data";
+import {
+  getCardLibrary,
+  getAssignmentTargets,
+  getCardOwnershipMap,
+} from "@/lib/card-data";
 import { CardForm } from "./card-form";
 import { CardMenu } from "./card-menu";
 
@@ -16,9 +20,10 @@ export const metadata: Metadata = { title: "Card Library — Personnel Command" 
 // or from the fuller assign panel on that operator's player page.
 export default async function AdminCardsPage() {
   await requireAdmin();
-  const [library, targets] = await Promise.all([
+  const [library, targets, ownership] = await Promise.all([
     getCardLibrary(),
     getAssignmentTargets(),
+    getCardOwnershipMap(),
   ]);
 
   return (
@@ -64,7 +69,10 @@ export default async function AdminCardsPage() {
                         <CardMenu
                           cardId={card.id}
                           title={card.title}
-                          targets={targets}
+                          targets={targets.map((t) => ({
+                            ...t,
+                            assignmentId: ownership.get(card.id)?.get(t.id) ?? null,
+                          }))}
                         />
                       }
                     />
