@@ -62,6 +62,13 @@
 }
 
 html {
+  /*
+    Global UI scale. Tailwind sizes text, spacing, and controls in rem, so this
+    one value zooms the whole interface proportionally. The design runs dense
+    (most body text is text-sm), so the base is nudged up from the 16px default.
+    Dial to taste: 100% = 16px (densest) · 112.5% = 18px · 125% = 20px (largest).
+  */
+  font-size: 112.5%;
   background-color: var(--color-void-navy);
 }
 
