@@ -48,17 +48,17 @@ export default async function AdminPlayerPage({
       <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8">
         <Link
           href="/admin"
-          className="mb-5 inline-flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink transition-colors hover:text-signal-cyan"
+          className="mb-5 inline-flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink transition-colors hover:text-signal-cyan pointer-coarse:min-h-11"
         >
           <ArrowLeft size={14} aria-hidden="true" /> Personnel Command
         </Link>
 
         <div className="mb-6 flex flex-col gap-3 border-b border-ledger-teal pb-5 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="font-[family-name:var(--font-rajdhani)] text-3xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white sm:text-4xl">
+          <div className="min-w-0">
+            <h1 className="font-[family-name:var(--font-rajdhani)] text-3xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white break-words sm:text-4xl">
               {displayName}
             </h1>
-            <p className="mt-2 text-sm text-muted-ink">
+            <p className="mt-2 text-sm text-muted-ink break-words">
               {player.user?.email}
               {characterView && (
                 <>
@@ -73,7 +73,7 @@ export default async function AdminPlayerPage({
           {characterView && (
             <Link
               href={`/roster/${characterView.slug}`}
-              className="inline-flex items-center gap-2 border border-steel-blue px-3 py-2 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan"
+              className="inline-flex items-center gap-2 border border-steel-blue px-3 py-2 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:py-2.5"
             >
               View case file <ExternalLink size={13} aria-hidden="true" />
             </Link>
@@ -90,14 +90,14 @@ export default async function AdminPlayerPage({
                   Pending review
                 </StatusLabel>
               ) : !characterView ? (
-                <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-steel-blue">
+                <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
                   Unassigned
                 </span>
               ) : undefined
             }
           >
             {!characterView && (
-              <p className="mb-5 border-l-2 border-signal-cyan bg-signal-cyan/10 px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
+              <p className="mb-5 border border-signal-cyan/40 bg-signal-cyan/10 px-3 py-2 font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
                 This operator has no character yet. Fill in the sheet to bring them
                 online.
               </p>
@@ -135,12 +135,13 @@ export default async function AdminPlayerPage({
                   No gold movement recorded yet.
                 </p>
               ) : (
+                <div className="overflow-x-auto bg-void-navy">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-elevated-ledger text-left font-[family-name:var(--font-chakra)] text-[0.5625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                      <th className="px-4 py-2 font-semibold">Entry</th>
-                      <th className="px-4 py-2 text-right font-semibold">Δ</th>
-                      <th className="px-4 py-2 text-right font-semibold">Bal</th>
+                      <th scope="col" className="px-4 py-2 font-semibold">Entry</th>
+                      <th scope="col" className="px-4 py-2 text-right font-semibold">Δ</th>
+                      <th scope="col" className="px-4 py-2 text-right font-semibold">Bal</th>
                     </tr>
                   </thead>
                   <tbody className="font-[family-name:var(--font-jetbrains)] text-xs">
@@ -174,6 +175,7 @@ export default async function AdminPlayerPage({
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </Panel>
 

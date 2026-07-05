@@ -36,7 +36,7 @@ export function TopBar({ user }: { user: User | null }) {
         {isAdmin && (
           <Link
             href="/admin"
-            className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan"
+            className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:py-2.5"
           >
             <ShieldCheck size={14} />
             Admin
@@ -58,7 +58,7 @@ export function TopBar({ user }: { user: User | null }) {
           <UserButton
             appearance={{
               elements: {
-                userButtonAvatarBox: "size-7 rounded-none",
+                userButtonAvatarBox: "size-7 rounded-none pointer-coarse:size-9",
                 userButtonPopoverCard: "bg-ledger-teal border border-elevated-ledger",
               },
             }}

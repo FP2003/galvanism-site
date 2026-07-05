@@ -12,6 +12,7 @@ import {
   BASE_ENERGY,
   BASE_ENERGY_REGEN,
   IMMUNITY_BASE,
+  TEXT_LIMITS,
 } from "@/lib/game-rules";
 import { submitApplication, type ApplicationState } from "./actions";
 
@@ -66,6 +67,7 @@ export function ApplicationForm() {
                 id={id}
                 name="callsign"
                 required
+                maxLength={TEXT_LIMITS.callsign}
                 autoComplete="off"
                 placeholder="HALYARD"
               />
@@ -77,6 +79,7 @@ export function ApplicationForm() {
                 id={id}
                 name="name"
                 required
+                maxLength={TEXT_LIMITS.name}
                 autoComplete="off"
                 placeholder="M. Okonkwo"
               />
@@ -89,6 +92,7 @@ export function ApplicationForm() {
               id={id}
               name="bio"
               rows={6}
+              maxLength={TEXT_LIMITS.bio}
               placeholder="Where your operator came from, how they ended up in Regiment Foxtrot…"
             />
           )}
@@ -215,7 +219,7 @@ function Stepper({
       aria-label={label}
       onClick={onClick}
       disabled={disabled}
-      className="flex size-8 shrink-0 items-center justify-center border border-steel-blue text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan disabled:cursor-not-allowed disabled:border-elevated-ledger disabled:text-steel-blue/40"
+      className="flex size-8 shrink-0 items-center justify-center border border-steel-blue text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan disabled:cursor-not-allowed disabled:border-elevated-ledger disabled:text-steel-blue/40 pointer-coarse:size-11"
     >
       {children}
     </button>

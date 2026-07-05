@@ -37,14 +37,20 @@ export function ResourceTracker({
 
   function action(formData: FormData) {
     startTransition(async () => {
-      const result = await updateResources({}, formData);
-      setState(result);
-      if (result.ok) {
-        setValues((v) => ({
-          hpCurrent: clampResource(v.hpCurrent, hp.max),
-          energyCurrent: clampResource(v.energyCurrent, energy.max),
-          ammoCurrent: clampResource(v.ammoCurrent, ammo.max),
-        }));
+      try {
+        const result = await updateResources({}, formData);
+        setState(result);
+        if (result.ok) {
+          setValues((v) => ({
+            hpCurrent: clampResource(v.hpCurrent, hp.max),
+            energyCurrent: clampResource(v.energyCurrent, energy.max),
+            ammoCurrent: clampResource(v.ammoCurrent, ammo.max),
+          }));
+        }
+      } catch {
+        setState({
+          error: "Couldn't reach the server. Check your connection and try again.",
+        });
       }
     });
   }
@@ -130,7 +136,7 @@ function Row({
           <span className="text-muted-ink">/{max}</span>
         </span>
       </div>
-      <Meter value={value} max={max} tone={tone} />
+      <Meter value={value} max={max} tone={tone} label={`${label} ${value}/${max}`} />
       <div className="mt-2 flex items-center gap-2">
         <Stepper label={`Decrease ${label}`} onClick={() => onChange(value - 1)}>
           <Minus size={14} aria-hidden="true" />
@@ -143,7 +149,7 @@ function Row({
           aria-label={`${label} current`}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="w-full border border-elevated-ledger bg-void-navy px-2 py-1.5 text-center font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white outline-none focus:border-signal-cyan"
+          className="w-full border border-elevated-ledger bg-void-navy px-2 py-1.5 text-center font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white outline-none focus:border-signal-cyan pointer-coarse:py-3"
         />
         <Stepper label={`Increase ${label}`} onClick={() => onChange(value + 1)}>
           <Plus size={14} aria-hidden="true" />
@@ -167,7 +173,7 @@ function Stepper({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="flex size-8 shrink-0 items-center justify-center border border-steel-blue text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan"
+      className="flex size-8 shrink-0 items-center justify-center border border-steel-blue text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:size-11"
     >
       {children}
     </button>

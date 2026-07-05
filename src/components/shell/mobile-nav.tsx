@@ -25,7 +25,7 @@ export function MobileNav() {
             key={item.label}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`flex shrink-0 items-center gap-2 px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] transition-colors duration-150 ${
+            className={`flex shrink-0 items-center gap-2 px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] transition-colors duration-150 pointer-coarse:py-3 ${
               active
                 ? "bg-ledger-teal text-signal-cyan"
                 : "text-case-file-white hover:bg-elevated-ledger"
