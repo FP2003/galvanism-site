@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { StatusLabel } from "@/components/ui/status-dot";
+import { FormDialogTrigger } from "@/components/ui/form-dialog-trigger";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
@@ -16,6 +17,7 @@ import { XpForm } from "./xp-form";
 import { CharacterForm } from "./character-form";
 import { CardAssignment } from "./card-assignment";
 import { DeleteAccount } from "./delete-account";
+import { HistoryTable, type HistoryRow } from "./history-table";
 import { ApplicationActions } from "../../application-actions";
 
 // Admin player-management console (info/roadmap.md Phase 2). Full CRUD for one
@@ -61,6 +63,32 @@ export default async function AdminPlayerPage({
       ])
     : [[], []];
   const displayName = player.name || player.user?.displayName || player.user?.email || "Operator";
+
+  // Merge gold + XP into one chronological feed instead of two separate
+  // history tables — the DM reads a single timeline of everything that
+  // happened to this player.
+  const history: HistoryRow[] = [
+    ...ledger.map((e) => ({
+      id: `gold:${e.id}`,
+      type: "gold" as const,
+      createdAt: e.createdAt,
+      description: e.description,
+      refCode: e.refCode,
+      delta: e.delta,
+      after: `${e.balanceAfter.toLocaleString()} Cr`,
+    })),
+    ...xpHistory.map((e) => ({
+      id: `xp:${e.id}`,
+      type: "xp" as const,
+      createdAt: e.createdAt,
+      description: e.description,
+      refCode: e.refCode,
+      delta: e.delta,
+      after: `${e.totalXpAfter.toLocaleString()} XP · ${e.currencyXpAfter.toLocaleString()} Cur`,
+    })),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 50);
 
   return (
     <AppShell>
@@ -156,132 +184,93 @@ export default async function AdminPlayerPage({
 
           {/* Right rail: account + gold */}
           <div className="flex flex-col gap-6">
-            <Panel title="Account">
-              <PlayerForm
-                playerId={player.id}
-                name={player.name ?? ""}
-                email={player.user?.email ?? ""}
-              />
-            </Panel>
-
-            <Panel title="Gold Ledger">
-              <GoldForm playerId={player.id} balance={player.gold} />
-            </Panel>
-
-            {characterView && (
-              <Panel title="XP Ledger">
-                <XpForm
-                  characterId={characterView.id}
-                  totalXp={characterView.totalXp}
-                  currencyXp={characterView.currencyXp}
-                />
-              </Panel>
-            )}
-
-            {characterView && (
-              <Panel title="XP History" bodyClassName="p-0">
-                {xpHistory.length === 0 ? (
-                  <p className="px-5 py-6 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
-                    No XP movement recorded yet.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto bg-void-navy">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-elevated-ledger text-left font-[family-name:var(--font-chakra)] text-[0.5625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                          <th scope="col" className="px-4 py-2 font-semibold">Entry</th>
-                          <th scope="col" className="px-4 py-2 text-right font-semibold">Δ</th>
-                          <th scope="col" className="px-4 py-2 text-right font-semibold">Total</th>
-                          <th scope="col" className="px-4 py-2 text-right font-semibold">Currency</th>
-                        </tr>
-                      </thead>
-                      <tbody className="font-[family-name:var(--font-jetbrains)] text-xs">
-                        {xpHistory.map((e) => (
-                          <tr
-                            key={e.id}
-                            className="border-b border-elevated-ledger/60 last:border-b-0"
-                          >
-                            <td className="px-4 py-2.5">
-                              <span className="block font-[family-name:var(--font-inter)] text-sm text-case-file-white">
-                                {e.description}
-                              </span>
-                              {e.refCode && (
-                                <span className="text-[0.625rem] text-muted-ink">
-                                  {e.refCode}
-                                </span>
-                              )}
-                            </td>
-                            <td
-                              className={`whitespace-nowrap px-4 py-2.5 text-right ${
-                                e.delta >= 0 ? "text-signal-cyan" : "text-stamp-red"
-                              }`}
-                            >
-                              {e.delta >= 0 ? "+" : ""}
-                              {e.delta}
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted-ink">
-                              {e.totalXpAfter}
-                            </td>
-                            <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted-ink">
-                              {e.currencyXpAfter}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Panel>
-            )}
-
-            <Panel title="Ledger History" bodyClassName="p-0">
-              {ledger.length === 0 ? (
-                <p className="px-5 py-6 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
-                  No gold movement recorded yet.
-                </p>
-              ) : (
-                <div className="overflow-x-auto bg-void-navy">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-elevated-ledger text-left font-[family-name:var(--font-chakra)] text-[0.5625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                      <th scope="col" className="px-4 py-2 font-semibold">Entry</th>
-                      <th scope="col" className="px-4 py-2 text-right font-semibold">Δ</th>
-                      <th scope="col" className="px-4 py-2 text-right font-semibold">Bal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-[family-name:var(--font-jetbrains)] text-xs">
-                    {ledger.map((e) => (
-                      <tr
-                        key={e.id}
-                        className="border-b border-elevated-ledger/60 last:border-b-0"
-                      >
-                        <td className="px-4 py-2.5">
-                          <span className="block font-[family-name:var(--font-inter)] text-sm text-case-file-white">
-                            {e.description}
-                          </span>
-                          {e.refCode && (
-                            <span className="text-[0.625rem] text-muted-ink">
-                              {e.refCode}
-                            </span>
-                          )}
-                        </td>
-                        <td
-                          className={`whitespace-nowrap px-4 py-2.5 text-right ${
-                            e.delta >= 0 ? "text-signal-cyan" : "text-stamp-red"
-                          }`}
-                        >
-                          {e.delta >= 0 ? "+" : ""}
-                          {e.delta}
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted-ink">
-                          {e.balanceAfter}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <Panel
+              title="Account"
+              meta={
+                <FormDialogTrigger label="Edit" title="Edit Account">
+                  <PlayerForm
+                    playerId={player.id}
+                    name={player.name ?? ""}
+                    email={player.user?.email ?? ""}
+                  />
+                </FormDialogTrigger>
+              }
+            >
+              <dl className="flex flex-col gap-3">
+                <div className="flex items-baseline justify-between gap-3 border-b border-elevated-ledger pb-3">
+                  <dt className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+                    Alias
+                  </dt>
+                  <dd className="truncate font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white">
+                    {player.name || "—"}
+                  </dd>
                 </div>
-              )}
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+                    Email
+                  </dt>
+                  <dd className="truncate text-sm text-muted-ink">
+                    {player.user?.email}
+                  </dd>
+                </div>
+              </dl>
+            </Panel>
+
+            <Panel
+              title="Gold Ledger"
+              meta={
+                <FormDialogTrigger label="Adjust" title="Adjust Gold">
+                  <GoldForm playerId={player.id} balance={player.gold} />
+                </FormDialogTrigger>
+              }
+            >
+              <div className="flex items-baseline justify-between">
+                <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+                  Current balance
+                </span>
+                <span className="font-[family-name:var(--font-jetbrains)] text-xl text-signal-cyan">
+                  {player.gold.toLocaleString()}
+                  <span className="ml-1 text-[0.625rem] uppercase text-muted-ink">Cr</span>
+                </span>
+              </div>
+            </Panel>
+
+            {characterView && (
+              <Panel
+                title="XP Ledger"
+                meta={
+                  <FormDialogTrigger label="Grant" title="Grant XP">
+                    <XpForm
+                      characterId={characterView.id}
+                      totalXp={characterView.totalXp}
+                      currencyXp={characterView.currencyXp}
+                    />
+                  </FormDialogTrigger>
+                }
+              >
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+                      Total XP
+                    </span>
+                    <span className="font-[family-name:var(--font-jetbrains)] text-xl text-signal-cyan">
+                      {characterView.totalXp.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+                      Currency XP
+                    </span>
+                    <span className="font-[family-name:var(--font-jetbrains)] text-lg text-case-file-white">
+                      {characterView.currencyXp.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </Panel>
+            )}
+
+            <Panel title="History" bodyClassName="p-0">
+              <HistoryTable rows={history} />
             </Panel>
 
             <DeleteAccount playerId={player.id} label={displayName} />
