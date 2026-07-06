@@ -90,8 +90,7 @@ export default async function RosterPage() {
                       </StatusLabel>
                     </div>
 
-                    <span className="flex items-center justify-end gap-2 font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
-                      LVL {op.level}
+                    <span className="flex items-center justify-end font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
                       <ChevronRight
                         size={16}
                         className="text-steel-blue transition-colors group-hover:text-signal-cyan"

@@ -19,7 +19,6 @@ export interface DashboardOperator {
   role: string | null;
   rank: string | null;
   status: CharacterStatus;
-  level: number;
   hp: { current: number; max: number };
 }
 
@@ -130,16 +129,15 @@ export function CommandDashboard({
                         {statusWord[op.status]}
                       </StatusLabel>
                     </div>
-                    <span className="flex shrink-0 items-center gap-1 font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
-                      LVL {op.level}
-                      {linkOperators && (
+                    {linkOperators && (
+                      <span className="flex shrink-0 items-center font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
                         <ChevronRight
                           size={16}
                           className="text-steel-blue transition-colors group-hover:text-signal-cyan"
                           aria-hidden="true"
                         />
-                      )}
-                    </span>
+                      </span>
+                    )}
                   </>
                 );
                 return (

@@ -128,10 +128,8 @@ export default async function CaseFilePage({
                 <span className="text-case-file-white">{op.role ?? "—"}</span>
               </span>
               <span>
-                LEVEL <span className="text-case-file-white">{op.level}</span>
-              </span>
-              <span>
-                XP <span className="text-case-file-white">{op.xp}</span>
+                XP{" "}
+                <span className="text-case-file-white">{op.currencyXp}</span>
               </span>
               <span>
                 CREDITS <span className="text-signal-cyan">{op.gold}</span>

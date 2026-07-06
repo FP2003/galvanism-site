@@ -12,8 +12,10 @@ import { TEXT_LIMITS } from "@/lib/game-rules";
 /*
  * Player self-service on the Case File (Phase 2): a player edits their own bio
  * and tracks their own resources (HP/Energy/Ammo). The DM can do the same on any
- * sheet. Stats, level, and gold are admin-only and live in app/admin/actions.ts.
+ * sheet. Base stats are otherwise admin-only (app/admin/actions.ts) — spending
+ * Currency XP against a purchase catalog is Phase 6 (Facilities), not here.
  */
+
 export type SheetState = { ok?: boolean; error?: string; message?: string };
 
 // Loads the character and confirms the caller may edit it (owner or admin).
@@ -123,3 +125,4 @@ export async function setCardEquipped(
   revalidatePath(`/roster/${auth.character.slug}`);
   return { ok: true, message: equipped ? "Card equipped." : "Card unequipped." };
 }
+
