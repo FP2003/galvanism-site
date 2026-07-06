@@ -56,6 +56,29 @@ export function validateAttributeAllocation(
   return { ok: true, value: values };
 }
 
+export const MAX_XP = 100_000_000; // sanity ceiling, mirrors MAX_GOLD
+
+/**
+ * Applies an admin XP grant. Grants are additive-only (never negative) — Total
+ * XP is cumulative and must never decrease, so a "correction" is a fresh
+ * reversing grant recorded in the ledger, not a negative amount here. Currency
+ * XP rises by the same amount since a grant is newly-earned spendable XP.
+ */
+export function applyXpGrant(
+  totalXp: number,
+  currencyXp: number,
+  amount: number,
+): Result<{ totalXp: number; currencyXp: number }> {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return { ok: false, error: "Amount must be a whole number greater than zero." };
+  }
+  const nextTotal = totalXp + amount;
+  if (nextTotal > MAX_XP) {
+    return { ok: false, error: "Grant would exceed the maximum XP total." };
+  }
+  return { ok: true, value: { totalXp: nextTotal, currencyXp: currencyXp + amount } };
+}
+
 /** Clamps a resource's current value into [0, max]. Used for HP/Energy/Ammo. */
 export function clampResource(value: number, max: number): number {
   if (!Number.isFinite(value)) return 0;

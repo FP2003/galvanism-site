@@ -19,8 +19,8 @@ export interface CharacterView {
   role: string | null;
   status: CharacterStatus;
   approved: boolean;
-  level: number;
-  xp: number;
+  totalXp: number;
+  currencyXp: number;
   hp: { current: number; max: number };
   energy: { current: number; max: number };
   energyRegen: number;
@@ -44,8 +44,8 @@ export function toCharacterView(
     role: c.role,
     status: c.status,
     approved: c.approved,
-    level: c.level,
-    xp: c.xp,
+    totalXp: c.totalXp,
+    currencyXp: c.currencyXp,
     hp: { current: c.hpCurrent, max: c.hpMax },
     energy: { current: c.energyCurrent, max: c.energyMax },
     energyRegen: c.energyRegen,

@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   applyGoldDelta,
+  applyXpGrant,
   clampResource,
   parseSignedInt,
   validateAttributeAllocation,
   MAX_GOLD,
+  MAX_XP,
 } from "./ledger";
 
 describe("applyGoldDelta", () => {
@@ -35,6 +37,31 @@ describe("applyGoldDelta", () => {
 
   it("rejects exceeding the maximum balance", () => {
     expect(applyGoldDelta(MAX_GOLD, 1).ok).toBe(false);
+  });
+});
+
+describe("applyXpGrant", () => {
+  it("raises both totals by the grant amount", () => {
+    expect(applyXpGrant(100, 40, 25)).toEqual({
+      ok: true,
+      value: { totalXp: 125, currencyXp: 65 },
+    });
+  });
+
+  it("rejects a zero amount", () => {
+    expect(applyXpGrant(100, 40, 0).ok).toBe(false);
+  });
+
+  it("rejects a negative amount", () => {
+    expect(applyXpGrant(100, 40, -10).ok).toBe(false);
+  });
+
+  it("rejects a non-integer amount", () => {
+    expect(applyXpGrant(100, 40, 1.5).ok).toBe(false);
+  });
+
+  it("rejects exceeding the maximum total", () => {
+    expect(applyXpGrant(MAX_XP, 0, 1).ok).toBe(false);
   });
 });
 

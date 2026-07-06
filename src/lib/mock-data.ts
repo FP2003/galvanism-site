@@ -12,7 +12,6 @@ export interface Operator {
   rank: string;
   role: string;
   status: OperatorStatus;
-  level: number;
   hp: { current: number; max: number };
   energy: { current: number; max: number };
   ammo: { current: number; max: number };
@@ -37,7 +36,6 @@ export const operators: Operator[] = [
     rank: "Custodian, Grade II",
     role: "Breacher",
     status: "active",
-    level: 4,
     hp: { current: 22, max: 28 },
     energy: { current: 5, max: 6 },
     ammo: { current: 48, max: 60 },
@@ -57,7 +55,6 @@ export const operators: Operator[] = [
     rank: "Custodian, Grade I",
     role: "Tech Specialist",
     status: "active",
-    level: 3,
     hp: { current: 16, max: 18 },
     energy: { current: 7, max: 8 },
     ammo: { current: 30, max: 40 },
@@ -76,7 +73,6 @@ export const operators: Operator[] = [
     rank: "Custodian, Grade II",
     role: "Marksman",
     status: "injured",
-    level: 4,
     hp: { current: 6, max: 24 },
     energy: { current: 3, max: 6 },
     ammo: { current: 12, max: 45 },
@@ -95,7 +91,6 @@ export const operators: Operator[] = [
     rank: "Custodian, Grade I",
     role: "Support",
     status: "standby",
-    level: 2,
     hp: { current: 20, max: 20 },
     energy: { current: 5, max: 5 },
     ammo: { current: 40, max: 40 },
