@@ -126,8 +126,8 @@ export default async function AdminPage() {
                             {p.name || p.user?.displayName || "—"}
                           </Link>
                         </td>
-                        <td className="py-2.5 pr-4 text-muted-ink capitalize">
-                          {p.user?.role}
+                        <td className="py-2.5 pr-4 text-muted-ink">
+                          {p.character?.role ?? "—"}
                         </td>
                         <td className="py-2.5 pr-4 text-muted-ink">
                           {p.character ? (
