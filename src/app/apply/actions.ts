@@ -82,8 +82,6 @@ export async function submitApplication(
       role: null,
       status: "standby",
       approved: false,
-      level: 1,
-      xp: 0,
       hpMax: BASE_HP,
       hpCurrent: BASE_HP,
       energyMax: BASE_ENERGY,

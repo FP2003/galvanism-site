@@ -6,11 +6,16 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { users, players, characters, goldLedger } from "@/lib/schema";
+import { users, players, characters, goldLedger, xpLedger } from "@/lib/schema";
 import { slugifyCallsign } from "@/lib/characters";
 import { CHARACTER_STATUSES, type CharacterStatus } from "@/lib/status";
 import { TEXT_LIMITS } from "@/lib/game-rules";
-import { applyGoldDelta, clampResource, parseSignedInt } from "@/lib/ledger";
+import {
+  applyGoldDelta,
+  applyXpGrant,
+  clampResource,
+  parseSignedInt,
+} from "@/lib/ledger";
 
 export type CreatePlayerState = {
   ok?: boolean;
@@ -128,8 +133,6 @@ function parseCharacterFields(formData: FormData):
     rank: textField(formData, "rank", TEXT_LIMITS.rank) || null,
     role: textField(formData, "role", TEXT_LIMITS.role) || null,
     status,
-    level: Math.max(1, intField(formData, "level", 1)),
-    xp: intField(formData, "xp"),
     hpMax,
     hpCurrent: clampResource(intField(formData, "hpCurrent"), hpMax),
     energyMax,
@@ -300,6 +303,66 @@ export async function adjustGold(
   return {
     ok: true,
     message: `${parsedDelta.value >= 0 ? "+" : ""}${parsedDelta.value} Cr — new balance ${result.value}.`,
+  };
+}
+
+// Grants XP to a character: Total XP and Currency XP both rise by the same
+// amount (a grant is newly-earned XP, so Total XP can't be reduced here — a
+// correction is a fresh reversing entry, same convention as the gold ledger).
+// Balance + ledger row are batched so they can't diverge. This is deliberately
+// the only path that moves XP so a future missions feature can call it directly
+// for a reward payout without touching character-sheet CRUD.
+export async function grantXp(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+
+  const characterId = textField(formData, "characterId");
+  const description = textField(formData, "description", TEXT_LIMITS.ledgerDescription);
+  const refCode = textField(formData, "refCode", TEXT_LIMITS.refCode);
+  if (!characterId) return { error: "Missing character reference." };
+  if (!description) return { error: "A description is required for the ledger." };
+
+  const amountRaw = Number(String(formData.get("amount") ?? "").trim());
+  if (!Number.isFinite(amountRaw)) return { error: "Enter a whole number." };
+
+  const db = getDb();
+  const character = await db.query.characters.findFirst({
+    where: eq(characters.id, characterId),
+  });
+  if (!character) return { error: "Character not found." };
+
+  const result = applyXpGrant(character.totalXp, character.currencyXp, Math.floor(amountRaw));
+  if (!result.ok) return { error: result.error };
+
+  await db.batch([
+    db
+      .update(characters)
+      .set({
+        totalXp: result.value.totalXp,
+        currencyXp: result.value.currencyXp,
+        updatedAt: new Date(),
+      })
+      .where(eq(characters.id, characterId)),
+    db.insert(xpLedger).values({
+      characterId,
+      description,
+      delta: Math.floor(amountRaw),
+      totalXpAfter: result.value.totalXp,
+      currencyXpAfter: result.value.currencyXp,
+      refCode: refCode || null,
+      createdByUserId: admin.id,
+    }),
+  ]);
+
+  revalidatePath("/admin");
+  revalidatePath(`/admin/players/${character.playerId}`);
+  revalidatePath("/roster");
+  revalidatePath(`/roster/${character.slug}`);
+  return {
+    ok: true,
+    message: `+${Math.floor(amountRaw)} XP — Total ${result.value.totalXp}, Currency ${result.value.currencyXp}.`,
   };
 }
 

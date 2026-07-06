@@ -138,19 +138,6 @@ export function CharacterForm({
               </Select>
             )}
           </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <NumberField
-              label="Level"
-              name="level"
-              min={1}
-              defaultValue={character?.level ?? 1}
-            />
-            <NumberField
-              label="XP"
-              name="xp"
-              defaultValue={character?.xp ?? 0}
-            />
-          </div>
         </div>
       </Section>
 

@@ -7,11 +7,12 @@ import { StatusLabel } from "@/components/ui/status-dot";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
-import { players, goldLedger } from "@/lib/schema";
+import { players, goldLedger, xpLedger } from "@/lib/schema";
 import { toCharacterView } from "@/lib/characters";
 import { getCardLibrary, getCharacterCards } from "@/lib/card-data";
 import { PlayerForm } from "./player-form";
 import { GoldForm } from "./gold-form";
+import { XpForm } from "./xp-form";
 import { CharacterForm } from "./character-form";
 import { CardAssignment } from "./card-assignment";
 import { DeleteAccount } from "./delete-account";
@@ -43,6 +44,14 @@ export default async function AdminPlayerPage({
   const characterView = player.character
     ? toCharacterView(player.character, player)
     : null;
+
+  const xpHistory = characterView
+    ? await db.query.xpLedger.findMany({
+        where: eq(xpLedger.characterId, characterView.id),
+        orderBy: [desc(xpLedger.createdAt)],
+        limit: 50,
+      })
+    : [];
 
   // Card inventory + the shared library, only when there's a character to hold them.
   const [cardLibrary, ownedCards] = player.character
@@ -158,6 +167,72 @@ export default async function AdminPlayerPage({
             <Panel title="Gold Ledger">
               <GoldForm playerId={player.id} balance={player.gold} />
             </Panel>
+
+            {characterView && (
+              <Panel title="XP Ledger">
+                <XpForm
+                  characterId={characterView.id}
+                  totalXp={characterView.totalXp}
+                  currencyXp={characterView.currencyXp}
+                />
+              </Panel>
+            )}
+
+            {characterView && (
+              <Panel title="XP History" bodyClassName="p-0">
+                {xpHistory.length === 0 ? (
+                  <p className="px-5 py-6 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
+                    No XP movement recorded yet.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto bg-void-navy">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-elevated-ledger text-left font-[family-name:var(--font-chakra)] text-[0.5625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink">
+                          <th scope="col" className="px-4 py-2 font-semibold">Entry</th>
+                          <th scope="col" className="px-4 py-2 text-right font-semibold">Δ</th>
+                          <th scope="col" className="px-4 py-2 text-right font-semibold">Total</th>
+                          <th scope="col" className="px-4 py-2 text-right font-semibold">Currency</th>
+                        </tr>
+                      </thead>
+                      <tbody className="font-[family-name:var(--font-jetbrains)] text-xs">
+                        {xpHistory.map((e) => (
+                          <tr
+                            key={e.id}
+                            className="border-b border-elevated-ledger/60 last:border-b-0"
+                          >
+                            <td className="px-4 py-2.5">
+                              <span className="block font-[family-name:var(--font-inter)] text-sm text-case-file-white">
+                                {e.description}
+                              </span>
+                              {e.refCode && (
+                                <span className="text-[0.625rem] text-muted-ink">
+                                  {e.refCode}
+                                </span>
+                              )}
+                            </td>
+                            <td
+                              className={`whitespace-nowrap px-4 py-2.5 text-right ${
+                                e.delta >= 0 ? "text-signal-cyan" : "text-stamp-red"
+                              }`}
+                            >
+                              {e.delta >= 0 ? "+" : ""}
+                              {e.delta}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted-ink">
+                              {e.totalXpAfter}
+                            </td>
+                            <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted-ink">
+                              {e.currencyXpAfter}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Panel>
+            )}
 
             <Panel title="Ledger History" bodyClassName="p-0">
               {ledger.length === 0 ? (
