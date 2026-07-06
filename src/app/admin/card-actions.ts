@@ -146,26 +146,37 @@ export async function createCard(
   };
 
   const db = getDb();
+  let cardId: string;
   try {
-    await db.transaction(async (tx) => {
-      const [card] = await tx.insert(cards).values(values).returning({ id: cards.id });
-      if (effects.length > 0) {
-        const rows: NewCardEffect[] = effects.map((e, i) => ({
-          cardId: card.id,
-          activation: e.activation,
-          effectType: e.effectType,
-          effectTarget: e.effectTarget,
-          effectAmount: e.effectAmount,
-          trigger: e.trigger,
-          sortOrder: i,
-        }));
-        await tx.insert(cardEffects).values(rows);
-      }
-    });
+    // neon-http has no transaction support, so the card and its effects are
+    // inserted separately; if the effects insert fails, the card is deleted
+    // to avoid leaving an orphaned card with no effects and no text.
+    const [card] = await db.insert(cards).values(values).returning({ id: cards.id });
+    cardId = card.id;
   } catch (err) {
     return {
       error: `Database error: ${err instanceof Error ? err.message : String(err)}`,
     };
+  }
+
+  if (effects.length > 0) {
+    try {
+      const rows: NewCardEffect[] = effects.map((e, i) => ({
+        cardId,
+        activation: e.activation,
+        effectType: e.effectType,
+        effectTarget: e.effectTarget,
+        effectAmount: e.effectAmount,
+        trigger: e.trigger,
+        sortOrder: i,
+      }));
+      await db.insert(cardEffects).values(rows);
+    } catch (err) {
+      await db.delete(cards).where(eq(cards.id, cardId));
+      return {
+        error: `Database error: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
   }
 
   revalidatePath("/admin/cards");
