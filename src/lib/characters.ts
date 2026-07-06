@@ -1,7 +1,15 @@
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and, inArray } from "drizzle-orm";
 import { getDb } from "./db";
-import { characters, players, type Character, type Player } from "./schema";
+import {
+  characters,
+  players,
+  characterCards,
+  type Character,
+  type Player,
+} from "./schema";
 import type { CharacterStatus, StatKey } from "./status";
+import { accumulateModifiers, applyModifiers } from "./cards";
+import { clampResource } from "./ledger";
 
 /*
  * Character read model (Phase 2). Flattens the DB `characters` row (plus the
@@ -63,6 +71,63 @@ export function toCharacterView(
   };
 }
 
+/**
+ * Applies equipped-card resource modifiers on top of each view's base hp/energy/
+ * ammo maxes, in one batched query — the same math the Case File's `computeLoadout`
+ * uses, but scoped to just the resource maxes the roster + dashboard render.
+ */
+async function withEffectiveResources(
+  views: CharacterView[],
+): Promise<CharacterView[]> {
+  if (views.length === 0) return views;
+  const db = getDb();
+  const rows = await db.query.characterCards.findMany({
+    where: and(
+      inArray(
+        characterCards.characterId,
+        views.map((v) => v.id),
+      ),
+      eq(characterCards.equipped, true),
+    ),
+    with: { card: { with: { effects: true } } },
+  });
+
+  const effectsByCharacter = new Map<string, (typeof rows)[number]["card"]["effects"]>();
+  for (const row of rows) {
+    const list = effectsByCharacter.get(row.characterId) ?? [];
+    list.push(...row.card.effects);
+    effectsByCharacter.set(row.characterId, list);
+  }
+
+  return views.map((view) => {
+    const effects = effectsByCharacter.get(view.id);
+    if (!effects || effects.length === 0) return view;
+
+    const mods = accumulateModifiers(effects);
+    const { effective } = applyModifiers(
+      {
+        hpMax: view.hp.max,
+        energyMax: view.energy.max,
+        ammoMax: view.ammo.max,
+      },
+      mods,
+    );
+
+    return {
+      ...view,
+      hp: { current: clampResource(view.hp.current, effective.hpMax), max: effective.hpMax },
+      energy: {
+        current: clampResource(view.energy.current, effective.energyMax),
+        max: effective.energyMax,
+      },
+      ammo: {
+        current: clampResource(view.ammo.current, effective.ammoMax),
+        max: effective.ammoMax,
+      },
+    };
+  });
+}
+
 /** Approved characters only, callsign-ordered, for the roster + dashboard. */
 export async function getRosterViews(): Promise<CharacterView[]> {
   const db = getDb();
@@ -71,7 +136,7 @@ export async function getRosterViews(): Promise<CharacterView[]> {
     with: { player: true },
     orderBy: [asc(characters.callsign)],
   });
-  return rows.map((c) => toCharacterView(c, c.player));
+  return withEffectiveResources(rows.map((c) => toCharacterView(c, c.player)));
 }
 
 export interface PendingApplication {
