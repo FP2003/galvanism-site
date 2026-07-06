@@ -104,7 +104,7 @@ export default async function AdminPage() {
                       <th scope="col" className="py-2 pr-4 font-semibold">Operator</th>
                       <th scope="col" className="py-2 pr-4 font-semibold">Email</th>
                       <th scope="col" className="py-2 pr-4 font-semibold">Character</th>
-                      <th scope="col" className="py-2 pr-4 text-right font-semibold">Gold</th>
+                      <th scope="col" className="py-2 pr-4 text-right font-semibold">Credits</th>
                       <th scope="col" className="py-2 pl-4 text-right font-semibold">
                         <span className="sr-only">Manage</span>
                       </th>
@@ -139,7 +139,7 @@ export default async function AdminPage() {
                           )}
                         </td>
                         <td className="py-2.5 pr-4 text-right font-[family-name:var(--font-jetbrains)] text-case-file-white">
-                          {p.gold.toLocaleString()}
+                          {p.credits.toLocaleString()}
                         </td>
                         <td className="py-2.5 pl-4 text-right">
                           <ChevronRight

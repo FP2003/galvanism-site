@@ -23,7 +23,7 @@ export interface Operator {
     resilience: number;
     agility: number;
   };
-  gold: number;
+  credits: number;
   bio: string;
   ledger: { entry: string; delta: number; op: string }[];
 }
@@ -40,7 +40,7 @@ export const operators: Operator[] = [
     energy: { current: 5, max: 6 },
     ammo: { current: 48, max: 60 },
     stats: { tech: 2, precision: 4, strength: 5, immunity: 100, resilience: 6, agility: 3 },
-    gold: 1240,
+    credits: 1240,
     bio: "Transferred into Regiment Foxtrot after two tours clearing the Embarcadero contested zone. Prefers close-quarters resolution. Flagged twice for exceeding force authorization; retained for effectiveness.",
     ledger: [
       { entry: "Operation payout — Sublevel sweep", delta: 400, op: "OP-0142" },
@@ -59,7 +59,7 @@ export const operators: Operator[] = [
     energy: { current: 7, max: 8 },
     ammo: { current: 30, max: 40 },
     stats: { tech: 6, precision: 3, strength: 1, immunity: 100, resilience: 3, agility: 4 },
-    gold: 890,
+    credits: 890,
     bio: "Recruited out of the Sector 9 conscription lottery. Maintains the regiment's intrusion and diagnostics kit. Quiet, meticulous, distrusted by command for asking where the funding comes from.",
     ledger: [
       { entry: "Operation payout — Relay tap", delta: 320, op: "OP-0139" },
@@ -77,7 +77,7 @@ export const operators: Operator[] = [
     energy: { current: 3, max: 6 },
     ammo: { current: 12, max: 45 },
     stats: { tech: 3, precision: 6, strength: 3, immunity: 100, resilience: 4, agility: 5 },
-    gold: 1610,
+    credits: 1610,
     bio: "Longest-serving member of Foxtrot. Took shrapnel during the Pier 70 extraction and is on medical hold pending Medical Center capacity.",
     ledger: [
       { entry: "Operation payout — Overwatch, Pier 70", delta: 520, op: "OP-0141" },
@@ -95,7 +95,7 @@ export const operators: Operator[] = [
     energy: { current: 5, max: 5 },
     ammo: { current: 40, max: 40 },
     stats: { tech: 4, precision: 2, strength: 2, immunity: 100, resilience: 5, agility: 3 },
-    gold: 430,
+    credits: 430,
     bio: "Newest transfer, still completing orientation. Assigned to the station rebuild detail until cleared for field operations.",
     ledger: [{ entry: "Enlistment stipend", delta: 250, op: "ADM-0007" }],
   },

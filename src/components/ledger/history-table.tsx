@@ -1,11 +1,11 @@
 import { Coins, Sparkles } from "lucide-react";
 
-// Merged gold + XP ledger row, sorted by createdAt desc by the caller. Keeping
-// a single feed (rather than two tables) means the DM can see everything that
-// happened to a player in one chronological scan.
+// Merged credit + XP ledger row, sorted by createdAt desc by the caller.
+// Keeping a single feed (rather than two tables) means the DM can see
+// everything that happened to a player in one chronological scan.
 export type HistoryRow = {
   id: string;
-  type: "gold" | "xp";
+  type: "credit" | "xp";
   createdAt: Date;
   description: string;
   refCode: string | null;
@@ -14,7 +14,7 @@ export type HistoryRow = {
 };
 
 const typeMeta = {
-  gold: { label: "Gold", icon: Coins, className: "text-signal-cyan" },
+  credit: { label: "Credit", icon: Coins, className: "text-signal-cyan" },
   xp: { label: "XP", icon: Sparkles, className: "text-signal-cyan" },
 } as const;
 
@@ -22,7 +22,7 @@ export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
   if (rows.length === 0) {
     return (
       <p className="px-5 py-6 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
-        No gold or XP movement recorded yet.
+        No credit or XP movement recorded yet.
       </p>
     );
   }

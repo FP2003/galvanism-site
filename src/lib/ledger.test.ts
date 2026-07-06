@@ -1,42 +1,42 @@
 import { describe, it, expect } from "vitest";
 import {
-  applyGoldDelta,
+  applyCreditsDelta,
   applyXpGrant,
   clampResource,
   parseSignedInt,
   validateAttributeAllocation,
-  MAX_GOLD,
+  MAX_CREDITS,
   MAX_XP,
 } from "./ledger";
 
-describe("applyGoldDelta", () => {
+describe("applyCreditsDelta", () => {
   it("adds a positive delta", () => {
-    expect(applyGoldDelta(100, 400)).toEqual({ ok: true, value: 500 });
+    expect(applyCreditsDelta(100, 400)).toEqual({ ok: true, value: 500 });
   });
 
   it("subtracts a negative delta", () => {
-    expect(applyGoldDelta(500, -60)).toEqual({ ok: true, value: 440 });
+    expect(applyCreditsDelta(500, -60)).toEqual({ ok: true, value: 440 });
   });
 
   it("allows spending down to exactly zero", () => {
-    expect(applyGoldDelta(60, -60)).toEqual({ ok: true, value: 0 });
+    expect(applyCreditsDelta(60, -60)).toEqual({ ok: true, value: 0 });
   });
 
   it("refuses to overdraw below zero", () => {
-    const r = applyGoldDelta(50, -60);
+    const r = applyCreditsDelta(50, -60);
     expect(r.ok).toBe(false);
   });
 
   it("rejects a zero delta", () => {
-    expect(applyGoldDelta(100, 0).ok).toBe(false);
+    expect(applyCreditsDelta(100, 0).ok).toBe(false);
   });
 
   it("rejects a non-integer delta", () => {
-    expect(applyGoldDelta(100, 1.5).ok).toBe(false);
+    expect(applyCreditsDelta(100, 1.5).ok).toBe(false);
   });
 
   it("rejects exceeding the maximum balance", () => {
-    expect(applyGoldDelta(MAX_GOLD, 1).ok).toBe(false);
+    expect(applyCreditsDelta(MAX_CREDITS, 1).ok).toBe(false);
   });
 });
 

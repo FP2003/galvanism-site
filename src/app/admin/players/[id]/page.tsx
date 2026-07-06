@@ -8,11 +8,11 @@ import { FormDialogTrigger } from "@/components/ui/form-dialog-trigger";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
-import { players, goldLedger, xpLedger } from "@/lib/schema";
+import { players, creditLedger, xpLedger } from "@/lib/schema";
 import { toCharacterView } from "@/lib/characters";
 import { getCardLibrary, getCharacterCards } from "@/lib/card-data";
 import { PlayerForm } from "./player-form";
-import { GoldForm } from "./gold-form";
+import { CreditForm } from "./credit-form";
 import { XpForm } from "./xp-form";
 import { CharacterForm } from "./character-form";
 import { CardAssignment } from "./card-assignment";
@@ -22,7 +22,7 @@ import { HistoryTable, type HistoryRow } from "@/components/ledger/history-table
 import { ApplicationActions } from "../../application-actions";
 
 // Admin player-management console (info/roadmap.md Phase 2). Full CRUD for one
-// player: account info, gold ledger, and the character sheet.
+// player: account info, credit ledger, and the character sheet.
 export default async function AdminPlayerPage({
   params,
 }: {
@@ -38,9 +38,9 @@ export default async function AdminPlayerPage({
   });
   if (!player) notFound();
 
-  const ledger = await db.query.goldLedger.findMany({
-    where: eq(goldLedger.playerId, id),
-    orderBy: [desc(goldLedger.createdAt)],
+  const ledger = await db.query.creditLedger.findMany({
+    where: eq(creditLedger.playerId, id),
+    orderBy: [desc(creditLedger.createdAt)],
     limit: 50,
   });
 
@@ -65,13 +65,13 @@ export default async function AdminPlayerPage({
     : [[], []];
   const displayName = player.name || player.user?.displayName || player.user?.email || "Operator";
 
-  // Merge gold + XP into one chronological feed instead of two separate
+  // Merge credit + XP into one chronological feed instead of two separate
   // history tables — the DM reads a single timeline of everything that
   // happened to this player.
   const history: HistoryRow[] = [
     ...ledger.map((e) => ({
-      id: `gold:${e.id}`,
-      type: "gold" as const,
+      id: `credit:${e.id}`,
+      type: "credit" as const,
       createdAt: e.createdAt,
       description: e.description,
       refCode: e.refCode,
@@ -183,7 +183,7 @@ export default async function AdminPlayerPage({
           )}
           </div>
 
-          {/* Right rail: account + gold */}
+          {/* Right rail: account + credits */}
           <div className="flex flex-col gap-6">
             <Panel
               title="Account"
@@ -224,7 +224,7 @@ export default async function AdminPlayerPage({
                   <MissionPayoutForm
                     playerId={player.id}
                     characterId={characterView?.id ?? null}
-                    balance={player.gold}
+                    balance={player.credits}
                     totalXp={characterView?.totalXp ?? null}
                     currencyXp={characterView?.currencyXp ?? null}
                   />
@@ -232,16 +232,15 @@ export default async function AdminPlayerPage({
               }
             >
               <p className="font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
-                Post a gold and/or XP reward together under one shared description.
+                Post a credits and/or XP reward together under one shared description.
               </p>
             </Panel>
 
-
             <Panel
-              title="Gold Ledger"
+              title="Credit Ledger"
               meta={
-                <FormDialogTrigger label="Adjust" title="Adjust Gold">
-                  <GoldForm playerId={player.id} balance={player.gold} />
+                <FormDialogTrigger label="Adjust" title="Adjust Credits">
+                  <CreditForm playerId={player.id} balance={player.credits} />
                 </FormDialogTrigger>
               }
             >
@@ -250,7 +249,7 @@ export default async function AdminPlayerPage({
                   Current balance
                 </span>
                 <span className="font-[family-name:var(--font-jetbrains)] text-xl text-signal-cyan">
-                  {player.gold.toLocaleString()}
+                  {player.credits.toLocaleString()}
                   <span className="ml-1 text-[0.625rem] uppercase text-muted-ink">Cr</span>
                 </span>
               </div>

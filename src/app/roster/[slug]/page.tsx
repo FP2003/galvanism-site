@@ -8,7 +8,7 @@ import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { goldLedger, xpLedger } from "@/lib/schema";
+import { creditLedger, xpLedger } from "@/lib/schema";
 import { HistoryTable, type HistoryRow } from "@/components/ledger/history-table";
 import { getCharacterBySlug } from "@/lib/characters";
 import { getCharacterCards, computeLoadout } from "@/lib/card-data";
@@ -59,9 +59,9 @@ export default async function CaseFilePage({
 
   const db = getDb();
   const [ledger, xpHistory, ownedCards] = await Promise.all([
-    db.query.goldLedger.findMany({
-      where: eq(goldLedger.playerId, op.playerId),
-      orderBy: [desc(goldLedger.createdAt)],
+    db.query.creditLedger.findMany({
+      where: eq(creditLedger.playerId, op.playerId),
+      orderBy: [desc(creditLedger.createdAt)],
       limit: 50,
     }),
     db.query.xpLedger.findMany({
@@ -72,13 +72,13 @@ export default async function CaseFilePage({
     getCharacterCards(op.id),
   ]);
 
-  // Merge gold + XP into one chronological feed (mirrors the admin console's
+  // Merge credit + XP into one chronological feed (mirrors the admin console's
   // player page) so the operator sees everything that happened to them in one
   // scan instead of hunting for XP grants elsewhere.
   const history: HistoryRow[] = [
     ...ledger.map((e) => ({
-      id: `gold:${e.id}`,
-      type: "gold" as const,
+      id: `credit:${e.id}`,
+      type: "credit" as const,
       createdAt: e.createdAt,
       description: e.description,
       refCode: e.refCode,
@@ -164,7 +164,7 @@ export default async function CaseFilePage({
                 <span className="text-case-file-white">{op.currencyXp}</span>
               </span>
               <span>
-                CREDITS <span className="text-signal-cyan">{op.gold}</span>
+                CREDITS <span className="text-signal-cyan">{op.credits}</span>
               </span>
             </div>
           </div>

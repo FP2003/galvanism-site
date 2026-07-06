@@ -18,9 +18,9 @@ function SubmitButton() {
   );
 }
 
-// Posts a gold delta and an XP grant together under one shared description —
+// Posts a credits delta and an XP grant together under one shared description —
 // the common case at the end of a mission, so the DM doesn't have to open the
-// Gold and XP dialogs separately for the same reward. Either amount can be
+// Credit and XP dialogs separately for the same reward. Either amount can be
 // left blank to post a single-ledger entry instead.
 export function MissionPayoutForm({
   playerId,
@@ -70,11 +70,11 @@ export function MissionPayoutForm({
         </div>
       )}
 
-      <Field label="Gold" hint="Optional — negative for a debit. Leave blank to skip.">
+      <Field label="Credits" hint="Optional — negative for a debit. Leave blank to skip.">
         {(id) => (
           <TextInput
             id={id}
-            name="gold"
+            name="credits"
             inputMode="numeric"
             autoComplete="off"
             placeholder="+400"

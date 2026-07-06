@@ -50,6 +50,13 @@
       "when": 1783372031829,
       "tag": "0006_drop_xp_upgrades",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783376270123,
+      "tag": "0007_unknown_maginty",
+      "breakpoints": true
     }
   ]
 }

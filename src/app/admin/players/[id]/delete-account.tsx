@@ -42,7 +42,7 @@ export function DeleteAccount({
             Remove account
           </p>
           <p className="mt-1 font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
-            Permanently deletes {label}&apos;s sign-in, character sheet, and gold
+            Permanently deletes {label}&apos;s sign-in, character sheet, and credit
             ledger. This cannot be undone.
           </p>
         </div>

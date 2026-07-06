@@ -6,7 +6,7 @@ import { Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, TextInput, FormMessage } from "@/components/ui/form";
 import { TEXT_LIMITS } from "@/lib/game-rules";
-import { adjustGold, type FormState } from "@/app/admin/actions";
+import { adjustCredits, type FormState } from "@/app/admin/actions";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -18,17 +18,17 @@ function SubmitButton() {
   );
 }
 
-// Posts a signed gold delta with a mandatory ledger description. Positive credits
-// (payouts), negative debits (purchases/fines). The running balance and history
-// render on the page from the ledger table.
-export function GoldForm({
+// Posts a signed credits delta with a mandatory ledger description. Positive
+// credits (payouts), negative debits (purchases/fines). The running balance
+// and history render on the page from the ledger table.
+export function CreditForm({
   playerId,
   balance,
 }: {
   playerId: string;
   balance: number;
 }) {
-  const [state, formAction] = useActionState<FormState, FormData>(adjustGold, {});
+  const [state, formAction] = useActionState<FormState, FormData>(adjustCredits, {});
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {

@@ -78,7 +78,7 @@ export const players = pgTable("players", {
     .unique()
     .references(() => users.id, { onDelete: "cascade" }),
   name: text("name"), // operator's gaming alias (e.g. "EpicGamerName"), distinct from the character callsign
-  gold: integer("gold").notNull().default(0),
+  credits: integer("credits").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -149,7 +149,7 @@ export const playersRelations = relations(players, ({ one, many }) => ({
     fields: [players.id],
     references: [characters.playerId],
   }),
-  ledger: many(goldLedger),
+  ledger: many(creditLedger),
 }));
 
 export const charactersRelations = relations(characters, ({ one, many }) => ({
@@ -160,12 +160,13 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   xpLedger: many(xpLedger),
 }));
 
-// Append-only record of every gold change (Phase 2 — the player's read-only gold
-// ledger). `players.gold` stays the live balance; each adjustment writes one row
-// here with the resulting `balanceAfter` for display. Phase 4's audit log builds
-// on this table. Never updated in place — corrections are new (reversing) rows.
-export const goldLedger = pgTable(
-  "gold_ledger",
+// Append-only record of every credit change (Phase 2 — the player's read-only
+// credit ledger). `players.credits` stays the live balance; each adjustment
+// writes one row here with the resulting `balanceAfter` for display. Phase 4's
+// audit log builds on this table. Never updated in place — corrections are new
+// (reversing) rows.
+export const creditLedger = pgTable(
+  "credit_ledger",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     playerId: uuid("player_id")
@@ -182,12 +183,12 @@ export const goldLedger = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("gold_ledger_player_idx").on(t.playerId, t.createdAt)],
+  (t) => [index("credit_ledger_player_idx").on(t.playerId, t.createdAt)],
 );
 
-export const goldLedgerRelations = relations(goldLedger, ({ one }) => ({
+export const creditLedgerRelations = relations(creditLedger, ({ one }) => ({
   player: one(players, {
-    fields: [goldLedger.playerId],
+    fields: [creditLedger.playerId],
     references: [players.id],
   }),
 }));
@@ -196,7 +197,7 @@ export const goldLedgerRelations = relations(goldLedger, ({ one }) => ({
 // admin grants only (positive delta); Phase 6 (Facilities) will add spend rows
 // (negative delta) once players have somewhere to spend Currency XP. Never
 // updated in place — corrections are new (reversing) rows, same convention as
-// `goldLedger`.
+// `creditLedger`.
 export const xpLedger = pgTable(
   "xp_ledger",
   {
@@ -335,7 +336,7 @@ export const characterCardsRelations = relations(characterCards, ({ one }) => ({
 export type User = typeof users.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Character = typeof characters.$inferSelect;
-export type GoldLedgerEntry = typeof goldLedger.$inferSelect;
+export type CreditLedgerEntry = typeof creditLedger.$inferSelect;
 export type XpLedgerEntry = typeof xpLedger.$inferSelect;
 export type Card = typeof cards.$inferSelect;
 export type NewCard = typeof cards.$inferInsert;

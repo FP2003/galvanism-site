@@ -1,20 +1,21 @@
 /*
- * Pure gold-ledger and resource math (Phase 2). Kept free of DB/Clerk imports so
- * it's unit-testable in isolation — the roadmap calls out the gold/stat ledger as
- * logic that's expensive to get wrong silently, so its rules live here behind
- * tests (lib/ledger.test.ts) and the server actions only orchestrate I/O.
+ * Pure credit-ledger and resource math (Phase 2). Kept free of DB/Clerk imports
+ * so it's unit-testable in isolation — the roadmap calls out the credit/stat
+ * ledger as logic that's expensive to get wrong silently, so its rules live
+ * here behind tests (lib/ledger.test.ts) and the server actions only
+ * orchestrate I/O.
  */
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
-export const MAX_GOLD = 100_000_000; // sanity ceiling; guards fat-fingered deltas
+export const MAX_CREDITS = 100_000_000; // sanity ceiling; guards fat-fingered deltas
 
 /**
- * Validates a gold adjustment against the current balance and returns the new
+ * Validates a credit adjustment against the current balance and returns the new
  * balance. Delta must be a non-zero integer; the result may not go negative
- * (an operator can't owe the treasury) nor exceed MAX_GOLD.
+ * (an operator can't owe the treasury) nor exceed MAX_CREDITS.
  */
-export function applyGoldDelta(current: number, delta: number): Result<number> {
+export function applyCreditsDelta(current: number, delta: number): Result<number> {
   if (!Number.isInteger(delta)) {
     return { ok: false, error: "Amount must be a whole number." };
   }
@@ -28,7 +29,7 @@ export function applyGoldDelta(current: number, delta: number): Result<number> {
       error: `Adjustment would overdraw the account (balance ${current}, change ${delta}).`,
     };
   }
-  if (next > MAX_GOLD) {
+  if (next > MAX_CREDITS) {
     return { ok: false, error: "Adjustment exceeds the maximum balance." };
   }
   return { ok: true, value: next };
@@ -56,7 +57,7 @@ export function validateAttributeAllocation(
   return { ok: true, value: values };
 }
 
-export const MAX_XP = 100_000_000; // sanity ceiling, mirrors MAX_GOLD
+export const MAX_XP = 100_000_000; // sanity ceiling, mirrors MAX_CREDITS
 
 /**
  * Applies an admin XP grant. Grants are additive-only (never negative) — Total

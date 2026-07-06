@@ -18,8 +18,8 @@ function SubmitButton() {
   );
 }
 
-// Edits player-account fields (gaming alias). Email is Clerk-owned; gold is
-// handled by the ledger form so every balance change is audited.
+// Edits player-account fields (gaming alias). Email is Clerk-owned; the credits
+// balance is handled by the ledger form so every change is audited.
 export function PlayerForm({
   playerId,
   name,

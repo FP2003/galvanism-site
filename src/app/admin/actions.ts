@@ -6,12 +6,12 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { users, players, characters, goldLedger, xpLedger } from "@/lib/schema";
+import { users, players, characters, creditLedger, xpLedger } from "@/lib/schema";
 import { slugifyCallsign } from "@/lib/characters";
 import { CHARACTER_STATUSES, type CharacterStatus } from "@/lib/status";
 import { TEXT_LIMITS } from "@/lib/game-rules";
 import {
-  applyGoldDelta,
+  applyCreditsDelta,
   applyXpGrant,
   clampResource,
   parseSignedInt,
@@ -72,7 +72,7 @@ export async function createPlayerAccount(
     await db.insert(players).values({
       userId: clerkUserId,
       name: name || null,
-      gold: 0,
+      credits: 0,
     });
   } catch (err) {
     await client.users.deleteUser(clerkUserId).catch(() => {});
@@ -89,7 +89,7 @@ export async function createPlayerAccount(
 }
 
 // ---------------------------------------------------------------------------
-// Phase 2 — character CRUD, player info, and gold ledger (admin only).
+// Phase 2 — character CRUD, player info, and credit ledger (admin only).
 // ---------------------------------------------------------------------------
 
 export type FormState = { ok?: boolean; error?: string; message?: string };
@@ -226,8 +226,8 @@ export async function updateCharacter(
   return { ok: true, message: "Character sheet updated." };
 }
 
-// Edits player-account info (operator name). Gold is handled by adjustGold so
-// every balance change is ledgered.
+// Edits player-account info (operator name). The credits balance is handled
+// by adjustCredits so every change is ledgered.
 export async function updatePlayer(
   _prev: FormState,
   formData: FormData,
@@ -255,9 +255,9 @@ export async function updatePlayer(
   return { ok: true, message: "Player info updated." };
 }
 
-// Applies a gold delta and appends the ledger row in a single batch so the
+// Applies a credits delta and appends the ledger row in a single batch so the
 // balance and its audit entry can't diverge. Adjustment rules live in lib/ledger.
-export async function adjustGold(
+export async function adjustCredits(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
@@ -278,15 +278,15 @@ export async function adjustGold(
   });
   if (!player) return { error: "Player not found." };
 
-  const result = applyGoldDelta(player.gold, parsedDelta.value);
+  const result = applyCreditsDelta(player.credits, parsedDelta.value);
   if (!result.ok) return { error: result.error };
 
   await db.batch([
     db
       .update(players)
-      .set({ gold: result.value, updatedAt: new Date() })
+      .set({ credits: result.value, updatedAt: new Date() })
       .where(eq(players.id, playerId)),
-    db.insert(goldLedger).values({
+    db.insert(creditLedger).values({
       playerId,
       description,
       delta: parsedDelta.value,
@@ -308,7 +308,7 @@ export async function adjustGold(
 
 // Grants XP to a character: Total XP and Currency XP both rise by the same
 // amount (a grant is newly-earned XP, so Total XP can't be reduced here — a
-// correction is a fresh reversing entry, same convention as the gold ledger).
+// correction is a fresh reversing entry, same convention as the credit ledger).
 // Balance + ledger row are batched so they can't diverge. This is deliberately
 // the only path that moves XP so a future missions feature can call it directly
 // for a reward payout without touching character-sheet CRUD.
@@ -366,7 +366,7 @@ export async function grantXp(
   };
 }
 
-// Posts a gold delta and an XP grant together under one shared description —
+// Posts a credits delta and an XP grant together under one shared description —
 // a mission payout touches both ledgers, and posting them as two separate
 // actions risks a half-applied reward if the admin only completes one. Either
 // amount can be left blank to post a single-ledger entry through this form.
@@ -383,17 +383,17 @@ export async function postMissionPayout(
   if (!playerId) return { error: "Missing player reference." };
   if (!description) return { error: "A description is required for the ledger." };
 
-  const goldRaw = String(formData.get("gold") ?? "").trim();
+  const creditsRaw = String(formData.get("credits") ?? "").trim();
   const xpRaw = String(formData.get("xp") ?? "").trim();
-  if (!goldRaw && !xpRaw) {
-    return { error: "Enter a gold amount, an XP amount, or both." };
+  if (!creditsRaw && !xpRaw) {
+    return { error: "Enter a credit amount, an XP amount, or both." };
   }
 
-  let goldDelta: number | null = null;
-  if (goldRaw) {
-    const parsed = parseSignedInt(formData.get("gold"));
+  let creditsDelta: number | null = null;
+  if (creditsRaw) {
+    const parsed = parseSignedInt(formData.get("credits"));
     if (!parsed.ok) return { error: parsed.error };
-    goldDelta = parsed.value;
+    creditsDelta = parsed.value;
   }
 
   let xpAmount: number | null = null;
@@ -412,11 +412,11 @@ export async function postMissionPayout(
   });
   if (!player) return { error: "Player not found." };
 
-  let goldResult: { value: number } | null = null;
-  if (goldDelta !== null) {
-    const result = applyGoldDelta(player.gold, goldDelta);
+  let creditsResult: { value: number } | null = null;
+  if (creditsDelta !== null) {
+    const result = applyCreditsDelta(player.credits, creditsDelta);
     if (!result.ok) return { error: result.error };
-    goldResult = result;
+    creditsResult = result;
   }
 
   let character: typeof characters.$inferSelect | null = null;
@@ -431,17 +431,17 @@ export async function postMissionPayout(
     xpResult = result;
   }
 
-  if (goldResult && xpResult && character) {
+  if (creditsResult && xpResult && character) {
     await db.batch([
       db
         .update(players)
-        .set({ gold: goldResult.value, updatedAt: new Date() })
+        .set({ credits: creditsResult.value, updatedAt: new Date() })
         .where(eq(players.id, playerId)),
-      db.insert(goldLedger).values({
+      db.insert(creditLedger).values({
         playerId,
         description,
-        delta: goldDelta!,
-        balanceAfter: goldResult.value,
+        delta: creditsDelta!,
+        balanceAfter: creditsResult.value,
         refCode: refCode || null,
         createdByUserId: admin.id,
       }),
@@ -463,17 +463,17 @@ export async function postMissionPayout(
         createdByUserId: admin.id,
       }),
     ]);
-  } else if (goldResult) {
+  } else if (creditsResult) {
     await db.batch([
       db
         .update(players)
-        .set({ gold: goldResult.value, updatedAt: new Date() })
+        .set({ credits: creditsResult.value, updatedAt: new Date() })
         .where(eq(players.id, playerId)),
-      db.insert(goldLedger).values({
+      db.insert(creditLedger).values({
         playerId,
         description,
-        delta: goldDelta!,
-        balanceAfter: goldResult.value,
+        delta: creditsDelta!,
+        balanceAfter: creditsResult.value,
         refCode: refCode || null,
         createdByUserId: admin.id,
       }),
@@ -507,7 +507,7 @@ export async function postMissionPayout(
   if (character) revalidatePath(`/roster/${character.slug}`);
 
   const parts: string[] = [];
-  if (goldResult) parts.push(`${goldDelta! >= 0 ? "+" : ""}${goldDelta} Cr`);
+  if (creditsResult) parts.push(`${creditsDelta! >= 0 ? "+" : ""}${creditsDelta} Cr`);
   if (xpResult) parts.push(`+${xpAmount} XP`);
   return { ok: true, message: `${parts.join(" · ")} posted.` };
 }
@@ -587,7 +587,7 @@ export async function deletePlayerAccount(
     };
   }
 
-  // Cascades to players → characters → gold_ledger via FK onDelete.
+  // Cascades to players → characters → credit_ledger via FK onDelete.
   try {
     await db.delete(users).where(eq(users.id, player.userId));
   } catch (err) {

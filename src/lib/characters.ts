@@ -5,9 +5,9 @@ import type { CharacterStatus, StatKey } from "./status";
 
 /*
  * Character read model (Phase 2). Flattens the DB `characters` row (plus the
- * owning player's gold) into the nested shape the Case File / roster / dashboard
- * render — the same shape the Phase 0 mock fixtures used, so the presentational
- * components didn't have to change when the data went live.
+ * owning player's credits) into the nested shape the Case File / roster /
+ * dashboard render — the same shape the Phase 0 mock fixtures used, so the
+ * presentational components didn't have to change when the data went live.
  */
 export interface CharacterView {
   id: string;
@@ -26,13 +26,13 @@ export interface CharacterView {
   energyRegen: number;
   ammo: { current: number; max: number };
   stats: Record<StatKey, number>;
-  gold: number;
+  credits: number;
   bio: string | null;
 }
 
 export function toCharacterView(
   c: Character,
-  player: Pick<Player, "gold">,
+  player: Pick<Player, "credits">,
 ): CharacterView {
   return {
     id: c.id,
@@ -58,7 +58,7 @@ export function toCharacterView(
       resilience: c.statResilience,
       agility: c.statAgility,
     },
-    gold: player.gold,
+    credits: player.credits,
     bio: c.bio,
   };
 }
