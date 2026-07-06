@@ -102,9 +102,11 @@ export default async function AdminPage() {
                   <thead>
                     <tr className="border-b border-elevated-ledger font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase tracking-[0.1em] text-muted-ink">
                       <th scope="col" className="py-2 pr-4 font-semibold">Operator</th>
-                      <th scope="col" className="py-2 pr-4 font-semibold">Email</th>
+                      <th scope="col" className="py-2 pr-4 font-semibold">Role</th>
                       <th scope="col" className="py-2 pr-4 font-semibold">Character</th>
                       <th scope="col" className="py-2 pr-4 text-right font-semibold">Credits</th>
+                      <th scope="col" className="py-2 pr-4 text-right font-semibold">XP</th>
+                      <th scope="col" className="py-2 pr-4 text-right font-semibold">XP Total</th>
                       <th scope="col" className="py-2 pl-4 text-right font-semibold">
                         <span className="sr-only">Manage</span>
                       </th>
@@ -124,8 +126,8 @@ export default async function AdminPage() {
                             {p.name || p.user?.displayName || "—"}
                           </Link>
                         </td>
-                        <td className="py-2.5 pr-4 text-muted-ink">
-                          {p.user?.email}
+                        <td className="py-2.5 pr-4 text-muted-ink capitalize">
+                          {p.user?.role}
                         </td>
                         <td className="py-2.5 pr-4 text-muted-ink">
                           {p.character ? (
@@ -140,6 +142,12 @@ export default async function AdminPage() {
                         </td>
                         <td className="py-2.5 pr-4 text-right font-[family-name:var(--font-jetbrains)] text-case-file-white">
                           {p.credits.toLocaleString()}
+                        </td>
+                        <td className="py-2.5 pr-4 text-right font-[family-name:var(--font-jetbrains)] text-case-file-white">
+                          {p.character ? p.character.currencyXp.toLocaleString() : "—"}
+                        </td>
+                        <td className="py-2.5 pr-4 text-right font-[family-name:var(--font-jetbrains)] text-muted-ink">
+                          {p.character ? p.character.totalXp.toLocaleString() : "—"}
                         </td>
                         <td className="py-2.5 pl-4 text-right">
                           <ChevronRight
