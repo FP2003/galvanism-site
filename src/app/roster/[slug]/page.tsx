@@ -8,7 +8,8 @@ import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { goldLedger } from "@/lib/schema";
+import { goldLedger, xpLedger } from "@/lib/schema";
+import { HistoryTable, type HistoryRow } from "@/components/ledger/history-table";
 import { getCharacterBySlug } from "@/lib/characters";
 import { getCharacterCards, computeLoadout } from "@/lib/card-data";
 import { CARD_CATEGORY_META } from "@/lib/cards";
@@ -57,14 +58,45 @@ export default async function CaseFilePage({
   if (!op.approved && !canEdit) notFound();
 
   const db = getDb();
-  const [ledger, ownedCards] = await Promise.all([
+  const [ledger, xpHistory, ownedCards] = await Promise.all([
     db.query.goldLedger.findMany({
       where: eq(goldLedger.playerId, op.playerId),
       orderBy: [desc(goldLedger.createdAt)],
       limit: 50,
     }),
+    db.query.xpLedger.findMany({
+      where: eq(xpLedger.characterId, op.id),
+      orderBy: [desc(xpLedger.createdAt)],
+      limit: 50,
+    }),
     getCharacterCards(op.id),
   ]);
+
+  // Merge gold + XP into one chronological feed (mirrors the admin console's
+  // player page) so the operator sees everything that happened to them in one
+  // scan instead of hunting for XP grants elsewhere.
+  const history: HistoryRow[] = [
+    ...ledger.map((e) => ({
+      id: `gold:${e.id}`,
+      type: "gold" as const,
+      createdAt: e.createdAt,
+      description: e.description,
+      refCode: e.refCode,
+      delta: e.delta,
+      after: `${e.balanceAfter.toLocaleString()} Cr`,
+    })),
+    ...xpHistory.map((e) => ({
+      id: `xp:${e.id}`,
+      type: "xp" as const,
+      createdAt: e.createdAt,
+      description: e.description,
+      refCode: e.refCode,
+      delta: e.delta,
+      after: `${e.currencyXpAfter.toLocaleString()} XP`,
+    })),
+  ]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, 50);
 
   // Effective sheet = base stats + equipped card modifiers (computed, never
   // written back — see lib/card-data). Cards on a pending, non-owner-visible
@@ -240,55 +272,8 @@ export default async function CaseFilePage({
               <BioEditor characterId={op.id} bio={op.bio} canEdit={canEdit} />
             </Panel>
 
-            <Panel
-              title="Credit Ledger"
-              meta={
-                <span className="font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
-                  BAL <span className="text-signal-cyan">{op.gold}</span>
-                </span>
-              }
-              bodyClassName="p-0"
-            >
-              {ledger.length === 0 ? (
-                <p className="px-5 py-8 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
-                  No credit movement recorded yet.
-                </p>
-              ) : (
-                <div className="overflow-x-auto bg-void-navy">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-elevated-ledger text-left font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                      <th scope="col" className="px-5 py-2 font-semibold">Entry</th>
-                      <th scope="col" className="px-5 py-2 font-semibold">Ref</th>
-                      <th scope="col" className="px-5 py-2 text-right font-semibold">Δ Cr</th>
-                    </tr>
-                  </thead>
-                  <tbody className="font-[family-name:var(--font-jetbrains)] text-xs">
-                    {ledger.map((e) => (
-                      <tr
-                        key={e.id}
-                        className="border-b border-elevated-ledger last:border-b-0"
-                      >
-                        <td className="px-5 py-2.5 font-[family-name:var(--font-inter)] text-sm text-case-file-white">
-                          {e.description}
-                        </td>
-                        <td className="whitespace-nowrap px-5 py-2.5 text-muted-ink">
-                          {e.refCode ?? "—"}
-                        </td>
-                        <td
-                          className={`whitespace-nowrap px-5 py-2.5 text-right ${
-                            e.delta >= 0 ? "text-signal-cyan" : "text-stamp-red"
-                          }`}
-                        >
-                          {e.delta >= 0 ? "+" : ""}
-                          {e.delta}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
-              )}
+            <Panel title="History" bodyClassName="p-0">
+              <HistoryTable rows={history} />
             </Panel>
 
             {(loadout.activeModifiers.length > 0 ||

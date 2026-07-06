@@ -14,7 +14,7 @@ export type HistoryRow = {
 };
 
 const typeMeta = {
-  gold: { label: "Gold", icon: Coins, className: "text-muted-ink" },
+  gold: { label: "Gold", icon: Coins, className: "text-signal-cyan" },
   xp: { label: "XP", icon: Sparkles, className: "text-signal-cyan" },
 } as const;
 

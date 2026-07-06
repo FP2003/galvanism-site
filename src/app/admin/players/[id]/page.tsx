@@ -17,7 +17,8 @@ import { XpForm } from "./xp-form";
 import { CharacterForm } from "./character-form";
 import { CardAssignment } from "./card-assignment";
 import { DeleteAccount } from "./delete-account";
-import { HistoryTable, type HistoryRow } from "./history-table";
+import { MissionPayoutForm } from "./mission-payout-form";
+import { HistoryTable, type HistoryRow } from "@/components/ledger/history-table";
 import { ApplicationActions } from "../../application-actions";
 
 // Admin player-management console (info/roadmap.md Phase 2). Full CRUD for one
@@ -84,7 +85,7 @@ export default async function AdminPlayerPage({
       description: e.description,
       refCode: e.refCode,
       delta: e.delta,
-      after: `${e.totalXpAfter.toLocaleString()} XP · ${e.currencyXpAfter.toLocaleString()} Cur`,
+      after: `${e.currencyXpAfter.toLocaleString()} XP`,
     })),
   ]
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
@@ -217,6 +218,26 @@ export default async function AdminPlayerPage({
             </Panel>
 
             <Panel
+              title="Mission Payout"
+              meta={
+                <FormDialogTrigger label="Post" title="Mission Payout">
+                  <MissionPayoutForm
+                    playerId={player.id}
+                    characterId={characterView?.id ?? null}
+                    balance={player.gold}
+                    totalXp={characterView?.totalXp ?? null}
+                    currencyXp={characterView?.currencyXp ?? null}
+                  />
+                </FormDialogTrigger>
+              }
+            >
+              <p className="font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
+                Post a gold and/or XP reward together under one shared description.
+              </p>
+            </Panel>
+
+
+            <Panel
               title="Gold Ledger"
               meta={
                 <FormDialogTrigger label="Adjust" title="Adjust Gold">
@@ -269,13 +290,14 @@ export default async function AdminPlayerPage({
               </Panel>
             )}
 
-            <Panel title="History" bodyClassName="p-0">
-              <HistoryTable rows={history} />
-            </Panel>
-
             <DeleteAccount playerId={player.id} label={displayName} />
           </div>
         </div>
+
+        {/* Full-width so the combined ledger doesn't need horizontal scroll */}
+        <Panel title="History" bodyClassName="p-0" className="mt-6">
+          <HistoryTable rows={history} />
+        </Panel>
       </div>
     </AppShell>
   );

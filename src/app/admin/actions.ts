@@ -366,6 +366,152 @@ export async function grantXp(
   };
 }
 
+// Posts a gold delta and an XP grant together under one shared description —
+// a mission payout touches both ledgers, and posting them as two separate
+// actions risks a half-applied reward if the admin only completes one. Either
+// amount can be left blank to post a single-ledger entry through this form.
+export async function postMissionPayout(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+
+  const playerId = textField(formData, "playerId");
+  const characterId = textField(formData, "characterId");
+  const description = textField(formData, "description", TEXT_LIMITS.ledgerDescription);
+  const refCode = textField(formData, "refCode", TEXT_LIMITS.refCode);
+  if (!playerId) return { error: "Missing player reference." };
+  if (!description) return { error: "A description is required for the ledger." };
+
+  const goldRaw = String(formData.get("gold") ?? "").trim();
+  const xpRaw = String(formData.get("xp") ?? "").trim();
+  if (!goldRaw && !xpRaw) {
+    return { error: "Enter a gold amount, an XP amount, or both." };
+  }
+
+  let goldDelta: number | null = null;
+  if (goldRaw) {
+    const parsed = parseSignedInt(formData.get("gold"));
+    if (!parsed.ok) return { error: parsed.error };
+    goldDelta = parsed.value;
+  }
+
+  let xpAmount: number | null = null;
+  if (xpRaw) {
+    const n = Number(xpRaw);
+    if (!Number.isFinite(n)) return { error: "XP must be a whole number." };
+    xpAmount = Math.floor(n);
+    if (!characterId) {
+      return { error: "This operator has no character to grant XP to." };
+    }
+  }
+
+  const db = getDb();
+  const player = await db.query.players.findFirst({
+    where: eq(players.id, playerId),
+  });
+  if (!player) return { error: "Player not found." };
+
+  let goldResult: { value: number } | null = null;
+  if (goldDelta !== null) {
+    const result = applyGoldDelta(player.gold, goldDelta);
+    if (!result.ok) return { error: result.error };
+    goldResult = result;
+  }
+
+  let character: typeof characters.$inferSelect | null = null;
+  let xpResult: { value: { totalXp: number; currencyXp: number } } | null = null;
+  if (xpAmount !== null && characterId) {
+    character = (await db.query.characters.findFirst({
+      where: eq(characters.id, characterId),
+    })) ?? null;
+    if (!character) return { error: "Character not found." };
+    const result = applyXpGrant(character.totalXp, character.currencyXp, xpAmount);
+    if (!result.ok) return { error: result.error };
+    xpResult = result;
+  }
+
+  if (goldResult && xpResult && character) {
+    await db.batch([
+      db
+        .update(players)
+        .set({ gold: goldResult.value, updatedAt: new Date() })
+        .where(eq(players.id, playerId)),
+      db.insert(goldLedger).values({
+        playerId,
+        description,
+        delta: goldDelta!,
+        balanceAfter: goldResult.value,
+        refCode: refCode || null,
+        createdByUserId: admin.id,
+      }),
+      db
+        .update(characters)
+        .set({
+          totalXp: xpResult.value.totalXp,
+          currencyXp: xpResult.value.currencyXp,
+          updatedAt: new Date(),
+        })
+        .where(eq(characters.id, characterId)),
+      db.insert(xpLedger).values({
+        characterId,
+        description,
+        delta: xpAmount!,
+        totalXpAfter: xpResult.value.totalXp,
+        currencyXpAfter: xpResult.value.currencyXp,
+        refCode: refCode || null,
+        createdByUserId: admin.id,
+      }),
+    ]);
+  } else if (goldResult) {
+    await db.batch([
+      db
+        .update(players)
+        .set({ gold: goldResult.value, updatedAt: new Date() })
+        .where(eq(players.id, playerId)),
+      db.insert(goldLedger).values({
+        playerId,
+        description,
+        delta: goldDelta!,
+        balanceAfter: goldResult.value,
+        refCode: refCode || null,
+        createdByUserId: admin.id,
+      }),
+    ]);
+  } else if (xpResult && character) {
+    await db.batch([
+      db
+        .update(characters)
+        .set({
+          totalXp: xpResult.value.totalXp,
+          currencyXp: xpResult.value.currencyXp,
+          updatedAt: new Date(),
+        })
+        .where(eq(characters.id, characterId)),
+      db.insert(xpLedger).values({
+        characterId,
+        description,
+        delta: xpAmount!,
+        totalXpAfter: xpResult.value.totalXp,
+        currencyXpAfter: xpResult.value.currencyXp,
+        refCode: refCode || null,
+        createdByUserId: admin.id,
+      }),
+    ]);
+  }
+
+  revalidatePath("/admin");
+  revalidatePath(`/admin/players/${playerId}`);
+  revalidatePath("/");
+  revalidatePath("/roster");
+  if (character) revalidatePath(`/roster/${character.slug}`);
+
+  const parts: string[] = [];
+  if (goldResult) parts.push(`${goldDelta! >= 0 ? "+" : ""}${goldDelta} Cr`);
+  if (xpResult) parts.push(`+${xpAmount} XP`);
+  return { ok: true, message: `${parts.join(" · ")} posted.` };
+}
+
 // Approves a pending character application → it joins the active roster.
 export async function approveCharacter(
   _prev: FormState,
