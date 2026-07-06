@@ -3,7 +3,7 @@
  * share these so every field carries the same label type, focus ring, and error/
  * status styling (DESIGN.md §5). Field wires label↔control via a generated id.
  */
-import { useId } from "react";
+import { forwardRef, useId } from "react";
 import { AlertTriangle, Check, ChevronDown } from "lucide-react";
 
 export const fieldLabelClass =
@@ -35,12 +35,12 @@ export function Field({ label, hint, children }: FieldProps) {
   );
 }
 
-export function TextInput(
-  props: React.InputHTMLAttributes<HTMLInputElement> & { className?: string },
-) {
-  const { className = "", ...rest } = props;
-  return <input className={`${controlClass} ${className}`} {...rest} />;
-}
+export const TextInput = forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { className?: string }
+>(function TextInput({ className = "", ...rest }, ref) {
+  return <input ref={ref} className={`${controlClass} ${className}`} {...rest} />;
+});
 
 export function Textarea(
   props: React.TextareaHTMLAttributes<HTMLTextAreaElement> & {

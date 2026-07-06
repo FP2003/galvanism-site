@@ -61,6 +61,12 @@
   border-radius: 0;
 }
 
+/* Browsers default <button> to a plain arrow cursor, not a pointer — every
+   clickable button in this UI should read as clickable on hover. */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 html {
   /*
     Global UI scale. Tailwind sizes text, spacing, and controls in rem, so this

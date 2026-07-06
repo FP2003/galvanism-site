@@ -9,8 +9,8 @@ import {
   getAssignmentTargets,
   getCardOwnershipMap,
 } from "@/lib/card-data";
-import { CardForm } from "./card-form";
 import { CardLibrary, type CardLibraryItem } from "./card-library";
+import { NewCardDialog } from "./new-card-dialog";
 
 export const metadata: Metadata = { title: "Card Library — Personnel Command" };
 
@@ -53,27 +53,31 @@ export default async function AdminCardsPage() {
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
-          <Panel title="Deck" meta={`${library.length} card${library.length === 1 ? "" : "s"}`}>
-            {library.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-                <Layers size={28} className="text-steel-blue" aria-hidden="true" />
-                <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                  No cards authored yet
-                </p>
-                <p className="max-w-xs text-pretty text-xs text-muted-ink">
-                  Create the first card with the builder on the right →
-                </p>
-              </div>
-            ) : (
-              <CardLibrary items={items} />
-            )}
-          </Panel>
-
-          <Panel title="New Card">
-            <CardForm />
-          </Panel>
-        </div>
+        <Panel
+          title="Deck"
+          meta={
+            <div className="flex items-center gap-3">
+              <span className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.06em] text-muted-ink">
+                {library.length} card{library.length === 1 ? "" : "s"}
+              </span>
+              <NewCardDialog />
+            </div>
+          }
+        >
+          {library.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <Layers size={28} className="text-steel-blue" aria-hidden="true" />
+              <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
+                No cards authored yet
+              </p>
+              <p className="max-w-xs text-pretty text-xs text-muted-ink">
+                Use New Card above to create one.
+              </p>
+            </div>
+          ) : (
+            <CardLibrary items={items} />
+          )}
+        </Panel>
       </div>
     </AppShell>
   );
