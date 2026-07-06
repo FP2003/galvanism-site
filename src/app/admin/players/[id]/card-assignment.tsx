@@ -113,7 +113,10 @@ function OwnedRow({
     {},
   );
   const { card } = owned;
-  const summary = effectSummary(card);
+  const summary =
+    card.effects.length > 0
+      ? card.effects.map(effectSummary).join(", ")
+      : null;
 
   return (
     <li className="flex items-center gap-3 py-3">
@@ -128,7 +131,11 @@ function OwnedRow({
         </p>
         <p className="truncate font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
           {CARD_CATEGORY_META[card.category].label}
-          {summary ? ` · ${summary}` : " · Descriptive"}
+          {summary
+            ? ` · ${summary}`
+            : card.descriptiveText
+              ? " · Descriptive"
+              : ""}
         </p>
       </div>
 

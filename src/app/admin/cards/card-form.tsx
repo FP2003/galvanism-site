@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -10,6 +10,7 @@ import {
   Textarea,
   Select,
   FormMessage,
+  fieldLabelClass,
 } from "@/components/ui/form";
 import {
   CARD_CATEGORIES,
@@ -17,12 +18,34 @@ import {
   CARD_TEXT_LIMITS,
   targetsFor,
   TRIGGER_LABELS,
-  type CardEffectKind,
+  type CardActivation,
   type CardEffectType,
+  type CardTrigger,
 } from "@/lib/cards";
 import { createCard, type FormState } from "@/app/admin/card-actions";
 
 const TRIGGERS = ["on_equip", "on_use", "passive"] as const;
+
+// One row of the repeatable effect builder below (card-form state, serialized
+// to JSON on submit — see card-actions.ts parseEffectsField for the mirrored
+// server-side validation).
+interface EffectRow {
+  activation: CardActivation;
+  effectType: CardEffectType;
+  effectTarget: string;
+  effectAmount: string;
+  trigger: CardTrigger;
+}
+
+function defaultEffectRow(): EffectRow {
+  return {
+    activation: "passive",
+    effectType: "stat_modifier",
+    effectTarget: "statTech",
+    effectAmount: "",
+    trigger: "passive",
+  };
+}
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -34,16 +57,30 @@ function SubmitButton() {
   );
 }
 
-// Structured effect builder (info/card_system.md). Mechanical cards get the
-// type/target/amount/trigger fields; descriptive cards get a free-text box. Which
-// set shows is driven client-side; the server re-validates either way.
+// Structured effect builder (info/card_system.md). A card can carry any number
+// of mechanical effects (each with its own activation/type/target/amount/
+// trigger) plus optional flavor text — the two aren't mutually exclusive.
 export function CardForm() {
   const [state, formAction] = useActionState<FormState, FormData>(createCard, {});
-  const [effectKind, setEffectKind] = useState<CardEffectKind>("mechanical");
-  const [effectType, setEffectType] =
-    useState<CardEffectType>("stat_modifier");
+  const [effects, setEffects] = useState<EffectRow[]>([defaultEffectRow()]);
 
-  const targets = targetsFor(effectType);
+  function updateEffect(index: number, patch: Partial<EffectRow>) {
+    setEffects((rows) =>
+      rows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    );
+  }
+
+  function addEffect() {
+    setEffects((rows) =>
+      rows.length >= CARD_TEXT_LIMITS.effectsMax
+        ? rows
+        : [...rows, defaultEffectRow()],
+    );
+  }
+
+  function removeEffect(index: number) {
+    setEffects((rows) => rows.filter((_, i) => i !== index));
+  }
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -73,14 +110,6 @@ export function CardForm() {
                 autoComplete="off"
                 placeholder="Overclock Rounds"
               />
-            )}
-          </Field>
-          <Field label="Activation">
-            {(id) => (
-              <Select id={id} name="activation" defaultValue="passive">
-                <option value="passive">Passive</option>
-                <option value="active">Active</option>
-              </Select>
             )}
           </Field>
           <Field label="Level">
@@ -122,92 +151,54 @@ export function CardForm() {
 
       <fieldset className="flex flex-col gap-4">
         <legend className="mb-1 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
-          Effect
+          Effects
         </legend>
         <Field
-          label="Effect kind"
-          hint="Mechanical auto-applies to the sheet; descriptive is feat-like text."
+          label="Descriptive text"
+          hint="Optional feat-like flavor text, shown alongside any mechanical effects below."
         >
           {(id) => (
-            <Select
+            <Textarea
               id={id}
-              name="effectKind"
-              value={effectKind}
-              onChange={(e) => setEffectKind(e.target.value as CardEffectKind)}
-            >
-              <option value="mechanical">Mechanical (structured)</option>
-              <option value="descriptive">Descriptive (text only)</option>
-            </Select>
+              name="descriptiveText"
+              rows={3}
+              maxLength={CARD_TEXT_LIMITS.descriptiveText}
+              placeholder="Once per mission, re-roll a failed melee defense…"
+            />
           )}
         </Field>
 
-        {effectKind === "mechanical" ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Effect type">
-              {(id) => (
-                <Select
-                  id={id}
-                  name="effectType"
-                  value={effectType}
-                  onChange={(e) =>
-                    setEffectType(e.target.value as CardEffectType)
-                  }
-                >
-                  <option value="stat_modifier">Stat modifier</option>
-                  <option value="resource_modifier">Resource modifier</option>
-                </Select>
-              )}
-            </Field>
-            <Field label="Target">
-              {(id) => (
-                <Select id={id} name="effectTarget" key={effectType}>
-                  {targets.map((t) => (
-                    <option key={t.key} value={t.key}>
-                      {t.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-            <Field label="Amount" hint="Signed whole number, e.g. +1 or −10.">
-              {(id) => (
-                <TextInput
-                  id={id}
-                  name="effectAmount"
-                  autoComplete="off"
-                  inputMode="numeric"
-                  placeholder="+1"
-                />
-              )}
-            </Field>
-            <Field
-              label="Trigger"
-              hint="On-equip / passive apply while equipped; on-use is table-side."
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className={fieldLabelClass}>Mechanical effects</span>
+            <button
+              type="button"
+              onClick={addEffect}
+              disabled={effects.length >= CARD_TEXT_LIMITS.effectsMax}
+              className="flex items-center gap-1 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:text-case-file-white disabled:opacity-40"
             >
-              {(id) => (
-                <Select id={id} name="trigger" defaultValue="passive">
-                  {TRIGGERS.map((t) => (
-                    <option key={t} value={t}>
-                      {TRIGGER_LABELS[t]}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
+              <Plus size={13} aria-hidden="true" /> Add effect
+            </button>
           </div>
-        ) : (
-          <Field label="Effect text">
-            {(id) => (
-              <Textarea
-                id={id}
-                name="descriptiveText"
-                rows={4}
-                maxLength={CARD_TEXT_LIMITS.descriptiveText}
-                placeholder="Once per mission, re-roll a failed melee defense…"
-              />
-            )}
-          </Field>
-        )}
+
+          {effects.length === 0 && (
+            <p className="text-xs text-muted-ink">
+              No mechanical effects — this card is descriptive only.
+            </p>
+          )}
+
+          {effects.map((row, i) => (
+            <EffectRowFields
+              key={i}
+              row={row}
+              index={i}
+              onChange={(patch) => updateEffect(i, patch)}
+              onRemove={() => removeEffect(i)}
+            />
+          ))}
+        </div>
+
+        <input type="hidden" name="effects" value={JSON.stringify(effects)} />
       </fieldset>
 
       <FormMessage state={state} />
@@ -215,5 +206,118 @@ export function CardForm() {
         <SubmitButton />
       </div>
     </form>
+  );
+}
+
+function EffectRowFields({
+  row,
+  index,
+  onChange,
+  onRemove,
+}: {
+  row: EffectRow;
+  index: number;
+  onChange: (patch: Partial<EffectRow>) => void;
+  onRemove: () => void;
+}) {
+  const targets = targetsFor(row.effectType);
+
+  return (
+    <div className="border border-elevated-ledger p-3">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+          Effect {index + 1}
+        </span>
+        <button
+          type="button"
+          onClick={onRemove}
+          aria-label={`Remove effect ${index + 1}`}
+          className="text-muted-ink transition-colors hover:text-stamp-red"
+        >
+          <X size={14} aria-hidden="true" />
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Activation">
+          {(id) => (
+            <Select
+              id={id}
+              value={row.activation}
+              onChange={(e) =>
+                onChange({ activation: e.target.value as CardActivation })
+              }
+            >
+              <option value="passive">Passive</option>
+              <option value="active">Active</option>
+            </Select>
+          )}
+        </Field>
+        <Field label="Effect type">
+          {(id) => (
+            <Select
+              id={id}
+              value={row.effectType}
+              onChange={(e) => {
+                const effectType = e.target.value as CardEffectType;
+                onChange({
+                  effectType,
+                  effectTarget: targetsFor(effectType)[0]?.key ?? "",
+                });
+              }}
+            >
+              <option value="stat_modifier">Stat modifier</option>
+              <option value="resource_modifier">Resource modifier</option>
+            </Select>
+          )}
+        </Field>
+        <Field label="Target">
+          {(id) => (
+            <Select
+              id={id}
+              value={row.effectTarget}
+              onChange={(e) => onChange({ effectTarget: e.target.value })}
+            >
+              {targets.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.label}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Field label="Amount" hint="Signed whole number, e.g. +1 or −10.">
+          {(id) => (
+            <TextInput
+              id={id}
+              value={row.effectAmount}
+              onChange={(e) => onChange({ effectAmount: e.target.value })}
+              autoComplete="off"
+              inputMode="numeric"
+              placeholder="+1"
+            />
+          )}
+        </Field>
+        <Field
+          label="Trigger"
+          hint="On-equip / passive apply while equipped; on-use is table-side."
+        >
+          {(id) => (
+            <Select
+              id={id}
+              value={row.trigger}
+              onChange={(e) =>
+                onChange({ trigger: e.target.value as CardTrigger })
+              }
+            >
+              {TRIGGERS.map((t) => (
+                <option key={t} value={t}>
+                  {TRIGGER_LABELS[t]}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+      </div>
+    </div>
   );
 }

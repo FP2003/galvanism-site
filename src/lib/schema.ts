@@ -39,14 +39,9 @@ export const cardCategory = pgEnum("card_category", [
   "ability",
   "item",
 ]);
-// The ACTIVE/PASSIVE tag on the card face.
+// The ACTIVE/PASSIVE tag on an effect (per-effect, not per-card — a card can
+// carry both at once).
 export const cardActivation = pgEnum("card_activation", ["active", "passive"]);
-// A card is either mechanical (structured effect) or descriptive (feat-like text)
-// — never both (info/card_system.md).
-export const cardEffectKind = pgEnum("card_effect_kind", [
-  "mechanical",
-  "descriptive",
-]);
 // Structured mechanical effect types. Deliberately narrow for Phase 3 (targets
 // that exist today); "grant_item" / "unlock_ability" join in Phase 4+.
 export const cardEffectType = pgEnum("card_effect_type", [
@@ -197,31 +192,25 @@ export const goldLedgerRelations = relations(goldLedger, ({ one }) => ({
 // ---------------------------------------------------------------------------
 
 // The card library: definitions the DM authors once and assigns to any number of
-// operators. A card is mechanical (structured effect fields below) OR descriptive
-// (free-text `descriptiveText`), guarded by `effectKind`. Mechanical stat/resource
-// effects are NOT written into character columns — they're computed on top of the
-// live base stats at read time (see lib/cards.ts computeEffectiveStats), so
+// operators. A card can carry any number of structured mechanical effects (see
+// `cardEffects` below) plus an optional free-text `descriptiveText` flavor
+// blurb — the two aren't mutually exclusive. Mechanical stat/resource effects
+// are NOT written into character columns — they're computed on top of the live
+// base stats at read time (see lib/cards.ts computeEffectiveStats), so
 // unequipping is lossless and level-up base bumps stay independent.
 export const cards = pgTable("cards", {
   id: uuid("id").primaryKey().defaultRandom(),
   category: cardCategory("category").notNull(),
   title: text("title").notNull(),
   // Card-face body copy (the DESCRIPTION area). Distinct from `descriptiveText`,
-  // which is the mechanical Effects-section text for descriptive cards.
+  // which is the Effects-section flavor text.
   description: text("description"),
-  activation: cardActivation("activation").notNull().default("passive"),
   level: integer("level").notNull().default(1), // Roman-numeral pip
   colorOverride: text("color_override"), // hex for one-off custom cards; null = category preset
-  effectKind: cardEffectKind("effect_kind").notNull(),
 
-  // Descriptive cards: the feat-like text shown under the sheet's Effects section.
+  // Optional flavor/feat-like text shown under the sheet's Effects section,
+  // independent of any mechanical effects below.
   descriptiveText: text("descriptive_text"),
-
-  // Mechanical cards: the structured effect. All null for descriptive cards.
-  effectType: cardEffectType("effect_type"),
-  effectTarget: text("effect_target"), // stat key (statTech…) or resource key (hpMax/energyMax/ammoMax)
-  effectAmount: integer("effect_amount"),
-  trigger: cardTrigger("trigger"),
 
   createdByUserId: text("created_by_user_id").references(() => users.id, {
     onDelete: "set null",
@@ -233,6 +222,29 @@ export const cards = pgTable("cards", {
     .notNull()
     .defaultNow(),
 });
+
+// A single structured mechanical effect on a card. A card can carry several —
+// e.g. a passive stat bump and an active on-use resource cost at once — each
+// with its own ACTIVE/PASSIVE tag, type, target, amount, and trigger.
+export const cardEffects = pgTable(
+  "card_effects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    activation: cardActivation("activation").notNull().default("passive"),
+    effectType: cardEffectType("effect_type").notNull(),
+    effectTarget: text("effect_target").notNull(), // stat key (statTech…) or resource key (hpMax/energyMax/ammoMax)
+    effectAmount: integer("effect_amount").notNull(),
+    trigger: cardTrigger("trigger").notNull().default("passive"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("card_effects_card_idx").on(t.cardId)],
+);
 
 // A character's ownership of a card (inventory), plus whether it's equipped. Only
 // equipped cards contribute to effective stats / show in the Loadout. Unique per
@@ -260,6 +272,14 @@ export const characterCards = pgTable(
 
 export const cardsRelations = relations(cards, ({ many }) => ({
   assignments: many(characterCards),
+  effects: many(cardEffects),
+}));
+
+export const cardEffectsRelations = relations(cardEffects, ({ one }) => ({
+  card: one(cards, {
+    fields: [cardEffects.cardId],
+    references: [cards.id],
+  }),
 }));
 
 export const characterCardsRelations = relations(characterCards, ({ one }) => ({
@@ -279,4 +299,7 @@ export type Character = typeof characters.$inferSelect;
 export type GoldLedgerEntry = typeof goldLedger.$inferSelect;
 export type Card = typeof cards.$inferSelect;
 export type NewCard = typeof cards.$inferInsert;
+export type CardEffect = typeof cardEffects.$inferSelect;
+export type NewCardEffect = typeof cardEffects.$inferInsert;
+export type CardWithEffects = Card & { effects: CardEffect[] };
 export type CharacterCard = typeof characterCards.$inferSelect;

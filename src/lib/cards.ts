@@ -9,14 +9,12 @@ import type { Result } from "./ledger";
 import type {
   cardCategory,
   cardActivation,
-  cardEffectKind,
   cardEffectType,
   cardTrigger,
 } from "./schema";
 
 export type CardCategory = (typeof cardCategory.enumValues)[number];
 export type CardActivation = (typeof cardActivation.enumValues)[number];
-export type CardEffectKind = (typeof cardEffectKind.enumValues)[number];
 export type CardEffectType = (typeof cardEffectType.enumValues)[number];
 export type CardTrigger = (typeof cardTrigger.enumValues)[number];
 
@@ -111,6 +109,7 @@ export const CARD_TEXT_LIMITS = {
   descriptiveText: 600,
   levelMax: 20,
   effectAmountAbs: 999,
+  effectsMax: 6,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -141,35 +140,28 @@ export function toRoman(n: number): string {
 // Effect summaries + effective-stat computation.
 // ---------------------------------------------------------------------------
 
-/** The minimal card shape the effect functions need (a subset of the DB row). */
+/** A single card_effects row (a card may have any number of these). */
 export interface CardEffectFields {
-  effectKind: CardEffectKind;
-  effectType: CardEffectType | null;
-  effectTarget: string | null;
-  effectAmount: number | null;
-  trigger: CardTrigger | null;
+  activation: CardActivation;
+  effectType: CardEffectType;
+  effectTarget: string;
+  effectAmount: number;
+  trigger: CardTrigger;
 }
 
-/** e.g. "+1 Tech" / "−10 Immunity". Null for descriptive or incomplete cards. */
-export function effectSummary(card: CardEffectFields): string | null {
-  if (card.effectKind !== "mechanical") return null;
-  if (card.effectAmount == null || !card.effectTarget) return null;
-  const sign = card.effectAmount >= 0 ? "+" : "−";
-  return `${sign}${Math.abs(card.effectAmount)} ${targetLabel(card.effectTarget)}`;
+/** e.g. "+1 Tech" / "−10 Immunity". */
+export function effectSummary(effect: CardEffectFields): string {
+  const sign = effect.effectAmount >= 0 ? "+" : "−";
+  return `${sign}${Math.abs(effect.effectAmount)} ${targetLabel(effect.effectTarget)}`;
 }
 
 /**
- * Whether a mechanical effect contributes to effective stats *while equipped*.
- * on_equip + passive are persistent buffs; on_use is a momentary, table-side
- * action and never auto-modifies the sheet.
+ * Whether an effect contributes to effective stats *while equipped*. on_equip
+ * + passive are persistent buffs; on_use is a momentary, table-side action and
+ * never auto-modifies the sheet.
  */
-export function isPersistentEffect(card: CardEffectFields): boolean {
-  return (
-    card.effectKind === "mechanical" &&
-    card.effectAmount != null &&
-    !!card.effectTarget &&
-    (card.trigger === "on_equip" || card.trigger === "passive")
-  );
+export function isPersistentEffect(effect: CardEffectFields): boolean {
+  return effect.trigger === "on_equip" || effect.trigger === "passive";
 }
 
 export interface Modifier {
@@ -178,17 +170,17 @@ export interface Modifier {
 }
 
 /**
- * Sums the persistent modifiers from a set of *equipped* cards into a
- * per-target delta map. Callers pass only equipped cards; on_use and descriptive
- * cards are filtered out here.
+ * Sums the persistent modifiers from a set of *equipped* cards' effects into a
+ * per-target delta map. Callers pass every effect across every equipped card;
+ * on_use effects are filtered out here.
  */
-export function accumulateModifiers(equipped: CardEffectFields[]): Modifier[] {
+export function accumulateModifiers(effects: CardEffectFields[]): Modifier[] {
   const totals = new Map<string, number>();
-  for (const card of equipped) {
-    if (!isPersistentEffect(card)) continue;
+  for (const effect of effects) {
+    if (!isPersistentEffect(effect)) continue;
     totals.set(
-      card.effectTarget!,
-      (totals.get(card.effectTarget!) ?? 0) + card.effectAmount!,
+      effect.effectTarget,
+      (totals.get(effect.effectTarget) ?? 0) + effect.effectAmount,
     );
   }
   return [...totals].map(([target, amount]) => ({ target, amount }));
@@ -222,16 +214,22 @@ export function isHexColor(value: string): boolean {
 }
 
 export interface MechanicalInput {
+  activation: CardActivation;
   effectType: CardEffectType;
   effectTarget: string;
   effectAmount: number;
   trigger: CardTrigger;
 }
 
-/** Validates the structured effect of a mechanical card. */
+const ACTIVATIONS: CardActivation[] = ["active", "passive"];
+
+/** Validates a single structured effect. */
 export function validateMechanicalEffect(
   input: MechanicalInput,
 ): Result<MechanicalInput> {
+  if (!ACTIVATIONS.includes(input.activation)) {
+    return { ok: false, error: "Pick an activation for each effect." };
+  }
   const allowed = targetsFor(input.effectType).map((t) => t.key);
   if (!allowed.includes(input.effectTarget)) {
     return {

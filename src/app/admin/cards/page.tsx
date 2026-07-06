@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 import { ArrowLeft, Layers } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
-import { GameCard } from "@/components/cards/game-card";
 import { requireAdmin } from "@/lib/auth";
 import {
   getCardLibrary,
@@ -11,7 +10,7 @@ import {
   getCardOwnershipMap,
 } from "@/lib/card-data";
 import { CardForm } from "./card-form";
-import { CardMenu } from "./card-menu";
+import { CardLibrary, type CardLibraryItem } from "./card-library";
 
 export const metadata: Metadata = { title: "Card Library — Personnel Command" };
 
@@ -25,6 +24,13 @@ export default async function AdminCardsPage() {
     getAssignmentTargets(),
     getCardOwnershipMap(),
   ]);
+  const items: CardLibraryItem[] = library.map((card) => ({
+    card,
+    targets: targets.map((t) => ({
+      ...t,
+      assignmentId: ownership.get(card.id)?.get(t.id) ?? null,
+    })),
+  }));
 
   return (
     <AppShell>
@@ -60,25 +66,7 @@ export default async function AdminCardsPage() {
                 </p>
               </div>
             ) : (
-              <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-4">
-                {library.map((card) => (
-                  <li key={card.id}>
-                    <GameCard
-                      card={card}
-                      menu={
-                        <CardMenu
-                          cardId={card.id}
-                          title={card.title}
-                          targets={targets.map((t) => ({
-                            ...t,
-                            assignmentId: ownership.get(card.id)?.get(t.id) ?? null,
-                          }))}
-                        />
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
+              <CardLibrary items={items} />
             )}
           </Panel>
 

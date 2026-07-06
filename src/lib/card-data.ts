@@ -1,15 +1,15 @@
 import { eq, asc, desc } from "drizzle-orm";
 import { getDb } from "./db";
-import { cards, characterCards, characters, type Card } from "./schema";
+import {
+  cards,
+  cardEffects,
+  characterCards,
+  characters,
+  type CardWithEffects,
+} from "./schema";
 import type { CharacterView } from "./characters";
 import type { StatKey } from "./status";
-import {
-  accumulateModifiers,
-  applyModifiers,
-  effectSummary,
-  isPersistentEffect,
-  type CardEffectFields,
-} from "./cards";
+import { accumulateModifiers, applyModifiers, effectSummary, isPersistentEffect } from "./cards";
 import { clampResource } from "./ledger";
 
 /*
@@ -22,13 +22,16 @@ import { clampResource } from "./ledger";
 export interface OwnedCard {
   assignmentId: string; // character_cards.id
   equipped: boolean;
-  card: Card;
+  card: CardWithEffects;
 }
 
 /** Every card definition, newest first — for the admin library + assign picker. */
-export async function getCardLibrary(): Promise<Card[]> {
+export async function getCardLibrary(): Promise<CardWithEffects[]> {
   const db = getDb();
-  return db.query.cards.findMany({ orderBy: [desc(cards.createdAt)] });
+  return db.query.cards.findMany({
+    with: { effects: { orderBy: [asc(cardEffects.sortOrder)] } },
+    orderBy: [desc(cards.createdAt)],
+  });
 }
 
 export interface AssignmentTarget {
@@ -82,7 +85,9 @@ export async function getCharacterCards(
   const db = getDb();
   const rows = await db.query.characterCards.findMany({
     where: eq(characterCards.characterId, characterId),
-    with: { card: true },
+    with: {
+      card: { with: { effects: { orderBy: [asc(cardEffects.sortOrder)] } } },
+    },
     orderBy: [desc(characterCards.equipped), asc(characterCards.acquiredAt)],
   });
   return rows.map((r) => ({
@@ -104,7 +109,7 @@ export async function effectiveResourceMaxes(
 ): Promise<{ hpMax: number; energyMax: number; ammoMax: number }> {
   const owned = await getCharacterCards(characterId);
   const mods = accumulateModifiers(
-    owned.filter((o) => o.equipped).map((o) => toEffectFields(o.card)),
+    owned.filter((o) => o.equipped).flatMap((o) => o.card.effects),
   );
   const { effective } = applyModifiers(
     { hpMax: base.hpMax, energyMax: base.energyMax, ammoMax: base.ammoMax },
@@ -127,25 +132,15 @@ const STAT_COLUMN: Record<StatKey, string> = {
   agility: "statAgility",
 };
 
-function toEffectFields(card: Card): CardEffectFields {
-  return {
-    effectKind: card.effectKind,
-    effectType: card.effectType,
-    effectTarget: card.effectTarget,
-    effectAmount: card.effectAmount,
-    trigger: card.trigger,
-  };
-}
-
 export interface ActiveModifier {
   cardTitle: string;
-  category: Card["category"];
+  category: CardWithEffects["category"];
   summary: string; // e.g. "+1 Tech"
 }
 
 export interface DescriptiveEffect {
   cardTitle: string;
-  category: Card["category"];
+  category: CardWithEffects["category"];
   text: string;
 }
 
@@ -187,7 +182,7 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     ammoMax: view.ammo.max,
   };
 
-  const mods = accumulateModifiers(equipped.map((o) => toEffectFields(o.card)));
+  const mods = accumulateModifiers(equipped.flatMap((o) => o.card.effects));
   const { effective, deltas } = applyModifiers(base, mods);
 
   const effectiveStats = {} as Record<StatKey, number>;
@@ -220,16 +215,16 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     },
   };
 
-  const activeModifiers: ActiveModifier[] = equipped
-    .filter((o) => isPersistentEffect(toEffectFields(o.card)))
-    .map((o) => ({
+  const activeModifiers: ActiveModifier[] = equipped.flatMap((o) =>
+    o.card.effects.filter(isPersistentEffect).map((e) => ({
       cardTitle: o.card.title,
       category: o.card.category,
-      summary: effectSummary(toEffectFields(o.card)) ?? "",
-    }));
+      summary: effectSummary(e),
+    })),
+  );
 
   const descriptiveEffects: DescriptiveEffect[] = equipped
-    .filter((o) => o.card.effectKind === "descriptive" && o.card.descriptiveText)
+    .filter((o) => o.card.descriptiveText)
     .map((o) => ({
       cardTitle: o.card.title,
       category: o.card.category,

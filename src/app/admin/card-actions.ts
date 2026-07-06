@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { cards, characterCards, characters, type NewCard } from "@/lib/schema";
+import {
+  cards,
+  cardEffects,
+  characterCards,
+  characters,
+  type NewCard,
+  type NewCardEffect,
+} from "@/lib/schema";
 import {
   CARD_CATEGORIES,
   CARD_TEXT_LIMITS,
@@ -12,11 +19,11 @@ import {
   validateMechanicalEffect,
   type CardCategory,
   type CardActivation,
-  type CardEffectKind,
   type CardEffectType,
   type CardTrigger,
+  type MechanicalInput,
 } from "@/lib/cards";
-import { parseSignedInt } from "@/lib/ledger";
+import { parseSignedInt, type Result } from "@/lib/ledger";
 
 /*
  * Card CRUD + assignment (Phase 3, admin only). The structured effect builder is
@@ -32,9 +39,57 @@ function textField(formData: FormData, key: string, max?: number): string {
 }
 
 const ACTIVATIONS: CardActivation[] = ["active", "passive"];
-const EFFECT_KINDS: CardEffectKind[] = ["mechanical", "descriptive"];
 const EFFECT_TYPES: CardEffectType[] = ["stat_modifier", "resource_modifier"];
 const TRIGGERS: CardTrigger[] = ["on_equip", "on_use", "passive"];
+
+// Parses + validates the client-serialized effect rows (see card-form.tsx). The
+// client can't be trusted, so every field is re-checked here regardless of what
+// the JSON claims to contain.
+function parseEffectsField(raw: FormDataEntryValue | null): Result<MechanicalInput[]> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(raw ?? "[]"));
+  } catch {
+    return { ok: false, error: "Malformed effect data." };
+  }
+  if (!Array.isArray(parsed)) return { ok: false, error: "Malformed effect data." };
+  if (parsed.length > CARD_TEXT_LIMITS.effectsMax) {
+    return { ok: false, error: `A card may have at most ${CARD_TEXT_LIMITS.effectsMax} effects.` };
+  }
+
+  const effects: MechanicalInput[] = [];
+  for (const row of parsed) {
+    if (!row || typeof row !== "object") return { ok: false, error: "Malformed effect data." };
+    const r = row as Record<string, unknown>;
+
+    const activation = String(r.activation ?? "") as CardActivation;
+    const effectType = String(r.effectType ?? "") as CardEffectType;
+    const effectTarget = String(r.effectTarget ?? "");
+    const triggerRaw = String(r.trigger ?? "") as CardTrigger;
+    const trigger = TRIGGERS.includes(triggerRaw) ? triggerRaw : "passive";
+
+    if (!ACTIVATIONS.includes(activation)) {
+      return { ok: false, error: "Pick an activation for each effect." };
+    }
+    if (!EFFECT_TYPES.includes(effectType)) {
+      return { ok: false, error: "Choose an effect type for each effect." };
+    }
+    const parsedAmount = parseSignedInt(r.effectAmount);
+    if (!parsedAmount.ok) return parsedAmount;
+
+    const check = validateMechanicalEffect({
+      activation,
+      effectType,
+      effectTarget,
+      effectAmount: parsedAmount.value,
+      trigger,
+    });
+    if (!check.ok) return check;
+
+    effects.push(check.value);
+  }
+  return { ok: true, value: effects };
+}
 
 // Authors a new card definition for the shared library.
 export async function createCard(
@@ -54,11 +109,6 @@ export async function createCard(
   const description =
     textField(formData, "description", CARD_TEXT_LIMITS.description) || null;
 
-  const activationRaw = textField(formData, "activation") as CardActivation;
-  const activation = ACTIVATIONS.includes(activationRaw)
-    ? activationRaw
-    : "passive";
-
   const levelRaw = Number(textField(formData, "level"));
   const level = Number.isFinite(levelRaw)
     ? Math.max(1, Math.min(CARD_TEXT_LIMITS.levelMax, Math.floor(levelRaw)))
@@ -73,61 +123,45 @@ export async function createCard(
     colorOverride = colorRaw;
   }
 
-  const effectKindRaw = textField(formData, "effectKind") as CardEffectKind;
-  if (!EFFECT_KINDS.includes(effectKindRaw)) {
-    return { error: "Choose a mechanical or descriptive effect." };
+  const descriptiveText =
+    textField(formData, "descriptiveText", CARD_TEXT_LIMITS.descriptiveText) ||
+    null;
+
+  const parsedEffects = parseEffectsField(formData.get("effects"));
+  if (!parsedEffects.ok) return { error: parsedEffects.error };
+  const effects = parsedEffects.value;
+
+  if (effects.length === 0 && !descriptiveText) {
+    return { error: "Add at least one effect or some descriptive text." };
   }
 
   const values: NewCard = {
     category: categoryRaw,
     title,
     description,
-    activation,
     level,
     colorOverride,
-    effectKind: effectKindRaw,
+    descriptiveText,
     createdByUserId: admin.id,
   };
 
-  if (effectKindRaw === "mechanical") {
-    const effectType = textField(formData, "effectType") as CardEffectType;
-    if (!EFFECT_TYPES.includes(effectType)) {
-      return { error: "Choose an effect type." };
-    }
-    const effectTarget = textField(formData, "effectTarget");
-    const triggerRaw = textField(formData, "trigger") as CardTrigger;
-    const trigger = TRIGGERS.includes(triggerRaw) ? triggerRaw : "passive";
-
-    const parsedAmount = parseSignedInt(formData.get("effectAmount"));
-    if (!parsedAmount.ok) return { error: parsedAmount.error };
-
-    const check = validateMechanicalEffect({
-      effectType,
-      effectTarget,
-      effectAmount: parsedAmount.value,
-      trigger,
-    });
-    if (!check.ok) return { error: check.error };
-
-    values.effectType = effectType;
-    values.effectTarget = effectTarget;
-    values.effectAmount = parsedAmount.value;
-    values.trigger = trigger;
-  } else {
-    const descriptiveText = textField(
-      formData,
-      "descriptiveText",
-      CARD_TEXT_LIMITS.descriptiveText,
-    );
-    if (!descriptiveText) {
-      return { error: "Descriptive cards need effect text." };
-    }
-    values.descriptiveText = descriptiveText;
-  }
-
   const db = getDb();
   try {
-    await db.insert(cards).values(values);
+    await db.transaction(async (tx) => {
+      const [card] = await tx.insert(cards).values(values).returning({ id: cards.id });
+      if (effects.length > 0) {
+        const rows: NewCardEffect[] = effects.map((e, i) => ({
+          cardId: card.id,
+          activation: e.activation,
+          effectType: e.effectType,
+          effectTarget: e.effectTarget,
+          effectAmount: e.effectAmount,
+          trigger: e.trigger,
+          sortOrder: i,
+        }));
+        await tx.insert(cardEffects).values(rows);
+      }
+    });
   } catch (err) {
     return {
       error: `Database error: ${err instanceof Error ? err.message : String(err)}`,

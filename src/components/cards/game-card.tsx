@@ -9,7 +9,7 @@ import {
   Package,
   type LucideIcon,
 } from "lucide-react";
-import type { Card } from "@/lib/schema";
+import type { CardWithEffects } from "@/lib/schema";
 import {
   CARD_CATEGORY_META,
   cardAccent,
@@ -45,7 +45,7 @@ export function GameCard({
   card,
   menu,
 }: {
-  card: Card;
+  card: CardWithEffects;
   /** Optional corner control (e.g. the admin library's action menu). Rendered
    *  in-flow next to the title, not overlaid, so it can never cover it. */
   menu?: React.ReactNode;
@@ -53,8 +53,6 @@ export function GameCard({
   const meta = CARD_CATEGORY_META[card.category];
   const accent = cardAccent(card.category, card.colorOverride);
   const Icon = ICONS[meta.icon] ?? Sparkles;
-  const isActive = card.activation === "active";
-  const summary = effectSummary(card);
 
   return (
     <article
@@ -82,17 +80,12 @@ export function GameCard({
         {menu}
       </div>
 
-      {/* DESCRIPTION label + ACTIVE/PASSIVE classification tag.
-       *  Activation is card identity (how the ability triggers), not state — so
-       *  it wears a neutral void-navy chip, never the reserved cyan/red state
-       *  colors. White value against the muted-ink label reads as a matched
-       *  label→value pair and stays legible on every category frame. */}
-      <div className="flex items-center justify-between gap-2">
+      {/* DESCRIPTION label. Each effect below carries its own ACTIVE/PASSIVE
+       *  tag now — a card can mix both at once, so there's no single
+       *  card-level classification to show here. */}
+      <div className="flex items-center gap-2">
         <span className="bg-void-navy px-2 py-0.5 text-[0.5625rem] font-semibold uppercase tracking-[0.14em] text-muted-ink">
           Description
-        </span>
-        <span className="bg-void-navy px-2 py-0.5 text-[0.5625rem] font-bold uppercase tracking-[0.1em] text-case-file-white">
-          {isActive ? "Active" : "Passive"}
         </span>
       </div>
 
@@ -108,18 +101,22 @@ export function GameCard({
             </p>
           )}
 
-          {card.effectKind === "mechanical" && summary && (
-            <p className="font-[family-name:var(--font-jetbrains)] text-sm font-semibold text-signal-cyan">
-              {summary}
-              {card.trigger && (
-                <span className="ml-1.5 text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
-                  · {TRIGGER_LABELS[card.trigger]}
-                </span>
-              )}
+          {card.effects.map((effect) => (
+            <p
+              key={effect.id}
+              className="flex flex-wrap items-center gap-x-1.5 font-[family-name:var(--font-jetbrains)] text-sm font-semibold text-signal-cyan"
+            >
+              {effectSummary(effect)}
+              <span className="bg-void-navy px-1.5 py-0.5 text-[0.5rem] font-bold uppercase tracking-[0.1em] text-case-file-white">
+                {effect.activation === "active" ? "Active" : "Passive"}
+              </span>
+              <span className="text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
+                · {TRIGGER_LABELS[effect.trigger]}
+              </span>
             </p>
-          )}
+          ))}
 
-          {card.effectKind === "descriptive" && card.descriptiveText && (
+          {card.descriptiveText && (
             <p className="text-pretty font-[family-name:var(--font-inter)] text-xs leading-relaxed text-case-file-white">
               {card.descriptiveText}
             </p>

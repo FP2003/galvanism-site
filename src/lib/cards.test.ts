@@ -12,10 +12,10 @@ import {
   type CardEffectFields,
 } from "./cards";
 
-// Helper: a fully-specified mechanical stat card, overridable per-test.
+// Helper: a fully-specified effect, overridable per-test.
 function mechanical(over: Partial<CardEffectFields> = {}): CardEffectFields {
   return {
-    effectKind: "mechanical",
+    activation: "passive",
     effectType: "stat_modifier",
     effectTarget: "statTech",
     effectAmount: 1,
@@ -66,21 +66,6 @@ describe("effectSummary", () => {
     ).toBe("+4 Max HP");
   });
 
-  it("returns null for descriptive cards", () => {
-    expect(
-      effectSummary({
-        effectKind: "descriptive",
-        effectType: null,
-        effectTarget: null,
-        effectAmount: null,
-        trigger: null,
-      }),
-    ).toBeNull();
-  });
-
-  it("returns null for an incomplete mechanical card", () => {
-    expect(effectSummary(mechanical({ effectAmount: null }))).toBeNull();
-  });
 });
 
 describe("isPersistentEffect", () => {
@@ -94,18 +79,6 @@ describe("isPersistentEffect", () => {
 
   it("excludes on-use effects (momentary, table-side)", () => {
     expect(isPersistentEffect(mechanical({ trigger: "on_use" }))).toBe(false);
-  });
-
-  it("excludes descriptive cards", () => {
-    expect(
-      isPersistentEffect({
-        effectKind: "descriptive",
-        effectType: null,
-        effectTarget: null,
-        effectAmount: null,
-        trigger: null,
-      }),
-    ).toBe(false);
   });
 });
 
@@ -127,16 +100,9 @@ describe("accumulateModifiers", () => {
     expect(mods).toContainEqual({ target: "statAgility", amount: 2 });
   });
 
-  it("ignores on-use and descriptive cards", () => {
+  it("ignores on-use effects", () => {
     const mods = accumulateModifiers([
       mechanical({ trigger: "on_use", effectAmount: 5 }),
-      {
-        effectKind: "descriptive",
-        effectType: null,
-        effectTarget: null,
-        effectAmount: null,
-        trigger: null,
-      },
     ]);
     expect(mods).toEqual([]);
   });
@@ -180,6 +146,7 @@ describe("validateMechanicalEffect", () => {
   it("accepts a valid stat modifier", () => {
     expect(
       validateMechanicalEffect({
+        activation: "passive",
         effectType: "stat_modifier",
         effectTarget: "statTech",
         effectAmount: 1,
@@ -191,6 +158,7 @@ describe("validateMechanicalEffect", () => {
   it("rejects a target that doesn't match the effect type", () => {
     expect(
       validateMechanicalEffect({
+        activation: "passive",
         effectType: "stat_modifier",
         effectTarget: "hpMax", // a resource target
         effectAmount: 1,
@@ -202,6 +170,7 @@ describe("validateMechanicalEffect", () => {
   it("rejects a zero amount", () => {
     expect(
       validateMechanicalEffect({
+        activation: "passive",
         effectType: "stat_modifier",
         effectTarget: "statTech",
         effectAmount: 0,
@@ -213,6 +182,7 @@ describe("validateMechanicalEffect", () => {
   it("rejects an out-of-range amount", () => {
     expect(
       validateMechanicalEffect({
+        activation: "passive",
         effectType: "resource_modifier",
         effectTarget: "hpMax",
         effectAmount: 100000,
