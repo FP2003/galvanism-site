@@ -106,8 +106,12 @@ export const characters = pgTable(
     // denies (row deleted, player re-applies). Admin-created sheets are approved
     // on creation. Only approved characters appear on the roster/dashboard.
     approved: boolean("approved").notNull().default(true),
-    level: integer("level").notNull().default(1),
-    xp: integer("xp").notNull().default(0),
+    // Total XP is cumulative and admin-granted only (never decreases), and is
+    // never shown to players. Currency XP is the spendable balance shown to
+    // players — Phase 6 (Facilities) is where they'll actually spend it; every
+    // grant raises both by the same amount.
+    totalXp: integer("total_xp").notNull().default(0),
+    currencyXp: integer("currency_xp").notNull().default(0),
 
     hpCurrent: integer("hp_current").notNull().default(0),
     hpMax: integer("hp_max").notNull().default(0),
@@ -148,11 +152,12 @@ export const playersRelations = relations(players, ({ one, many }) => ({
   ledger: many(goldLedger),
 }));
 
-export const charactersRelations = relations(characters, ({ one }) => ({
+export const charactersRelations = relations(characters, ({ one, many }) => ({
   player: one(players, {
     fields: [characters.playerId],
     references: [players.id],
   }),
+  xpLedger: many(xpLedger),
 }));
 
 // Append-only record of every gold change (Phase 2 — the player's read-only gold
@@ -184,6 +189,40 @@ export const goldLedgerRelations = relations(goldLedger, ({ one }) => ({
   player: one(players, {
     fields: [goldLedger.playerId],
     references: [players.id],
+  }),
+}));
+
+// Append-only record of every Total/Currency XP change on a character — currently
+// admin grants only (positive delta); Phase 6 (Facilities) will add spend rows
+// (negative delta) once players have somewhere to spend Currency XP. Never
+// updated in place — corrections are new (reversing) rows, same convention as
+// `goldLedger`.
+export const xpLedger = pgTable(
+  "xp_ledger",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    delta: integer("delta").notNull(),
+    totalXpAfter: integer("total_xp_after").notNull(),
+    currencyXpAfter: integer("currency_xp_after").notNull(),
+    refCode: text("ref_code"), // optional reference — reserved for a future mission code
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("xp_ledger_character_idx").on(t.characterId, t.createdAt)],
+);
+
+export const xpLedgerRelations = relations(xpLedger, ({ one }) => ({
+  character: one(characters, {
+    fields: [xpLedger.characterId],
+    references: [characters.id],
   }),
 }));
 
@@ -297,6 +336,7 @@ export type User = typeof users.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Character = typeof characters.$inferSelect;
 export type GoldLedgerEntry = typeof goldLedger.$inferSelect;
+export type XpLedgerEntry = typeof xpLedger.$inferSelect;
 export type Card = typeof cards.$inferSelect;
 export type NewCard = typeof cards.$inferInsert;
 export type CardEffect = typeof cardEffects.$inferSelect;

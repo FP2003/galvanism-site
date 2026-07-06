@@ -36,6 +36,20 @@
       "when": 1783361129176,
       "tag": "0004_red_chameleon",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783369853195,
+      "tag": "0005_sweet_lake",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783372031829,
+      "tag": "0006_drop_xp_upgrades",
+      "breakpoints": true
     }
   ]
 }
