@@ -45,6 +45,9 @@ export function CardMenu({
   const title = card.title;
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [align, setAlign] = useState<"left" | "right">("right");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const confirmDeleteRef = useRef<HTMLButtonElement>(null);
   // Gates the result banner so a stale one doesn't reappear on reopen, and
   // pins which action's state to read — assign/remove/delete each keep their
   // own useActionState, so without this a leftover ok/error from an earlier
@@ -78,6 +81,7 @@ export function CardMenu({
 
   function closeMenu(restoreFocus = false) {
     setOpen(false);
+    setConfirmingDelete(false);
     if (restoreFocus) triggerRef.current?.focus();
   }
 
@@ -85,7 +89,7 @@ export function CardMenu({
   useEffect(() => {
     if (!open) return;
     function onPointerDown(e: PointerEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(e.target as Node)) closeMenu();
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -95,6 +99,18 @@ export function CardMenu({
   useEffect(() => {
     if (open) menuItems()[0]?.focus();
   }, [open]);
+
+  // Focus the confirm button the moment the delete row switches into its
+  // confirm state, so keyboard users land straight on it.
+  useEffect(() => {
+    if (confirmingDelete) confirmDeleteRef.current?.focus();
+  }, [confirmingDelete]);
+
+  // The menu is 208px wide (w-52) and anchors its right edge to the trigger's
+  // right edge by default; on a left-column card in a narrow grid that would
+  // push the menu's left edge off-screen. Flip to left-anchored when there
+  // isn't 208px of room to the trigger's left.
+  const MENU_WIDTH = 208;
 
   function onMenuKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
     const items = menuItems();
@@ -129,7 +145,12 @@ export function CardMenu({
 
   function toggle() {
     setOpen((v) => {
-      if (!v) setInteracted(false); // fresh open — hide any stale result banner
+      if (!v) {
+        setInteracted(false); // fresh open — hide any stale result banner
+        setConfirmingDelete(false);
+        const rect = triggerRef.current?.getBoundingClientRect();
+        setAlign(rect && rect.right - MENU_WIDTH < 8 ? "left" : "right");
+      }
       return !v;
     });
   }
@@ -156,7 +177,7 @@ export function CardMenu({
         aria-expanded={open}
         aria-label={`Actions for ${title}`}
         onClick={toggle}
-        className="flex size-7 items-center justify-center bg-void-navy text-case-file-white transition-colors hover:text-signal-cyan pointer-coarse:size-9"
+        className="flex size-7 items-center justify-center bg-void-navy text-case-file-white transition-colors hover:text-signal-cyan pointer-coarse:size-11"
       >
         <MoreVertical size={15} aria-hidden="true" />
       </button>
@@ -167,7 +188,9 @@ export function CardMenu({
           role="menu"
           aria-label={`${title} actions`}
           onKeyDown={onMenuKeyDown}
-          className="absolute right-0 top-full z-20 mt-1 w-52 border border-steel-blue bg-elevated-ledger py-1"
+          className={`absolute top-full z-20 mt-1 w-52 border border-steel-blue bg-elevated-ledger py-1 ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
         >
           {(showActionOk || showActionErr || showDeleteErr) && (
             <div className="flex flex-col gap-1 px-1 pb-1">
@@ -246,20 +269,22 @@ export function CardMenu({
 
           <form
             action={deleteAction}
-            onSubmit={(e) => {
-              if (
-                !window.confirm(
-                  `Delete “${title}”? This unassigns it from every operator who holds it.`,
-                )
-              ) {
-                e.preventDefault();
-                return;
-              }
-              setInteracted(true);
-            }}
+            onSubmit={() => setInteracted(true)}
           >
             <input type="hidden" name="cardId" value={cardId} />
-            <DeleteItem />
+            {confirmingDelete ? (
+              <div className="flex flex-col gap-1.5 px-3 py-1.5">
+                <p className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
+                  Unassigns from every operator who holds it.
+                </p>
+                <div className="flex gap-1.5">
+                  <ConfirmDeleteItem innerRef={confirmDeleteRef} />
+                  <CancelDeleteItem onClick={() => setConfirmingDelete(false)} />
+                </div>
+              </div>
+            ) : (
+              <DeleteItem onClick={() => setConfirmingDelete(true)} />
+            )}
           </form>
         </div>
       )}
@@ -283,7 +308,7 @@ function AssignItem({ label, suffix }: { label: string; suffix: string }) {
       role="menuitem"
       tabIndex={-1}
       disabled={pending}
-      className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-case-file-white transition-colors hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan focus:outline-none disabled:opacity-60 pointer-coarse:py-2.5"
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-case-file-white transition-colors hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan focus:outline-none disabled:opacity-60 pointer-coarse:min-h-11"
     >
       <Plus size={13} className="shrink-0 text-steel-blue" aria-hidden="true" />
       <span className="truncate">
@@ -307,7 +332,7 @@ function RemoveItem({ label, suffix }: { label: string; suffix: string }) {
       role="menuitem"
       tabIndex={-1}
       disabled={pending}
-      className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-case-file-white transition-colors hover:bg-ledger-teal hover:text-stamp-red focus:bg-ledger-teal focus:text-stamp-red focus:outline-none disabled:opacity-60 pointer-coarse:py-2.5"
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-case-file-white transition-colors hover:bg-ledger-teal hover:text-stamp-red focus:bg-ledger-teal focus:text-stamp-red focus:outline-none disabled:opacity-60 pointer-coarse:min-h-11"
     >
       <Minus size={13} className="shrink-0 text-stamp-red" aria-hidden="true" />
       <span className="truncate">
@@ -330,7 +355,7 @@ function EditItem({ onClick }: { onClick: () => void }) {
       role="menuitem"
       tabIndex={-1}
       onClick={onClick}
-      className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink transition-colors hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan focus:outline-none pointer-coarse:py-2.5"
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink transition-colors hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan focus:outline-none pointer-coarse:min-h-11"
     >
       <Pencil size={13} className="shrink-0" aria-hidden="true" />
       Edit card
@@ -338,18 +363,51 @@ function EditItem({ onClick }: { onClick: () => void }) {
   );
 }
 
-function DeleteItem() {
+function DeleteItem({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      tabIndex={-1}
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink transition-colors hover:bg-ledger-teal hover:text-stamp-red focus:bg-ledger-teal focus:text-stamp-red focus:outline-none pointer-coarse:min-h-11"
+    >
+      <Trash2 size={13} className="shrink-0" aria-hidden="true" />
+      Delete card
+    </button>
+  );
+}
+
+// Two-step inline confirm — replaces a native window.confirm (off-brand,
+// blocks the render thread) with the same shape as the account-deletion
+// confirm elsewhere in admin: an explicit second click, not a browser modal.
+function ConfirmDeleteItem({ innerRef }: { innerRef: React.Ref<HTMLButtonElement> }) {
   const { pending } = useFormStatus();
   return (
     <button
+      ref={innerRef}
       type="submit"
       role="menuitem"
       tabIndex={-1}
       disabled={pending}
-      className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink transition-colors hover:bg-ledger-teal hover:text-stamp-red focus:bg-ledger-teal focus:text-stamp-red focus:outline-none disabled:opacity-60 pointer-coarse:py-2.5"
+      className="flex flex-1 items-center justify-center gap-1.5 bg-stamp-red px-3 py-1.5 font-[family-name:var(--font-inter)] text-[0.8125rem] text-case-file-white transition-colors hover:bg-stamp-red/80 focus:outline-none disabled:opacity-60 pointer-coarse:min-h-11"
     >
-      <Trash2 size={13} className="shrink-0" aria-hidden="true" />
-      {pending ? "Deleting…" : "Delete card"}
+      <Trash2 size={13} aria-hidden="true" />
+      {pending ? "Deleting…" : "Confirm"}
+    </button>
+  );
+}
+
+function CancelDeleteItem({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      tabIndex={-1}
+      onClick={onClick}
+      className="flex-1 px-3 py-1.5 text-center font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink transition-colors hover:bg-ledger-teal hover:text-case-file-white focus:outline-none pointer-coarse:min-h-11"
+    >
+      Cancel
     </button>
   );
 }
