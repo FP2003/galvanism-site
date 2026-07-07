@@ -94,6 +94,23 @@ export function resolveWeaponSlotAssignment(
     return { ok: false, error: illegalSlotMessage(weapon, targetSlot) };
   }
 
+  // A two-handed Primary occupies Secondary too, even though it's only
+  // recorded against the "primary" slot in storage — Secondary never gets
+  // its own row for it, so this can't be caught by isSlotLegalFor alone.
+  if (targetSlot === "secondary") {
+    const primary = occupied.primary;
+    if (
+      primary &&
+      primary.assignmentId !== assignmentId &&
+      primary.handedness === "two_handed"
+    ) {
+      return {
+        ok: false,
+        error: "Secondary is occupied by the two-handed weapon in Primary.",
+      };
+    }
+  }
+
   const slotsToClear: WeaponSlotName[] = [];
   if (targetSlot === "primary" && weapon.handedness === "two_handed") {
     const secondary = occupied.secondary;

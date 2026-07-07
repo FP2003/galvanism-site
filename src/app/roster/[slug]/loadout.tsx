@@ -87,6 +87,8 @@ function WeaponSlots({
   canEdit: boolean;
 }) {
   const unslotted = weapons.filter((w) => !w.weaponSlot);
+  const primaryOccupant = weapons.find((w) => w.weaponSlot === "primary");
+  const secondaryHeldByTwoHanded = primaryOccupant?.card.handedness === "two_handed";
 
   return (
     <div>
@@ -105,6 +107,7 @@ function WeaponSlots({
                 slot,
               ),
           );
+          const heldByTwoHandedPrimary = slot === "secondary" && !occupant && secondaryHeldByTwoHanded;
           return (
             <li key={slot} className="flex flex-col gap-2">
               <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
@@ -122,6 +125,11 @@ function WeaponSlots({
                     />
                   )}
                 </>
+              ) : heldByTwoHandedPrimary ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 border border-dashed border-elevated-ledger p-4 text-center">
+                  <Crosshair size={20} className="text-steel-blue" aria-hidden="true" />
+                  <p className="text-xs text-muted-ink">2H Equipped</p>
+                </div>
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 border border-dashed border-elevated-ledger p-4 text-center">
                   <Crosshair size={20} className="text-steel-blue" aria-hidden="true" />

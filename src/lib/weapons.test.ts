@@ -132,6 +132,19 @@ describe("resolveWeaponSlotAssignment", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("rejects a one-handed weapon into secondary when primary holds a two-handed weapon", () => {
+    const occupied: OccupiedSlots = {
+      primary: { assignmentId: "assign-1", subcategory: "rifle", handedness: "two_handed" },
+    };
+    const result = resolveWeaponSlotAssignment(
+      weapon({ subcategory: "melee", handedness: "one_handed" }),
+      "assign-2",
+      "secondary",
+      occupied,
+    );
+    expect(result.ok).toBe(false);
+  });
+
   it("does not evict the target slot's current occupant itself — that's the caller's job", () => {
     const occupied: OccupiedSlots = {
       primary: { assignmentId: "assign-2", subcategory: "pistol", handedness: "one_handed" },
