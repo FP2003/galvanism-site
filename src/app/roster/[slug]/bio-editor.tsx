@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Pencil, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea, FormMessage } from "@/components/ui/form";
+import { Markdown } from "@/components/ui/markdown";
 import { updateBio, type SheetState } from "@/app/roster/actions";
 
 /*
@@ -50,6 +51,9 @@ export function BioEditor({
           defaultValue={bio ?? ""}
           placeholder="Background, notable operations, disposition…"
         />
+        <p className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
+          Supports Markdown — **bold**, *italic*, and &apos;- &apos; for bullet lists.
+        </p>
         <FormMessage state={state} />
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={pending}>
@@ -73,9 +77,9 @@ export function BioEditor({
   return (
     <div className="flex flex-col gap-3">
       {bio ? (
-        <p className="max-w-[68ch] text-pretty leading-relaxed text-case-file-white/90">
+        <Markdown className="max-w-[68ch] text-pretty leading-relaxed text-case-file-white/90">
           {bio}
-        </p>
+        </Markdown>
       ) : (
         <p className="font-[family-name:var(--font-inter)] text-sm italic text-muted-ink">
           No service record on file.

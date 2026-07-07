@@ -5,6 +5,7 @@ import { ArrowLeft, Shield, Zap, Crosshair, Activity, Clock, Sparkles } from "lu
 import { eq, desc } from "drizzle-orm";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
+import { Markdown } from "@/components/ui/markdown";
 import { Meter } from "@/components/ui/meter";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -321,9 +322,9 @@ export default async function CaseFilePage({
                       <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.06em] text-case-file-white">
                         {e.cardTitle}
                       </p>
-                      <p className="mt-1 text-pretty font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
+                      <Markdown className="mt-1 text-pretty font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
                         {e.text}
-                      </p>
+                      </Markdown>
                     </div>
                   ))}
                 </div>

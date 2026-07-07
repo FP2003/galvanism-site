@@ -212,7 +212,10 @@ export function CardForm() {
               )}
             </Field>
           </div>
-          <Field label="Description" hint="Card-face body copy (flavor / rules text).">
+          <Field
+            label="Description"
+            hint="Card-face body copy (flavor / rules text). Supports Markdown — **bold**, *italic*, and '- ' for bullet lists."
+          >
             {(id) => (
               <Textarea
                 id={id}
@@ -306,7 +309,7 @@ export function CardForm() {
           </legend>
           <Field
             label="Descriptive text"
-            hint="Optional feat-like flavor text, shown alongside any mechanical effects below."
+            hint="Optional feat-like flavor text, shown alongside any mechanical effects below. Supports Markdown — **bold**, *italic*, and '- ' for bullet lists."
           >
             {(id) => (
               <Textarea

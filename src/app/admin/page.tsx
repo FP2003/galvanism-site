@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { StatusLabel } from "@/components/ui/status-dot";
+import { Markdown } from "@/components/ui/markdown";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { getPendingApplications } from "@/lib/characters";
@@ -76,9 +77,9 @@ export default async function AdminPage() {
                       ))}
                     </div>
                     {view.bio && (
-                      <p className="mt-2 max-w-2xl text-pretty text-xs text-muted-ink">
+                      <Markdown className="mt-2 max-w-2xl text-pretty text-xs text-muted-ink">
                         {view.bio}
-                      </p>
+                      </Markdown>
                     )}
                   </div>
                   <div className="shrink-0">

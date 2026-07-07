@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { CardWithEffects } from "@/lib/schema";
+import { Markdown } from "@/components/ui/markdown";
 import {
   CARD_CATEGORY_META,
   ITEM_SUBCATEGORY_META,
@@ -127,9 +128,9 @@ export function GameCard({
           {isWeapon && <WeaponStatGrid card={card} />}
 
           {card.description && (
-            <p className="text-pretty font-[family-name:var(--font-inter)] text-xs leading-relaxed text-muted-ink">
+            <Markdown className="text-pretty font-[family-name:var(--font-inter)] text-xs leading-relaxed text-muted-ink">
               {card.description}
-            </p>
+            </Markdown>
           )}
 
           {card.effects.map((effect) => (
@@ -148,9 +149,9 @@ export function GameCard({
           ))}
 
           {card.descriptiveText && (
-            <p className="text-pretty font-[family-name:var(--font-inter)] text-xs leading-relaxed text-case-file-white">
+            <Markdown className="text-pretty font-[family-name:var(--font-inter)] text-xs leading-relaxed text-case-file-white">
               {card.descriptiveText}
-            </p>
+            </Markdown>
           )}
         </div>
       </div>
