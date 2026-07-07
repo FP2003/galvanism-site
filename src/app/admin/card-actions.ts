@@ -253,6 +253,154 @@ export async function createCard(
   return { ok: true, message: `Card “${title}” created.` };
 }
 
+// Edits an existing card definition in place (title, effects, weapon fields,
+// etc.) — same validation as createCard, but UPDATEs the row instead of
+// inserting one.
+export async function updateCard(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireAdmin();
+
+  const cardId = textField(formData, "cardId");
+  if (!cardId) return { error: "Missing card reference." };
+
+  const categoryRaw = textField(formData, "category") as CardCategory;
+  if (!CARD_CATEGORIES.includes(categoryRaw)) {
+    return { error: "Pick a card category." };
+  }
+
+  const title = textField(formData, "title", CARD_TEXT_LIMITS.title);
+  if (!title) return { error: "A card title is required." };
+
+  const description =
+    textField(formData, "description", CARD_TEXT_LIMITS.description) || null;
+
+  const levelRaw = Number(textField(formData, "level"));
+  const level = Number.isFinite(levelRaw)
+    ? Math.max(1, Math.min(CARD_TEXT_LIMITS.levelMax, Math.floor(levelRaw)))
+    : 1;
+
+  const colorRaw = textField(formData, "colorOverride");
+  let colorOverride: string | null = null;
+  if (colorRaw) {
+    if (!isHexColor(colorRaw)) {
+      return { error: "Custom color must be a hex value like #4a3b7a." };
+    }
+    colorOverride = colorRaw;
+  }
+
+  const descriptiveText =
+    textField(formData, "descriptiveText", CARD_TEXT_LIMITS.descriptiveText) ||
+    null;
+
+  const parsedEffects = parseEffectsField(formData.get("effects"));
+  if (!parsedEffects.ok) return { error: parsedEffects.error };
+  const effects = parsedEffects.value;
+
+  let subcategory: ItemSubcategory | null = null;
+  let handedness: WeaponHandedness | null = null;
+  let damageType: WeaponDamageType | null = null;
+  let damage: number | null = null;
+  let range: number | null = null;
+  let ammoCount: number | null = null;
+
+  if (categoryRaw === "item") {
+    const subRaw = textField(formData, "subcategory") as ItemSubcategory;
+    if (!ITEM_SUBCATEGORIES.includes(subRaw)) {
+      return { error: "Pick an item subcategory." };
+    }
+    subcategory = subRaw;
+
+    if (isWeaponSubcategory(subcategory)) {
+      const handednessRaw = textField(formData, "handedness") as WeaponHandedness;
+      handedness =
+        handednessRaw === "one_handed" || handednessRaw === "two_handed"
+          ? handednessRaw
+          : null;
+      const damageTypeRaw = textField(formData, "damageType") as WeaponDamageType;
+      damageType = WEAPON_DAMAGE_TYPES.includes(damageTypeRaw) ? damageTypeRaw : null;
+      damage = optionalIntField(formData, "damage");
+      range = optionalIntField(formData, "range");
+      ammoCount = optionalIntField(formData, "ammoCount");
+    }
+
+    const weaponCheck = validateWeaponFields({
+      subcategory,
+      handedness,
+      damageType,
+      damage,
+      range,
+      ammoCount,
+    });
+    if (!weaponCheck.ok) return { error: weaponCheck.error };
+  }
+
+  if (
+    effects.length === 0 &&
+    !descriptiveText &&
+    !isWeaponSubcategory(subcategory)
+  ) {
+    return { error: "Add at least one effect or some descriptive text." };
+  }
+
+  const values: Partial<NewCard> = {
+    category: categoryRaw,
+    title,
+    description,
+    level,
+    colorOverride,
+    descriptiveText,
+    subcategory,
+    handedness,
+    damageType,
+    damage,
+    range,
+    ammoCount,
+    updatedAt: new Date(),
+  };
+
+  const db = getDb();
+  try {
+    const [updated] = await db
+      .update(cards)
+      .set(values)
+      .where(eq(cards.id, cardId))
+      .returning({ id: cards.id });
+    if (!updated) return { error: "Card not found." };
+  } catch (err) {
+    return {
+      error: `Database error: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  // neon-http has no transaction support (see createCard) — effects are
+  // replaced wholesale (delete-then-insert) rather than diffed in place.
+  try {
+    await db.delete(cardEffects).where(eq(cardEffects.cardId, cardId));
+    if (effects.length > 0) {
+      const rows: NewCardEffect[] = effects.map((e, i) => ({
+        cardId,
+        activation: e.activation,
+        effectType: e.effectType,
+        effectTarget: e.effectTarget,
+        effectAmount: e.effectAmount,
+        trigger: e.trigger,
+        sortOrder: i,
+      }));
+      await db.insert(cardEffects).values(rows);
+    }
+  } catch (err) {
+    return {
+      error: `Database error: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+
+  revalidatePath("/admin/cards");
+  revalidatePath("/roster");
+  return { ok: true, message: `Card “${title}” updated.` };
+}
+
 // Removes a card from the library. Cascades to every assignment (unequips it
 // from any operator who held it).
 export async function deleteCard(

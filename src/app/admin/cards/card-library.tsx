@@ -122,7 +122,7 @@ export function CardLibrary({ items }: { items: CardLibraryItem[] }) {
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {filtered.map(({ card, targets }) => (
             <li key={card.id}>
-              <GameCard card={card} menu={<CardMenu cardId={card.id} title={card.title} targets={targets} />} />
+              <GameCard card={card} menu={<CardMenu card={card} targets={targets} />} />
             </li>
           ))}
         </ul>

@@ -6,6 +6,7 @@ import {
   MoreVertical,
   Plus,
   Minus,
+  Pencil,
   Trash2,
   Check,
   AlertTriangle,
@@ -17,6 +18,9 @@ import {
   type FormState,
 } from "@/app/admin/card-actions";
 import type { CardAssignmentTarget } from "@/lib/card-data";
+import type { CardWithEffects } from "@/lib/schema";
+import { Dialog } from "@/components/ui/dialog";
+import { CardForm } from "./card-form";
 
 /*
  * Per-card action menu (Card Library). A WAI-ARIA menu button: opening moves
@@ -31,15 +35,16 @@ import type { CardAssignmentTarget } from "@/lib/card-data";
  * error inline; on success the card unmounts, taking the menu with it).
  */
 export function CardMenu({
-  cardId,
-  title,
+  card,
   targets,
 }: {
-  cardId: string;
-  title: string;
+  card: CardWithEffects;
   targets: CardAssignmentTarget[];
 }) {
+  const cardId = card.id;
+  const title = card.title;
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   // Gates the result banner so a stale one doesn't reappear on reopen, and
   // pins which action's state to read — assign/remove/delete each keep their
   // own useActionState, so without this a leftover ok/error from an earlier
@@ -232,6 +237,13 @@ export function CardMenu({
             </>
           )}
 
+          <EditItem
+            onClick={() => {
+              closeMenu();
+              setEditOpen(true);
+            }}
+          />
+
           <form
             action={deleteAction}
             onSubmit={(e) => {
@@ -251,6 +263,14 @@ export function CardMenu({
           </form>
         </div>
       )}
+
+      <Dialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title={`Edit ${title}`}
+      >
+        {editOpen && <CardForm card={card} onSaved={() => setEditOpen(false)} />}
+      </Dialog>
     </div>
   );
 }
@@ -299,6 +319,21 @@ function RemoveItem({ label, suffix }: { label: string; suffix: string }) {
           …
         </span>
       )}
+    </button>
+  );
+}
+
+function EditItem({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      tabIndex={-1}
+      onClick={onClick}
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink transition-colors hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan focus:outline-none pointer-coarse:py-2.5"
+    >
+      <Pencil size={13} className="shrink-0" aria-hidden="true" />
+      Edit card
     </button>
   );
 }

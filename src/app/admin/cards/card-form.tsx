@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, X } from "lucide-react";
+import { Plus, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -31,7 +31,8 @@ import {
   type ItemSubcategory,
   type WeaponHandedness,
 } from "@/lib/cards";
-import { createCard, type FormState } from "@/app/admin/card-actions";
+import { createCard, updateCard, type FormState } from "@/app/admin/card-actions";
+import type { CardWithEffects } from "@/lib/schema";
 
 const TRIGGERS = ["on_equip", "on_use", "passive"] as const;
 const WEAPON_HANDEDNESS = ["one_handed", "two_handed"] as const;
@@ -57,12 +58,22 @@ function defaultEffectRow(): EffectRow {
   };
 }
 
-function SubmitButton() {
+function effectToRow(effect: CardWithEffects["effects"][number]): EffectRow {
+  return {
+    activation: effect.activation,
+    effectType: effect.effectType,
+    effectTarget: effect.effectTarget,
+    effectAmount: String(effect.effectAmount),
+    trigger: effect.trigger,
+  };
+}
+
+function SubmitButton({ isEdit }: { isEdit: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending} className="w-full sm:w-auto">
-      <Plus size={15} />
-      {pending ? "Creating…" : "Create card"}
+      {isEdit ? <Save size={15} /> : <Plus size={15} />}
+      {pending ? (isEdit ? "Saving…" : "Creating…") : isEdit ? "Save changes" : "Create card"}
     </Button>
   );
 }
@@ -70,11 +81,28 @@ function SubmitButton() {
 // Structured effect builder (info/card_system.md). A card can carry any number
 // of mechanical effects (each with its own activation/type/target/amount/
 // trigger) plus optional flavor text — the two aren't mutually exclusive.
-export function CardForm() {
-  const [state, formAction] = useActionState<FormState, FormData>(createCard, {});
-  const [effects, setEffects] = useState<EffectRow[]>([defaultEffectRow()]);
-  const [category, setCategory] = useState<CardCategory>("combat");
-  const [subcategory, setSubcategory] = useState<ItemSubcategory>("medical");
+//
+// Doubles as the edit form: passing `card` prefills every field from the
+// existing row and submits through updateCard instead of createCard.
+export function CardForm({
+  card,
+  onSaved,
+}: {
+  card?: CardWithEffects;
+  onSaved?: () => void;
+} = {}) {
+  const isEdit = Boolean(card);
+  const [state, formAction] = useActionState<FormState, FormData>(
+    isEdit ? updateCard : createCard,
+    {},
+  );
+  const [effects, setEffects] = useState<EffectRow[]>(
+    card ? card.effects.map(effectToRow) : [defaultEffectRow()],
+  );
+  const [category, setCategory] = useState<CardCategory>(card?.category ?? "combat");
+  const [subcategory, setSubcategory] = useState<ItemSubcategory>(
+    card?.subcategory ?? "medical",
+  );
   const [resetKey, setResetKey] = useState(0);
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -84,11 +112,12 @@ export function CardForm() {
   // native fields; setEffects clears the controlled effect-row state. Adjusted
   // during render (not an effect) per React's "state from props" pattern,
   // since it's deriving state from the latest action result, not synchronizing
-  // with an external system.
+  // with an external system. Editing an existing card has no such reset — the
+  // dialog just closes (see the onSaved effect below).
   const [lastHandledState, setLastHandledState] = useState(state);
   if (state !== lastHandledState) {
     setLastHandledState(state);
-    if (state.ok) {
+    if (state.ok && !isEdit) {
       setEffects([defaultEffectRow()]);
       setCategory("combat");
       setSubcategory("medical");
@@ -101,6 +130,12 @@ export function CardForm() {
   useEffect(() => {
     if (resetKey > 0) titleRef.current?.focus();
   }, [resetKey]);
+
+  // Closing the host dialog is an effect (it reaches into a parent-owned
+  // state setter), not something to do while CardForm itself is rendering.
+  useEffect(() => {
+    if (isEdit && state.ok) onSaved?.();
+  }, [state, isEdit, onSaved]);
 
   // Item cards usually lean on their weapon stats / descriptive text rather
   // than a structured effect, so switching into "item" starts from a blank
@@ -135,6 +170,7 @@ export function CardForm() {
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
+      {isEdit && <input type="hidden" name="cardId" value={card!.id} />}
       <div key={resetKey} className="flex flex-col gap-6">
         <fieldset className="flex flex-col gap-4">
           <legend className="mb-1 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
@@ -184,6 +220,7 @@ export function CardForm() {
                   required
                   maxLength={CARD_TEXT_LIMITS.title}
                   autoComplete="off"
+                  defaultValue={card?.title}
                   placeholder="Overclock Rounds"
                 />
               )}
@@ -197,7 +234,7 @@ export function CardForm() {
                   min={1}
                   max={CARD_TEXT_LIMITS.levelMax}
                   inputMode="numeric"
-                  defaultValue={1}
+                  defaultValue={card?.level ?? 1}
                 />
               )}
             </Field>
@@ -207,6 +244,7 @@ export function CardForm() {
                   id={id}
                   name="colorOverride"
                   autoComplete="off"
+                  defaultValue={card?.colorOverride ?? ""}
                   placeholder="#4a3b7a"
                 />
               )}
@@ -222,6 +260,7 @@ export function CardForm() {
                 name="description"
                 rows={3}
                 maxLength={CARD_TEXT_LIMITS.description}
+                defaultValue={card?.description ?? ""}
                 placeholder="What the card is / how it reads on the table."
               />
             )}
@@ -236,7 +275,7 @@ export function CardForm() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Handedness">
                 {(id) => (
-                  <Select id={id} name="handedness" defaultValue="one_handed">
+                  <Select id={id} name="handedness" defaultValue={card?.handedness ?? "one_handed"}>
                     {WEAPON_HANDEDNESS.map((h) => (
                       <option key={h} value={h}>
                         {WEAPON_HANDEDNESS_LABELS[h as WeaponHandedness]}
@@ -247,7 +286,7 @@ export function CardForm() {
               </Field>
               <Field label="Damage type">
                 {(id) => (
-                  <Select id={id} name="damageType" defaultValue="piercing">
+                  <Select id={id} name="damageType" defaultValue={card?.damageType ?? "piercing"}>
                     {WEAPON_DAMAGE_TYPES.map((d) => (
                       <option key={d} value={d}>
                         {WEAPON_DAMAGE_TYPE_LABELS[d]}
@@ -266,6 +305,7 @@ export function CardForm() {
                     max={CARD_TEXT_LIMITS.damageAbs}
                     inputMode="numeric"
                     required
+                    defaultValue={card?.damage ?? ""}
                     placeholder="6"
                   />
                 )}
@@ -279,6 +319,7 @@ export function CardForm() {
                     min={0}
                     max={CARD_TEXT_LIMITS.rangeAbs}
                     inputMode="numeric"
+                    defaultValue={card?.range ?? ""}
                     placeholder="20"
                   />
                 )}
@@ -295,6 +336,7 @@ export function CardForm() {
                     min={0}
                     max={CARD_TEXT_LIMITS.ammoCountAbs}
                     inputMode="numeric"
+                    defaultValue={card?.ammoCount ?? ""}
                     placeholder="30"
                   />
                 )}
@@ -317,6 +359,7 @@ export function CardForm() {
                 name="descriptiveText"
                 rows={3}
                 maxLength={CARD_TEXT_LIMITS.descriptiveText}
+                defaultValue={card?.descriptiveText ?? ""}
                 placeholder="Once per mission, re-roll a failed melee defense…"
               />
             )}
@@ -358,7 +401,7 @@ export function CardForm() {
 
       <FormMessage state={state} />
       <div>
-        <SubmitButton />
+        <SubmitButton isEdit={isEdit} />
       </div>
     </form>
   );
