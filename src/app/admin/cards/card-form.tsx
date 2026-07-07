@@ -261,7 +261,7 @@ export function CardForm({
                   min={0}
                   inputMode="numeric"
                   defaultValue={card?.priceCredits ?? ""}
-                  placeholder="150"
+                  placeholder="50"
                 />
               )}
             </Field>
