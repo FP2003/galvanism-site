@@ -9,7 +9,14 @@ import {
 } from "./schema";
 import type { CharacterView } from "./characters";
 import type { StatKey } from "./status";
-import { accumulateModifiers, applyModifiers, effectSummary, isPersistentEffect } from "./cards";
+import {
+  accumulateModifiers,
+  applyModifiers,
+  effectSummary,
+  isPersistentEffect,
+  isWeaponSubcategory,
+} from "./cards";
+import type { WeaponSlotName } from "./cards";
 import { clampResource } from "./ledger";
 
 /*
@@ -22,7 +29,26 @@ import { clampResource } from "./ledger";
 export interface OwnedCard {
   assignmentId: string; // character_cards.id
   equipped: boolean;
+  weaponSlot: WeaponSlotName | null;
   card: CardWithEffects;
+}
+
+/**
+ * Splits owned cards into weapon-subcategory (rifle/pistol/melee — these use
+ * the primary/secondary/tertiary slot system) vs. everything else, which
+ * keeps using the plain equipped/inventory toggle. Shared by the Case File
+ * Loadout and the admin per-character card assignment panel.
+ */
+export function partitionByWeapon(owned: OwnedCard[]): {
+  weapons: OwnedCard[];
+  rest: OwnedCard[];
+} {
+  const weapons: OwnedCard[] = [];
+  const rest: OwnedCard[] = [];
+  for (const o of owned) {
+    (isWeaponSubcategory(o.card.subcategory) ? weapons : rest).push(o);
+  }
+  return { weapons, rest };
 }
 
 /** Every card definition, newest first — for the admin library + assign picker. */
@@ -93,6 +119,7 @@ export async function getCharacterCards(
   return rows.map((r) => ({
     assignmentId: r.id,
     equipped: r.equipped,
+    weaponSlot: r.weaponSlot,
     card: r.card,
   }));
 }

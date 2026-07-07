@@ -8,6 +8,7 @@ import {
   validateMechanicalEffect,
   cardAccent,
   isHexColor,
+  isWeaponSubcategory,
   CARD_CATEGORY_META,
   type CardEffectFields,
 } from "./cards";
@@ -216,5 +217,24 @@ describe("isHexColor", () => {
   it("rejects shorthand and named colors", () => {
     expect(isHexColor("#fff")).toBe(false);
     expect(isHexColor("red")).toBe(false);
+  });
+});
+
+describe("isWeaponSubcategory", () => {
+  it("accepts rifle, pistol, and melee", () => {
+    expect(isWeaponSubcategory("rifle")).toBe(true);
+    expect(isWeaponSubcategory("pistol")).toBe(true);
+    expect(isWeaponSubcategory("melee")).toBe(true);
+  });
+
+  it("rejects the non-weapon item subcategories", () => {
+    expect(isWeaponSubcategory("medical")).toBe(false);
+    expect(isWeaponSubcategory("grenade")).toBe(false);
+    expect(isWeaponSubcategory("other")).toBe(false);
+  });
+
+  it("rejects null/undefined", () => {
+    expect(isWeaponSubcategory(null)).toBe(false);
+    expect(isWeaponSubcategory(undefined)).toBe(false);
   });
 });

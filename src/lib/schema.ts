@@ -16,7 +16,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 export const userRole = pgEnum("user_role", ["admin", "player"]);
 export const characterStatus = pgEnum("character_status", [
@@ -54,6 +54,40 @@ export const cardTrigger = pgEnum("card_trigger", [
   "on_equip",
   "on_use",
   "passive",
+]);
+
+// Item-card subcategory (only meaningful when category = "item"). rifle/pistol/
+// melee are the "weapon" subcategories — they carry the weapon fields below and
+// participate in the weapon-slot system; medical/grenade/other stay generic
+// items using the plain equipped/inventory toggle.
+export const itemSubcategory = pgEnum("item_subcategory", [
+  "medical",
+  "grenade",
+  "rifle",
+  "pistol",
+  "melee",
+  "other",
+]);
+// A two-handed weapon can only ever occupy the primary weapon slot.
+export const weaponHandedness = pgEnum("weapon_handedness", [
+  "one_handed",
+  "two_handed",
+]);
+// Required for weapon subcategories, same as handedness (lib/weapons.ts).
+export const weaponDamageType = pgEnum("weapon_damage_type", [
+  "piercing",
+  "bladed",
+  "blunt",
+  "electric",
+  "power",
+  "poison",
+  "burn",
+]);
+// The three weapon-equip slots on a character (info/how_does_combat_accuracy_work.md).
+export const weaponSlot = pgEnum("weapon_slot", [
+  "primary",
+  "secondary",
+  "tertiary",
 ]);
 
 // One row per Clerk account. Admins have no player/character rows.
@@ -252,6 +286,18 @@ export const cards = pgTable("cards", {
   // independent of any mechanical effects below.
   descriptiveText: text("descriptive_text"),
 
+  // Item subcategory + weapon fields (Phase 4 prep). Set iff category = "item";
+  // handedness/damage/range/ammoCount set iff subcategory is a weapon type
+  // (rifle/pistol/melee). Legality is enforced in lib/weapons.ts + the create
+  // action, not via a DB CHECK constraint. ammoCount is descriptive only (e.g.
+  // magazine capacity) — it does not feed characters.ammoCurrent/ammoMax.
+  subcategory: itemSubcategory("subcategory"),
+  handedness: weaponHandedness("handedness"),
+  damageType: weaponDamageType("damage_type"),
+  damage: integer("damage"),
+  range: integer("range"), // meters
+  ammoCount: integer("ammo_count"),
+
   createdByUserId: text("created_by_user_id").references(() => users.id, {
     onDelete: "set null",
   }),
@@ -300,6 +346,9 @@ export const characterCards = pgTable(
       .notNull()
       .references(() => cards.id, { onDelete: "cascade" }),
     equipped: boolean("equipped").notNull().default(false),
+    // Set iff this row is an equipped weapon (rifle/pistol/melee card). Written
+    // together with `equipped` by setWeaponSlot; non-weapon rows never set it.
+    weaponSlot: weaponSlot("weapon_slot"),
     acquiredAt: timestamp("acquired_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -307,6 +356,10 @@ export const characterCards = pgTable(
   (t) => [
     index("character_cards_character_idx").on(t.characterId),
     uniqueIndex("character_cards_unique").on(t.characterId, t.cardId),
+    // At most one weapon per character per slot.
+    uniqueIndex("character_cards_weapon_slot_unique")
+      .on(t.characterId, t.weaponSlot)
+      .where(sql`${t.weaponSlot} is not null`),
   ],
 );
 

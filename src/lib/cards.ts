@@ -11,12 +11,20 @@ import type {
   cardActivation,
   cardEffectType,
   cardTrigger,
+  itemSubcategory,
+  weaponHandedness,
+  weaponDamageType,
+  weaponSlot,
 } from "./schema";
 
 export type CardCategory = (typeof cardCategory.enumValues)[number];
 export type CardActivation = (typeof cardActivation.enumValues)[number];
 export type CardEffectType = (typeof cardEffectType.enumValues)[number];
 export type CardTrigger = (typeof cardTrigger.enumValues)[number];
+export type ItemSubcategory = (typeof itemSubcategory.enumValues)[number];
+export type WeaponHandedness = (typeof weaponHandedness.enumValues)[number];
+export type WeaponDamageType = (typeof weaponDamageType.enumValues)[number];
+export type WeaponSlotName = (typeof weaponSlot.enumValues)[number];
 
 // ---------------------------------------------------------------------------
 // Category presentation. Colors are the muted "Committed exception" hexes from
@@ -47,6 +55,54 @@ export const CARD_CATEGORY_META: Record<CardCategory, CardCategoryMeta> = {
 export const CARD_CATEGORIES = Object.keys(
   CARD_CATEGORY_META,
 ) as CardCategory[];
+
+// ---------------------------------------------------------------------------
+// Item subcategories (only meaningful when category = "item"). rifle/pistol/
+// melee are the "weapon" subcategories — they carry the weapon fields below
+// and use the primary/secondary/tertiary slot system (lib/weapons.ts) instead
+// of the plain equipped/inventory toggle.
+// ---------------------------------------------------------------------------
+export interface ItemSubcategoryMeta {
+  label: string;
+}
+
+export const ITEM_SUBCATEGORY_META: Record<ItemSubcategory, ItemSubcategoryMeta> = {
+  medical: { label: "Medical" },
+  grenade: { label: "Grenade" },
+  rifle: { label: "Rifle" },
+  pistol: { label: "Pistol" },
+  melee: { label: "Melee" },
+  other: { label: "Other" },
+};
+
+export const ITEM_SUBCATEGORIES = Object.keys(
+  ITEM_SUBCATEGORY_META,
+) as ItemSubcategory[];
+
+export function isWeaponSubcategory(
+  s: ItemSubcategory | null | undefined,
+): s is "rifle" | "pistol" | "melee" {
+  return s === "rifle" || s === "pistol" || s === "melee";
+}
+
+export const WEAPON_HANDEDNESS_LABELS: Record<WeaponHandedness, string> = {
+  one_handed: "One-handed",
+  two_handed: "Two-handed",
+};
+
+export const WEAPON_DAMAGE_TYPE_LABELS: Record<WeaponDamageType, string> = {
+  piercing: "Piercing",
+  bladed: "Bladed",
+  blunt: "Blunt",
+  electric: "Electric",
+  power: "Power",
+  poison: "Poison",
+  burn: "Burn",
+};
+
+export const WEAPON_DAMAGE_TYPES = Object.keys(
+  WEAPON_DAMAGE_TYPE_LABELS,
+) as WeaponDamageType[];
 
 /** The accent hex a card renders with: its override, else the category preset. */
 export function cardAccent(
@@ -110,6 +166,9 @@ export const CARD_TEXT_LIMITS = {
   levelMax: 20,
   effectAmountAbs: 999,
   effectsMax: 6,
+  damageAbs: 999,
+  rangeAbs: 999,
+  ammoCountAbs: 999,
 } as const;
 
 // ---------------------------------------------------------------------------
