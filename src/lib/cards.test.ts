@@ -10,6 +10,7 @@ import {
   isHexColor,
   isWeaponSubcategory,
   CARD_CATEGORY_META,
+  ITEM_SUBCATEGORY_META,
   type CardEffectFields,
 } from "./cards";
 
@@ -206,6 +207,28 @@ describe("cardAccent", () => {
     expect(cardAccent("combat", "not-a-color")).toBe(
       CARD_CATEGORY_META.combat.color,
     );
+  });
+
+  it("uses the weapon subcategory color over the item category preset", () => {
+    expect(cardAccent("item", null, "rifle")).toBe(
+      ITEM_SUBCATEGORY_META.rifle.color,
+    );
+    expect(cardAccent("item", null, "pistol")).toBe(
+      ITEM_SUBCATEGORY_META.pistol.color,
+    );
+    expect(cardAccent("item", null, "melee")).toBe(
+      ITEM_SUBCATEGORY_META.melee.color,
+    );
+  });
+
+  it("falls back to the item category preset for non-weapon subcategories", () => {
+    expect(cardAccent("item", null, "medical")).toBe(
+      CARD_CATEGORY_META.item.color,
+    );
+  });
+
+  it("still honors a color override over a weapon subcategory color", () => {
+    expect(cardAccent("item", "#abcdef", "rifle")).toBe("#abcdef");
   });
 });
 

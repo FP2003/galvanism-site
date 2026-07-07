@@ -61,17 +61,25 @@ export const CARD_CATEGORIES = Object.keys(
 // melee are the "weapon" subcategories — they carry the weapon fields below
 // and use the primary/secondary/tertiary slot system (lib/weapons.ts) instead
 // of the plain equipped/inventory toggle.
+//
+// Weapon subcategories additionally carry a `color`, overriding the plain
+// Item Steel Blue preset (DESIGN.md § Card Categories) so guns and melee read
+// as distinct at a glance in the library and on a character sheet — rifle and
+// pistol share Brass Ochre (ammunition/cartridge), melee gets Oxblood Rust
+// (blade/impact). Non-weapon item subcategories have no color of their own
+// and fall through to the Item preset.
 // ---------------------------------------------------------------------------
 export interface ItemSubcategoryMeta {
   label: string;
+  color?: string;
 }
 
 export const ITEM_SUBCATEGORY_META: Record<ItemSubcategory, ItemSubcategoryMeta> = {
   medical: { label: "Medical" },
   grenade: { label: "Grenade" },
-  rifle: { label: "Rifle" },
-  pistol: { label: "Pistol" },
-  melee: { label: "Melee" },
+  rifle: { label: "Rifle", color: "#6E5E2E" },
+  pistol: { label: "Pistol", color: "#6E5E2E" },
+  melee: { label: "Melee", color: "#5C2F26" },
   other: { label: "Other" },
 };
 
@@ -104,14 +112,19 @@ export const WEAPON_DAMAGE_TYPES = Object.keys(
   WEAPON_DAMAGE_TYPE_LABELS,
 ) as WeaponDamageType[];
 
-/** The accent hex a card renders with: its override, else the category preset. */
+/**
+ * The accent hex a card renders with: its override, else the item subcategory
+ * preset (weapons only — see ITEM_SUBCATEGORY_META), else the category preset.
+ */
 export function cardAccent(
   category: CardCategory,
   colorOverride?: string | null,
+  subcategory?: ItemSubcategory | null,
 ): string {
-  return colorOverride && isHexColor(colorOverride)
-    ? colorOverride
-    : CARD_CATEGORY_META[category].color;
+  if (colorOverride && isHexColor(colorOverride)) return colorOverride;
+  const subcategoryColor =
+    subcategory && ITEM_SUBCATEGORY_META[subcategory].color;
+  return subcategoryColor || CARD_CATEGORY_META[category].color;
 }
 
 // ---------------------------------------------------------------------------

@@ -71,7 +71,7 @@ export function GameCard({
   menu?: React.ReactNode;
 }) {
   const meta = CARD_CATEGORY_META[card.category];
-  const accent = cardAccent(card.category, card.colorOverride);
+  const accent = cardAccent(card.category, card.colorOverride, card.subcategory);
   const isItemWithSubcategory = card.category === "item" && card.subcategory;
   const Icon = isItemWithSubcategory
     ? SUBCATEGORY_ICONS[card.subcategory!]
