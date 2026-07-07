@@ -90,6 +90,11 @@ export const weaponSlot = pgEnum("weapon_slot", [
   "tertiary",
 ]);
 
+// A shop listing is either admin-curated (permanent until removed by hand) or
+// rotation-owned (auto-picked by restockShop, occupying one of the shop's
+// numbered rotating slots). See shopListings below.
+export const listingSource = pgEnum("listing_source", ["manual", "rotation"]);
+
 // One row per Clerk account. Admins have no player/character rows.
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Clerk user id
@@ -282,6 +287,13 @@ export const cards = pgTable("cards", {
   level: integer("level").notNull().default(1), // Roman-numeral pip
   colorOverride: text("color_override"), // hex for one-off custom cards; null = category preset
 
+  // Phase 4 — global sale price shown in shops. Null = not for sale; a card
+  // can't be added to a shop listing until this is set (enforced in the
+  // listing-add action, not a DB constraint, same convention as the item/
+  // weapon fields below). Never shown to players outside the shop/
+  // requisitions view — GameCard itself stays price-blind (lib/shops.ts).
+  priceCredits: integer("price_credits"),
+
   // Optional flavor/feat-like text shown under the sheet's Effects section,
   // independent of any mechanical effects below.
   descriptiveText: text("descriptive_text"),
@@ -366,6 +378,7 @@ export const characterCards = pgTable(
 export const cardsRelations = relations(cards, ({ many }) => ({
   assignments: many(characterCards),
   effects: many(cardEffects),
+  listings: many(shopListings),
 }));
 
 export const cardEffectsRelations = relations(cardEffects, ({ one }) => ({
@@ -386,6 +399,106 @@ export const characterCardsRelations = relations(characterCards, ({ one }) => ({
   }),
 }));
 
+// ---------------------------------------------------------------------------
+// Phase 4 — Shops (info/roadmap.md §Phase 4).
+// ---------------------------------------------------------------------------
+
+// A DM-run storefront. `rotatingSlotCount` is how many of its listings are
+// auto-managed by restockShop (lib/shop-data.ts); an admin can also curate
+// any number of permanent manual listings alongside those slots.
+// `restockIntervalOps` is null for manual-restock-only shops; when set, the
+// postMissionPayout admin action (app/admin/actions.ts) ticks
+// `opsSinceRestock` and auto-restocks once it reaches the interval.
+export const shops = pgTable("shops", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  description: text("description"),
+  isOpen: boolean("is_open").notNull().default(true),
+  rotatingSlotCount: integer("rotating_slot_count").notNull().default(4),
+  restockIntervalOps: integer("restock_interval_ops"),
+  opsSinceRestock: integer("ops_since_restock").notNull().default(0),
+  createdByUserId: text("created_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// A card currently for sale in a shop. `source` distinguishes admin-curated
+// listings (never touched by restockShop) from rotation-owned ones;
+// `slotIndex` is set iff source = "rotation" and identifies which of the
+// shop's rotatingSlotCount slots this row occupies — a restock replaces that
+// slot's row in place rather than deleting + reinserting. Unique on
+// (shopId, cardId): a shop never lists the same card twice regardless of
+// source. Unique on (shopId, slotIndex) where not null: at most one row per
+// rotation slot, same partial-unique-index shape as characterCards.weaponSlot.
+export const shopListings = pgTable(
+  "shop_listings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    shopId: uuid("shop_id")
+      .notNull()
+      .references(() => shops.id, { onDelete: "cascade" }),
+    cardId: uuid("card_id")
+      .notNull()
+      .references(() => cards.id, { onDelete: "cascade" }),
+    source: listingSource("source").notNull().default("manual"),
+    slotIndex: integer("slot_index"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    addedAt: timestamp("added_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("shop_listings_shop_idx").on(t.shopId),
+    uniqueIndex("shop_listings_shop_card_unique").on(t.shopId, t.cardId),
+    uniqueIndex("shop_listings_shop_slot_unique")
+      .on(t.shopId, t.slotIndex)
+      .where(sql`${t.slotIndex} is not null`),
+  ],
+);
+
+// The admin's weighted restock pool for a shop, e.g. category=tech level=1
+// weight=80, category=tech level=2 weight=20 — see lib/shops.ts planRestock.
+export const shopRestockRules = pgTable(
+  "shop_restock_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    shopId: uuid("shop_id")
+      .notNull()
+      .references(() => shops.id, { onDelete: "cascade" }),
+    category: cardCategory("category").notNull(),
+    level: integer("level").notNull(),
+    weight: integer("weight").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("shop_restock_rules_shop_idx").on(t.shopId)],
+);
+
+export const shopsRelations = relations(shops, ({ many }) => ({
+  listings: many(shopListings),
+  restockRules: many(shopRestockRules),
+}));
+
+export const shopListingsRelations = relations(shopListings, ({ one }) => ({
+  shop: one(shops, { fields: [shopListings.shopId], references: [shops.id] }),
+  card: one(cards, { fields: [shopListings.cardId], references: [cards.id] }),
+}));
+
+export const shopRestockRulesRelations = relations(shopRestockRules, ({ one }) => ({
+  shop: one(shops, {
+    fields: [shopRestockRules.shopId],
+    references: [shops.id],
+  }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Character = typeof characters.$inferSelect;
@@ -397,3 +510,9 @@ export type CardEffect = typeof cardEffects.$inferSelect;
 export type NewCardEffect = typeof cardEffects.$inferInsert;
 export type CardWithEffects = Card & { effects: CardEffect[] };
 export type CharacterCard = typeof characterCards.$inferSelect;
+export type Shop = typeof shops.$inferSelect;
+export type NewShop = typeof shops.$inferInsert;
+export type ShopListing = typeof shopListings.$inferSelect;
+export type NewShopListing = typeof shopListings.$inferInsert;
+export type ShopRestockRule = typeof shopRestockRules.$inferSelect;
+export type NewShopRestockRule = typeof shopRestockRules.$inferInsert;
