@@ -185,7 +185,12 @@ function WeaponSlotAssignForm({
     <form action={formAction} className="flex w-full flex-col gap-2">
       <input type="hidden" name="characterId" value={characterId} />
       <input type="hidden" name="slot" value={slot} />
-      <Select name="assignmentId" aria-label={`Equip to ${WEAPON_SLOT_META[slot].label}`} defaultValue="">
+      <Select
+        name="assignmentId"
+        aria-label={`Equip to ${WEAPON_SLOT_META[slot].label}`}
+        defaultValue=""
+        required
+      >
         <option value="" disabled>
           Select a weapon…
         </option>

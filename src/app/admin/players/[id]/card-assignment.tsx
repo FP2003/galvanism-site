@@ -156,17 +156,7 @@ function WeaponRow({
         <form action={slotAction} className="flex items-center gap-2">
           <input type="hidden" name="characterId" value={characterId} />
           <input type="hidden" name="assignmentId" value={owned.assignmentId} />
-          <Select name="slot" aria-label={`Equip ${card.title} to a slot`} defaultValue="">
-            <option value="" disabled>
-              Equip to…
-            </option>
-            {candidateSlots.map((slot) => (
-              <option key={slot} value={slot}>
-                {WEAPON_SLOT_META[slot].label}
-              </option>
-            ))}
-          </Select>
-          <EquipButton />
+          <SlotSelect card={card} candidateSlots={candidateSlots} />
         </form>
       ) : (
         <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
@@ -184,16 +174,37 @@ function WeaponRow({
   );
 }
 
-function EquipButton() {
+// Picking a slot is the whole interaction — no separate "Equip" button next
+// to it, since that meant two controls for one action (and the button was
+// easy to click before ever touching the dropdown, see setWeaponSlot's
+// empty-slot guard). Selecting a real option submits the form immediately.
+function SlotSelect({
+  card,
+  candidateSlots,
+}: {
+  card: Card;
+  candidateSlots: WeaponSlotName[];
+}) {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
+    <Select
+      name="slot"
+      aria-label={`Equip ${card.title} to a slot`}
+      defaultValue=""
+      required
       disabled={pending}
-      className="inline-flex items-center gap-1.5 border border-steel-blue px-2.5 py-1.5 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink transition-colors hover:bg-elevated-ledger hover:text-signal-cyan disabled:opacity-60 pointer-coarse:min-h-11"
+      onChange={(e) => e.currentTarget.form?.requestSubmit()}
+      className="h-10 w-36 shrink-0"
     >
-      {pending ? "…" : "Equip"}
-    </button>
+      <option value="" disabled>
+        {pending ? "…" : "Equip to…"}
+      </option>
+      {candidateSlots.map((slot) => (
+        <option key={slot} value={slot}>
+          {WEAPON_SLOT_META[slot].label}
+        </option>
+      ))}
+    </Select>
   );
 }
 

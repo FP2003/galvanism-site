@@ -149,6 +149,10 @@ export async function setWeaponSlot(
   const { db } = auth;
 
   if (slotRaw === "") {
+    // Only a currently-slotted weapon can be unequipped this way — an empty
+    // slot value from the "pick a slot to equip" form (e.g. the placeholder
+    // option submitted without a real choice) must not silently no-op as an
+    // "unequip" of a weapon that was never equipped in the first place.
     const [row] = await db
       .update(characterCards)
       .set({ weaponSlot: null, equipped: false })
@@ -156,10 +160,11 @@ export async function setWeaponSlot(
         and(
           eq(characterCards.id, assignmentId),
           eq(characterCards.characterId, characterId),
+          isNotNull(characterCards.weaponSlot),
         ),
       )
       .returning({ id: characterCards.id });
-    if (!row) return { error: "Weapon not found in this inventory." };
+    if (!row) return { error: "Pick a slot to equip this weapon." };
     revalidatePath(`/roster/${auth.character.slug}`);
     revalidatePath(`/admin/players/${auth.character.playerId}`);
     return { ok: true, message: "Weapon unequipped." };
