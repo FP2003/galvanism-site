@@ -1,0 +1,2 @@
+CREATE TYPE "public"."weapon_damage_type" AS ENUM('piercing', 'bladed', 'blunt', 'electric', 'power', 'poison', 'burn');--> statement-breakpoint
+ALTER TABLE "cards" ADD COLUMN "damage_type" "weapon_damage_type";
