@@ -29,6 +29,15 @@ export function RestockRules({
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
+        Every restock slot rolls independently against these rules, weighted by
+        each rule&apos;s weight ÷ the sum of all weights. E.g. a Level 1 rule at
+        weight 80 and a Level 2 rule at weight 20 gives each slot an 80% chance
+        of drawing Level 1 and a 20% chance of Level 2 — a shop with 3 slots
+        might land 3 Level 1s, or 2 Level 1s and 1 Level 2, since each slot
+        rolls on its own. Add a third rule and every existing percentage shifts,
+        since it&apos;s always weight ÷ the new total.
+      </p>
       {rules.length === 0 ? (
         <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
           No restock rules yet — rotating slots stay empty until you add some.
@@ -66,7 +75,7 @@ export function RestockRules({
           <div className="flex flex-col gap-1">
             <span className="flex items-center gap-1">
               <span className={fieldLabelClass}>Weight</span>
-              <InfoTooltip label="Sets the odds this rule is picked for a slot, relative to the shop's other rules. E.g. weight 80 vs. weight 20 draws this rule 80% of the time — only the ratio between rules matters." />
+              <InfoTooltip label="If this rule wins a slot's draw but all its matching cards are already listed, that slot comes up empty rather than falling back to another rule." />
             </span>
             <TextInput
               name="weight"
