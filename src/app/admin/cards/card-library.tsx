@@ -121,8 +121,14 @@ export function CardLibrary({ items }: { items: CardLibraryItem[] }) {
       ) : (
         <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {filtered.map(({ card, targets }) => (
-            <li key={card.id}>
+            <li key={card.id} className="relative">
               <GameCard card={card} menu={<CardMenu card={card} targets={targets} />} />
+              {card.priceCredits != null && (
+                <span className="absolute bottom-1.5 right-6 z-10 font-[family-name:var(--font-jetbrains)] text-xs font-bold text-signal-cyan">
+                  {card.priceCredits.toLocaleString()}
+                  <span className="ml-0.5 text-[0.5625rem] uppercase text-muted-ink">Cr</span>
+                </span>
+              )}
             </li>
           ))}
         </ul>

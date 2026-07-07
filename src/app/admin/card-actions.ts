@@ -139,6 +139,11 @@ export async function createCard(
     colorOverride = colorRaw;
   }
 
+  const priceCredits = optionalIntField(formData, "priceCredits");
+  if (Number.isNaN(priceCredits) || (priceCredits != null && priceCredits < 0)) {
+    return { error: "Price must be a non-negative whole number." };
+  }
+
   const descriptiveText =
     textField(formData, "descriptiveText", CARD_TEXT_LIMITS.descriptiveText) ||
     null;
@@ -205,6 +210,7 @@ export async function createCard(
     description,
     level,
     colorOverride,
+    priceCredits,
     descriptiveText,
     subcategory,
     handedness,
@@ -290,6 +296,11 @@ export async function updateCard(
     colorOverride = colorRaw;
   }
 
+  const priceCredits = optionalIntField(formData, "priceCredits");
+  if (Number.isNaN(priceCredits) || (priceCredits != null && priceCredits < 0)) {
+    return { error: "Price must be a non-negative whole number." };
+  }
+
   const descriptiveText =
     textField(formData, "descriptiveText", CARD_TEXT_LIMITS.descriptiveText) ||
     null;
@@ -350,6 +361,7 @@ export async function updateCard(
     description,
     level,
     colorOverride,
+    priceCredits,
     descriptiveText,
     subcategory,
     handedness,

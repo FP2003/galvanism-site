@@ -249,6 +249,22 @@ export function CardForm({
                 />
               )}
             </Field>
+            <Field
+              label="Price (Cr)"
+              hint="Optional — required before this card can be listed in a shop. Never shown to players outside the shop."
+            >
+              {(id) => (
+                <TextInput
+                  id={id}
+                  name="priceCredits"
+                  type="number"
+                  min={0}
+                  inputMode="numeric"
+                  defaultValue={card?.priceCredits ?? ""}
+                  placeholder="150"
+                />
+              )}
+            </Field>
           </div>
           <Field
             label="Description"
