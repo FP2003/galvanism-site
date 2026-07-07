@@ -295,14 +295,7 @@ export default async function CaseFilePage({
                           key={`mod-${i}`}
                           className="flex items-center gap-3"
                         >
-                          <span
-                            className="size-2.5 shrink-0"
-                            style={{
-                              backgroundColor:
-                                CARD_CATEGORY_META[m.category].color,
-                            }}
-                            aria-hidden="true"
-                          />
+                          <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
                           <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-inter)] text-sm text-case-file-white">
                             {m.cardTitle}
                           </span>
@@ -314,14 +307,15 @@ export default async function CaseFilePage({
                     </ul>
                   )}
                   {loadout.descriptiveEffects.map((e, i) => (
-                    <div
-                      key={`desc-${i}`}
-                      className="border-l-2 pl-3"
-                      style={{ borderColor: CARD_CATEGORY_META[e.category].color }}
-                    >
-                      <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.06em] text-case-file-white">
-                        {e.cardTitle}
-                      </p>
+                    <div key={`desc-${i}`} className="bg-void-navy p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.06em] text-case-file-white">
+                          {e.cardTitle}
+                        </p>
+                        <span className="shrink-0 font-[family-name:var(--font-chakra)] text-[0.5625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+                          {CARD_CATEGORY_META[e.category].label}
+                        </span>
+                      </div>
                       <Markdown className="mt-1 text-pretty font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink">
                         {e.text}
                       </Markdown>

@@ -2,8 +2,9 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Power, PowerOff, Layers, Crosshair } from "lucide-react";
+import { Layers, Crosshair } from "lucide-react";
 import { GameCard } from "@/components/cards/game-card";
+import { EquipToggleButton } from "@/components/cards/equip-toggle";
 import { Select } from "@/components/ui/form";
 import { partitionByWeapon, type OwnedCard } from "@/lib/card-data";
 import { setCardEquipped, setWeaponSlot, type SheetState } from "@/app/roster/actions";
@@ -285,29 +286,7 @@ function EquipForm({
       <input type="hidden" name="characterId" value={characterId} />
       <input type="hidden" name="assignmentId" value={assignmentId} />
       <input type="hidden" name="equipped" value={String(!equipped)} />
-      <ToggleButton equipped={equipped} />
+      <EquipToggleButton equipped={equipped} fullWidth />
     </form>
-  );
-}
-
-function ToggleButton({ equipped }: { equipped: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className={`inline-flex w-full items-center justify-center gap-1.5 border px-2 py-1.5 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] transition-colors disabled:opacity-60 pointer-coarse:min-h-11 ${
-        equipped
-          ? "border-signal-cyan bg-signal-cyan/10 text-signal-cyan hover:bg-signal-cyan/20"
-          : "border-steel-blue text-muted-ink hover:bg-elevated-ledger hover:text-signal-cyan"
-      }`}
-    >
-      {equipped ? (
-        <Power size={13} aria-hidden="true" />
-      ) : (
-        <PowerOff size={13} aria-hidden="true" />
-      )}
-      {pending ? "…" : equipped ? "Unequip" : "Equip"}
-    </button>
   );
 }

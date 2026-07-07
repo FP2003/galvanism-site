@@ -2,11 +2,11 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, X, Power, PowerOff } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, FormMessage } from "@/components/ui/form";
+import { EquipToggleButton } from "@/components/cards/equip-toggle";
 import {
-  cardAccent,
   effectSummary,
   CARD_CATEGORY_META,
   WEAPON_DAMAGE_TYPE_LABELS,
@@ -119,17 +119,7 @@ function WeaponRow({
 
   return (
     <li className="flex items-center gap-3 py-3">
-      <span
-        className="size-2.5 shrink-0"
-        style={{
-          backgroundColor: cardAccent(
-            card.category,
-            card.colorOverride,
-            card.subcategory,
-          ),
-        }}
-        aria-hidden="true"
-      />
+      <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
           {card.title}
@@ -150,7 +140,7 @@ function WeaponRow({
           <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan">
             {WEAPON_SLOT_META[owned.weaponSlot].label}
           </span>
-          <EquipToggle equipped />
+          <EquipToggleButton equipped />
         </form>
       ) : candidateSlots.length > 0 ? (
         <form action={slotAction} className="flex items-center gap-2">
@@ -246,22 +236,12 @@ function OwnedRow({
 
   return (
     <li className="flex items-center gap-3 py-3">
-      <span
-        className="size-2.5 shrink-0"
-        style={{
-          backgroundColor: cardAccent(
-            card.category,
-            card.colorOverride,
-            card.subcategory,
-          ),
-        }}
-        aria-hidden="true"
-      />
+      <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
           {card.title}
         </p>
-        <p className="truncate font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+        <p className="truncate font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
           {CARD_CATEGORY_META[card.category].label}
           {summary
             ? ` · ${summary}`
@@ -275,7 +255,7 @@ function OwnedRow({
         <input type="hidden" name="characterId" value={characterId} />
         <input type="hidden" name="assignmentId" value={owned.assignmentId} />
         <input type="hidden" name="equipped" value={String(!owned.equipped)} />
-        <EquipToggle equipped={owned.equipped} />
+        <EquipToggleButton equipped={owned.equipped} />
       </form>
 
       <form action={removeAction}>
@@ -285,28 +265,6 @@ function OwnedRow({
         </IconButton>
       </form>
     </li>
-  );
-}
-
-function EquipToggle({ equipped }: { equipped: boolean }) {
-  const { pending } = useFormStatus();
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className={`inline-flex items-center gap-1.5 border px-2.5 py-1.5 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] transition-colors disabled:opacity-60 pointer-coarse:min-h-11 ${
-        equipped
-          ? "border-signal-cyan bg-signal-cyan/10 text-signal-cyan hover:bg-signal-cyan/20"
-          : "border-steel-blue text-muted-ink hover:bg-elevated-ledger hover:text-signal-cyan"
-      }`}
-    >
-      {equipped ? (
-        <Power size={13} aria-hidden="true" />
-      ) : (
-        <PowerOff size={13} aria-hidden="true" />
-      )}
-      {equipped ? "Equipped" : "Equip"}
-    </button>
   );
 }
 
