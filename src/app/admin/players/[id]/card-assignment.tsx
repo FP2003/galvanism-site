@@ -5,15 +5,22 @@ import { useFormStatus } from "react-dom";
 import { Plus, X, Power, PowerOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, FormMessage } from "@/components/ui/form";
-import { cardAccent, effectSummary, CARD_CATEGORY_META } from "@/lib/cards";
+import {
+  cardAccent,
+  effectSummary,
+  CARD_CATEGORY_META,
+  WEAPON_DAMAGE_TYPE_LABELS,
+} from "@/lib/cards";
 import type { Card } from "@/lib/schema";
-import type { OwnedCard } from "@/lib/card-data";
+import { partitionByWeapon, type OwnedCard } from "@/lib/card-data";
 import {
   assignCard,
   unassignCard,
   type FormState,
 } from "@/app/admin/card-actions";
-import { setCardEquipped, type SheetState } from "@/app/roster/actions";
+import { setCardEquipped, setWeaponSlot, type SheetState } from "@/app/roster/actions";
+import { WEAPON_SLOTS, WEAPON_SLOT_META, isSlotLegalFor } from "@/lib/weapons";
+import type { WeaponSlotName } from "@/lib/cards";
 
 /*
  * Admin card assignment (Phase 3). Attaches library cards to one character's
@@ -71,14 +78,116 @@ export function CardAssignment({
         </form>
       )}
 
-      {owned.length > 0 && (
-        <ul className="flex flex-col divide-y divide-elevated-ledger border-y border-elevated-ledger">
-          {owned.map((o) => (
-            <OwnedRow key={o.assignmentId} characterId={characterId} owned={o} />
-          ))}
-        </ul>
-      )}
+      {owned.length > 0 &&
+        (() => {
+          const { weapons, rest } = partitionByWeapon(owned);
+          return (
+            <ul className="flex flex-col divide-y divide-elevated-ledger border-y border-elevated-ledger">
+              {weapons.map((o) => (
+                <WeaponRow key={o.assignmentId} characterId={characterId} owned={o} />
+              ))}
+              {rest.map((o) => (
+                <OwnedRow key={o.assignmentId} characterId={characterId} owned={o} />
+              ))}
+            </ul>
+          );
+        })()}
     </div>
+  );
+}
+
+// A weapon-subcategory row (rifle/pistol/melee): equip is a slot pick, not the
+// plain boolean toggle used by everything else (info: card-data's
+// partitionByWeapon / lib/weapons.ts).
+function WeaponRow({
+  characterId,
+  owned,
+}: {
+  characterId: string;
+  owned: OwnedCard;
+}) {
+  const [, slotAction] = useActionState<SheetState, FormData>(setWeaponSlot, {});
+  const [, removeAction] = useActionState<FormState, FormData>(unassignCard, {});
+  const { card } = owned;
+  const subcategory = card.subcategory as "rifle" | "pistol" | "melee";
+  const candidateSlots =
+    !owned.weaponSlot && card.handedness
+      ? WEAPON_SLOTS.filter((slot) =>
+          isSlotLegalFor({ subcategory, handedness: card.handedness! }, slot),
+        )
+      : [];
+
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <span
+        className="size-2.5 shrink-0"
+        style={{ backgroundColor: cardAccent(card.category, card.colorOverride) }}
+        aria-hidden="true"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
+          {card.title}
+        </p>
+        <p className="truncate font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+          {card.damage}DMG
+          {card.damageType && ` · ${WEAPON_DAMAGE_TYPE_LABELS[card.damageType]}`}
+          {card.range != null && ` · ${card.range}M`}
+          {card.handedness === "two_handed" ? " · 2H" : " · 1H"}
+        </p>
+      </div>
+
+      {owned.weaponSlot ? (
+        <form action={slotAction} className="flex items-center gap-2">
+          <input type="hidden" name="characterId" value={characterId} />
+          <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+          <input type="hidden" name="slot" value="" />
+          <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan">
+            {WEAPON_SLOT_META[owned.weaponSlot].label}
+          </span>
+          <EquipToggle equipped />
+        </form>
+      ) : candidateSlots.length > 0 ? (
+        <form action={slotAction} className="flex items-center gap-2">
+          <input type="hidden" name="characterId" value={characterId} />
+          <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+          <Select name="slot" aria-label={`Equip ${card.title} to a slot`} defaultValue="">
+            <option value="" disabled>
+              Equip to…
+            </option>
+            {candidateSlots.map((slot) => (
+              <option key={slot} value={slot}>
+                {WEAPON_SLOT_META[slot].label}
+              </option>
+            ))}
+          </Select>
+          <EquipButton />
+        </form>
+      ) : (
+        <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
+          Unslotted
+        </span>
+      )}
+
+      <form action={removeAction}>
+        <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+        <IconButton label={`Remove ${card.title}`} tone="danger">
+          <X size={14} aria-hidden="true" />
+        </IconButton>
+      </form>
+    </li>
+  );
+}
+
+function EquipButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex items-center gap-1.5 border border-steel-blue px-2.5 py-1.5 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink transition-colors hover:bg-elevated-ledger hover:text-signal-cyan disabled:opacity-60 pointer-coarse:min-h-11"
+    >
+      {pending ? "…" : "Equip"}
+    </button>
   );
 }
 

@@ -15,14 +15,21 @@ import {
 import {
   CARD_CATEGORIES,
   CARD_TEXT_LIMITS,
+  ITEM_SUBCATEGORIES,
+  WEAPON_DAMAGE_TYPES,
   isHexColor,
+  isWeaponSubcategory,
   validateMechanicalEffect,
   type CardCategory,
   type CardActivation,
   type CardEffectType,
   type CardTrigger,
+  type ItemSubcategory,
   type MechanicalInput,
+  type WeaponHandedness,
+  type WeaponDamageType,
 } from "@/lib/cards";
+import { validateWeaponFields } from "@/lib/weapons";
 import { parseSignedInt, type Result } from "@/lib/ledger";
 
 /*
@@ -36,6 +43,15 @@ export type FormState = { ok?: boolean; error?: string; message?: string };
 function textField(formData: FormData, key: string, max?: number): string {
   const value = String(formData.get(key) ?? "").trim();
   return max ? value.slice(0, max) : value;
+}
+
+// Parses an optional non-negative integer form field: "" -> null, otherwise
+// the raw parsed number (validateWeaponFields checks integer-ness/range).
+function optionalIntField(formData: FormData, key: string): number | null {
+  const raw = textField(formData, key);
+  if (raw === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : NaN;
 }
 
 const ACTIVATIONS: CardActivation[] = ["active", "passive"];
@@ -131,7 +147,55 @@ export async function createCard(
   if (!parsedEffects.ok) return { error: parsedEffects.error };
   const effects = parsedEffects.value;
 
-  if (effects.length === 0 && !descriptiveText) {
+  // Item subcategory + weapon fields (pre-Phase 4). Only ever read from
+  // formData when category = "item" — a non-item card never gets these
+  // columns set, even if a tampered client sends them.
+  let subcategory: ItemSubcategory | null = null;
+  let handedness: WeaponHandedness | null = null;
+  let damageType: WeaponDamageType | null = null;
+  let damage: number | null = null;
+  let range: number | null = null;
+  let ammoCount: number | null = null;
+
+  if (categoryRaw === "item") {
+    const subRaw = textField(formData, "subcategory") as ItemSubcategory;
+    if (!ITEM_SUBCATEGORIES.includes(subRaw)) {
+      return { error: "Pick an item subcategory." };
+    }
+    subcategory = subRaw;
+
+    if (isWeaponSubcategory(subcategory)) {
+      const handednessRaw = textField(formData, "handedness") as WeaponHandedness;
+      handedness =
+        handednessRaw === "one_handed" || handednessRaw === "two_handed"
+          ? handednessRaw
+          : null;
+      const damageTypeRaw = textField(formData, "damageType") as WeaponDamageType;
+      damageType = WEAPON_DAMAGE_TYPES.includes(damageTypeRaw) ? damageTypeRaw : null;
+      damage = optionalIntField(formData, "damage");
+      range = optionalIntField(formData, "range");
+      ammoCount = optionalIntField(formData, "ammoCount");
+    }
+
+    const weaponCheck = validateWeaponFields({
+      subcategory,
+      handedness,
+      damageType,
+      damage,
+      range,
+      ammoCount,
+    });
+    if (!weaponCheck.ok) return { error: weaponCheck.error };
+  }
+
+  // Weapons carry their own mechanical stat line (damage/range/ammo/handedness)
+  // on the card face, so unlike other cards they don't need an effect or
+  // descriptive blurb to not read as blank.
+  if (
+    effects.length === 0 &&
+    !descriptiveText &&
+    !isWeaponSubcategory(subcategory)
+  ) {
     return { error: "Add at least one effect or some descriptive text." };
   }
 
@@ -142,6 +206,12 @@ export async function createCard(
     level,
     colorOverride,
     descriptiveText,
+    subcategory,
+    handedness,
+    damageType,
+    damage,
+    range,
+    ammoCount,
     createdByUserId: admin.id,
   };
 

@@ -2,10 +2,13 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Power, PowerOff, Layers } from "lucide-react";
+import { Power, PowerOff, Layers, Crosshair } from "lucide-react";
 import { GameCard } from "@/components/cards/game-card";
-import type { OwnedCard } from "@/lib/card-data";
-import { setCardEquipped, type SheetState } from "@/app/roster/actions";
+import { Select } from "@/components/ui/form";
+import { partitionByWeapon, type OwnedCard } from "@/lib/card-data";
+import { setCardEquipped, setWeaponSlot, type SheetState } from "@/app/roster/actions";
+import { WEAPON_SLOTS, WEAPON_SLOT_META, isSlotLegalFor } from "@/lib/weapons";
+import type { WeaponSlotName } from "@/lib/cards";
 
 /*
  * Case File loadout (Phase 3). Shows the operator's equipped cards as full card
@@ -22,8 +25,9 @@ export function Loadout({
   owned: OwnedCard[];
   canEdit: boolean;
 }) {
-  const equipped = owned.filter((o) => o.equipped);
-  const inventory = owned.filter((o) => !o.equipped);
+  const { weapons, rest } = partitionByWeapon(owned);
+  const equipped = rest.filter((o) => o.equipped);
+  const inventory = rest.filter((o) => !o.equipped);
 
   if (owned.length === 0) {
     return (
@@ -43,6 +47,9 @@ export function Loadout({
 
   return (
     <div className="flex flex-col gap-6">
+      {(canEdit || weapons.length > 0) && (
+        <WeaponSlots characterId={characterId} weapons={weapons} canEdit={canEdit} />
+      )}
       <CardGroup
         heading="Equipped"
         cards={equipped}
@@ -59,6 +66,150 @@ export function Loadout({
         />
       )}
     </div>
+  );
+}
+
+/*
+ * Weapon loadout (pre-Phase 4). Rifle/pistol/melee cards use three fixed
+ * slots instead of the generic equipped/inventory toggle above — a slot's
+ * legality (which subcategory/handedness fits where) and conflict handling
+ * (2H into Primary auto-clears Secondary) are enforced server-side in
+ * setWeaponSlot; the isSlotLegalFor filter here is UX only, to avoid
+ * offering a doomed choice.
+ */
+function WeaponSlots({
+  characterId,
+  weapons,
+  canEdit,
+}: {
+  characterId: string;
+  weapons: OwnedCard[];
+  canEdit: boolean;
+}) {
+  const unslotted = weapons.filter((w) => !w.weaponSlot);
+
+  return (
+    <div>
+      <h3 className="mb-3 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
+        Weapons
+      </h3>
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {WEAPON_SLOTS.map((slot) => {
+          const occupant = weapons.find((w) => w.weaponSlot === slot);
+          const candidates = unslotted.filter(
+            (w) =>
+              w.card.subcategory &&
+              w.card.handedness &&
+              isSlotLegalFor(
+                { subcategory: w.card.subcategory as "rifle" | "pistol" | "melee", handedness: w.card.handedness },
+                slot,
+              ),
+          );
+          return (
+            <li key={slot} className="flex flex-col gap-2">
+              <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+                {WEAPON_SLOT_META[slot].label}
+              </span>
+              {occupant ? (
+                <>
+                  <GameCard card={occupant.card} />
+                  {canEdit && (
+                    <WeaponSlotForm
+                      characterId={characterId}
+                      assignmentId={occupant.assignmentId}
+                      slot=""
+                      label="Unequip"
+                    />
+                  )}
+                </>
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 border border-dashed border-elevated-ledger p-4 text-center">
+                  <Crosshair size={20} className="text-steel-blue" aria-hidden="true" />
+                  <p className="text-xs text-muted-ink">No weapon equipped</p>
+                  {canEdit && candidates.length > 0 && (
+                    <WeaponSlotAssignForm
+                      characterId={characterId}
+                      slot={slot}
+                      candidates={candidates}
+                    />
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {unslotted.length > 0 && (
+        <p className="mt-3 text-xs text-muted-ink">
+          Unslotted: {unslotted.map((w) => w.card.title).join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function WeaponSlotForm({
+  characterId,
+  assignmentId,
+  slot,
+  label,
+}: {
+  characterId: string;
+  assignmentId: string;
+  slot: WeaponSlotName | "";
+  label: string;
+}) {
+  const [, formAction] = useActionState<SheetState, FormData>(setWeaponSlot, {});
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="characterId" value={characterId} />
+      <input type="hidden" name="assignmentId" value={assignmentId} />
+      <input type="hidden" name="slot" value={slot} />
+      <SlotSubmitButton label={label} />
+    </form>
+  );
+}
+
+function WeaponSlotAssignForm({
+  characterId,
+  slot,
+  candidates,
+}: {
+  characterId: string;
+  slot: WeaponSlotName;
+  candidates: OwnedCard[];
+}) {
+  const [, formAction] = useActionState<SheetState, FormData>(setWeaponSlot, {});
+  return (
+    <form action={formAction} className="flex w-full flex-col gap-2">
+      <input type="hidden" name="characterId" value={characterId} />
+      <input type="hidden" name="slot" value={slot} />
+      <Select name="assignmentId" aria-label={`Equip to ${WEAPON_SLOT_META[slot].label}`} defaultValue="">
+        <option value="" disabled>
+          Select a weapon…
+        </option>
+        {candidates.map((c) => (
+          <option key={c.assignmentId} value={c.assignmentId}>
+            {c.card.title}
+          </option>
+        ))}
+      </Select>
+      <SlotSubmitButton label="Equip" />
+    </form>
+  );
+}
+
+function SlotSubmitButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex w-full items-center justify-center gap-1.5 border border-steel-blue px-2 py-1.5 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink transition-colors hover:bg-elevated-ledger hover:text-signal-cyan disabled:opacity-60 pointer-coarse:min-h-11"
+    >
+      {pending ? "…" : label}
+    </button>
   );
 }
 

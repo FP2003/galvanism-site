@@ -16,15 +16,25 @@ import {
   CARD_CATEGORIES,
   CARD_CATEGORY_META,
   CARD_TEXT_LIMITS,
+  ITEM_SUBCATEGORIES,
+  ITEM_SUBCATEGORY_META,
+  WEAPON_HANDEDNESS_LABELS,
+  WEAPON_DAMAGE_TYPES,
+  WEAPON_DAMAGE_TYPE_LABELS,
+  isWeaponSubcategory,
   targetsFor,
   TRIGGER_LABELS,
   type CardActivation,
+  type CardCategory,
   type CardEffectType,
   type CardTrigger,
+  type ItemSubcategory,
+  type WeaponHandedness,
 } from "@/lib/cards";
 import { createCard, type FormState } from "@/app/admin/card-actions";
 
 const TRIGGERS = ["on_equip", "on_use", "passive"] as const;
+const WEAPON_HANDEDNESS = ["one_handed", "two_handed"] as const;
 
 // One row of the repeatable effect builder below (card-form state, serialized
 // to JSON on submit — see card-actions.ts parseEffectsField for the mirrored
@@ -63,6 +73,8 @@ function SubmitButton() {
 export function CardForm() {
   const [state, formAction] = useActionState<FormState, FormData>(createCard, {});
   const [effects, setEffects] = useState<EffectRow[]>([defaultEffectRow()]);
+  const [category, setCategory] = useState<CardCategory>("combat");
+  const [subcategory, setSubcategory] = useState<ItemSubcategory>("medical");
   const [resetKey, setResetKey] = useState(0);
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +90,8 @@ export function CardForm() {
     setLastHandledState(state);
     if (state.ok) {
       setEffects([defaultEffectRow()]);
+      setCategory("combat");
+      setSubcategory("medical");
       setResetKey((k) => k + 1);
     }
   }
@@ -116,7 +130,12 @@ export function CardForm() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Category">
               {(id) => (
-                <Select id={id} name="category" defaultValue="combat">
+                <Select
+                  id={id}
+                  name="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as CardCategory)}
+                >
                   {CARD_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
                       {CARD_CATEGORY_META[c].label}
@@ -174,6 +193,102 @@ export function CardForm() {
             )}
           </Field>
         </fieldset>
+
+        {category === "item" && (
+          <fieldset className="flex flex-col gap-4">
+            <legend className="mb-1 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
+              Item details
+            </legend>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Subcategory">
+                {(id) => (
+                  <Select
+                    id={id}
+                    name="subcategory"
+                    value={subcategory}
+                    onChange={(e) => setSubcategory(e.target.value as ItemSubcategory)}
+                  >
+                    {ITEM_SUBCATEGORIES.map((s) => (
+                      <option key={s} value={s}>
+                        {ITEM_SUBCATEGORY_META[s].label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+
+              {isWeaponSubcategory(subcategory) && (
+                <>
+                  <Field label="Handedness">
+                    {(id) => (
+                      <Select id={id} name="handedness" defaultValue="one_handed">
+                        {WEAPON_HANDEDNESS.map((h) => (
+                          <option key={h} value={h}>
+                            {WEAPON_HANDEDNESS_LABELS[h as WeaponHandedness]}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  </Field>
+                  <Field label="Damage type">
+                    {(id) => (
+                      <Select id={id} name="damageType" defaultValue="piercing">
+                        {WEAPON_DAMAGE_TYPES.map((d) => (
+                          <option key={d} value={d}>
+                            {WEAPON_DAMAGE_TYPE_LABELS[d]}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  </Field>
+                  <Field label="Damage">
+                    {(id) => (
+                      <TextInput
+                        id={id}
+                        name="damage"
+                        type="number"
+                        min={1}
+                        max={CARD_TEXT_LIMITS.damageAbs}
+                        inputMode="numeric"
+                        required
+                        placeholder="6"
+                      />
+                    )}
+                  </Field>
+                  <Field label="Range" hint="Meters, optional.">
+                    {(id) => (
+                      <TextInput
+                        id={id}
+                        name="range"
+                        type="number"
+                        min={0}
+                        max={CARD_TEXT_LIMITS.rangeAbs}
+                        inputMode="numeric"
+                        placeholder="20"
+                      />
+                    )}
+                  </Field>
+                  <Field
+                    label="Ammo count"
+                    hint="Optional — descriptive only, not wired to the Ammo resource."
+                  >
+                    {(id) => (
+                      <TextInput
+                        id={id}
+                        name="ammoCount"
+                        type="number"
+                        min={0}
+                        max={CARD_TEXT_LIMITS.ammoCountAbs}
+                        inputMode="numeric"
+                        placeholder="30"
+                      />
+                    )}
+                  </Field>
+                </>
+              )}
+            </div>
+          </fieldset>
+        )}
 
         <fieldset className="flex flex-col gap-4">
           <legend className="mb-1 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">

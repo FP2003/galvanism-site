@@ -1,13 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and } from "drizzle-orm";
+import { eq, and, ne, inArray, isNotNull } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { characters, characterCards } from "@/lib/schema";
 import { clampResource } from "@/lib/ledger";
 import { effectiveResourceMaxes } from "@/lib/card-data";
 import { TEXT_LIMITS } from "@/lib/game-rules";
+import { isWeaponSubcategory, type WeaponSlotName } from "@/lib/cards";
+import {
+  WEAPON_SLOTS,
+  resolveWeaponSlotAssignment,
+  type OccupiedSlots,
+} from "@/lib/weapons";
 
 /*
  * Player self-service on the Case File (Phase 2): a player edits their own bio
@@ -124,5 +130,117 @@ export async function setCardEquipped(
 
   revalidatePath(`/roster/${auth.character.slug}`);
   return { ok: true, message: equipped ? "Card equipped." : "Card unequipped." };
+}
+
+// Assign / clear a weapon's primary/secondary/tertiary slot (pre-Phase 4). A
+// dedicated action rather than an extension of setCardEquipped: this path
+// needs the card's subcategory/handedness plus the character's other occupied
+// slots to run resolveWeaponSlotAssignment, and may issue a second clearing
+// UPDATE (e.g. auto-unequipping Secondary when a 2H weapon takes Primary).
+export async function setWeaponSlot(
+  _prev: SheetState,
+  formData: FormData,
+): Promise<SheetState> {
+  const characterId = String(formData.get("characterId") ?? "");
+  const assignmentId = String(formData.get("assignmentId") ?? "");
+  const slotRaw = String(formData.get("slot") ?? "");
+  const auth = await authorizeEdit(characterId);
+  if ("error" in auth) return { error: auth.error };
+  const { db } = auth;
+
+  if (slotRaw === "") {
+    const [row] = await db
+      .update(characterCards)
+      .set({ weaponSlot: null, equipped: false })
+      .where(
+        and(
+          eq(characterCards.id, assignmentId),
+          eq(characterCards.characterId, characterId),
+        ),
+      )
+      .returning({ id: characterCards.id });
+    if (!row) return { error: "Weapon not found in this inventory." };
+    revalidatePath(`/roster/${auth.character.slug}`);
+    revalidatePath(`/admin/players/${auth.character.playerId}`);
+    return { ok: true, message: "Weapon unequipped." };
+  }
+
+  if (!WEAPON_SLOTS.includes(slotRaw as WeaponSlotName)) {
+    return { error: "Invalid weapon slot." };
+  }
+  const targetSlot = slotRaw as WeaponSlotName;
+
+  const assignment = await db.query.characterCards.findFirst({
+    where: and(
+      eq(characterCards.id, assignmentId),
+      eq(characterCards.characterId, characterId),
+    ),
+    with: { card: true },
+  });
+  if (!assignment) return { error: "Weapon not found in this inventory." };
+  const { card } = assignment;
+  if (card.category !== "item" || !isWeaponSubcategory(card.subcategory) || !card.handedness) {
+    return { error: "That card isn't a weapon." };
+  }
+
+  const occupiedRows = await db.query.characterCards.findMany({
+    where: and(
+      eq(characterCards.characterId, characterId),
+      isNotNull(characterCards.weaponSlot),
+    ),
+    with: { card: true },
+  });
+  const occupied: OccupiedSlots = {};
+  for (const row of occupiedRows) {
+    if (!row.weaponSlot || !isWeaponSubcategory(row.card.subcategory) || !row.card.handedness) {
+      continue;
+    }
+    occupied[row.weaponSlot] = {
+      assignmentId: row.id,
+      subcategory: row.card.subcategory,
+      handedness: row.card.handedness,
+    };
+  }
+
+  const plan = resolveWeaponSlotAssignment(
+    { subcategory: card.subcategory, handedness: card.handedness },
+    assignmentId,
+    targetSlot,
+    occupied,
+  );
+  if (!plan.ok) return { error: plan.error };
+
+  // Evict whatever currently occupies the target slot (a different
+  // assignment) plus any slots the plan says to cascade-clear (e.g. Secondary
+  // when a 2H weapon takes Primary) — the partial unique index on
+  // (characterId, weaponSlot) means the target slot must be vacated first.
+  const clearSlots = [...new Set([...plan.value.slotsToClear, targetSlot])];
+  await db
+    .update(characterCards)
+    .set({ weaponSlot: null, equipped: false })
+    .where(
+      and(
+        eq(characterCards.characterId, characterId),
+        inArray(characterCards.weaponSlot, clearSlots),
+        ne(characterCards.id, assignmentId),
+      ),
+    );
+
+  await db
+    .update(characterCards)
+    .set({ weaponSlot: targetSlot, equipped: true })
+    .where(
+      and(
+        eq(characterCards.id, assignmentId),
+        eq(characterCards.characterId, characterId),
+      ),
+    );
+
+  revalidatePath(`/roster/${auth.character.slug}`);
+  revalidatePath(`/admin/players/${auth.character.playerId}`);
+  return {
+    ok: true,
+    message: `${card.title} equipped to ${targetSlot[0].toUpperCase()}${targetSlot.slice(1)}.`,
+  };
 }
 

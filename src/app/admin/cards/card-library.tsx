@@ -4,7 +4,14 @@ import { useMemo, useState } from "react";
 import { Search, Layers } from "lucide-react";
 import { GameCard } from "@/components/cards/game-card";
 import { TextInput } from "@/components/ui/form";
-import { CARD_CATEGORIES, CARD_CATEGORY_META, type CardCategory } from "@/lib/cards";
+import {
+  CARD_CATEGORIES,
+  CARD_CATEGORY_META,
+  ITEM_SUBCATEGORIES,
+  ITEM_SUBCATEGORY_META,
+  type CardCategory,
+  type ItemSubcategory,
+} from "@/lib/cards";
 import type { CardWithEffects } from "@/lib/schema";
 import type { CardAssignmentTarget } from "@/lib/card-data";
 import { CardMenu } from "./card-menu";
@@ -24,15 +31,25 @@ export interface CardLibraryItem {
 export function CardLibrary({ items }: { items: CardLibraryItem[] }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<CardCategory | "all">("all");
+  const [subcategory, setSubcategory] = useState<ItemSubcategory | "all">("all");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter(
       ({ card }) =>
         (category === "all" || card.category === category) &&
+        (category !== "item" || subcategory === "all" || card.subcategory === subcategory) &&
         (q === "" || card.title.toLowerCase().includes(q)),
     );
-  }, [items, query, category]);
+  }, [items, query, category, subcategory]);
+
+  function selectCategory(next: CardCategory | "all") {
+    setCategory((cur) => {
+      const resolved = cur === next ? "all" : next;
+      if (resolved !== "item") setSubcategory("all");
+      return resolved;
+    });
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -56,7 +73,7 @@ export function CardLibrary({ items }: { items: CardLibraryItem[] }) {
         <CategoryChip
           label="All"
           active={category === "all"}
-          onClick={() => setCategory("all")}
+          onClick={() => selectCategory("all")}
         />
         {CARD_CATEGORIES.map((c) => (
           <CategoryChip
@@ -64,10 +81,28 @@ export function CardLibrary({ items }: { items: CardLibraryItem[] }) {
             label={CARD_CATEGORY_META[c].label}
             color={CARD_CATEGORY_META[c].color}
             active={category === c}
-            onClick={() => setCategory((cur) => (cur === c ? "all" : c))}
+            onClick={() => selectCategory(c)}
           />
         ))}
       </div>
+
+      {category === "item" && (
+        <div className="flex flex-wrap gap-2 border-l-2 border-elevated-ledger pl-3">
+          <CategoryChip
+            label="All subcategories"
+            active={subcategory === "all"}
+            onClick={() => setSubcategory("all")}
+          />
+          {ITEM_SUBCATEGORIES.map((s) => (
+            <CategoryChip
+              key={s}
+              label={ITEM_SUBCATEGORY_META[s].label}
+              active={subcategory === s}
+              onClick={() => setSubcategory((cur) => (cur === s ? "all" : s))}
+            />
+          ))}
+        </div>
+      )}
 
       <p className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
         Showing {filtered.length} of {items.length}
