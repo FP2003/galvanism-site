@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { users, players, characters, creditLedger, xpLedger } from "@/lib/schema";
+import { users, players, characters, creditLedger, xpLedger, shops } from "@/lib/schema";
+import { restockShop } from "@/lib/shop-data";
 import { slugifyCallsign } from "@/lib/characters";
 import { CHARACTER_STATUSES, type CharacterStatus } from "@/lib/status";
 import { TEXT_LIMITS } from "@/lib/game-rules";
@@ -505,6 +506,38 @@ export async function postMissionPayout(
   revalidatePath("/");
   revalidatePath("/roster");
   if (character) revalidatePath(`/roster/${character.slug}`);
+
+  // Best-effort shop economy tick. Runs after the credits/XP batch above (the
+  // payout's primary purpose) has already committed, so a restock hiccup here
+  // can never turn a successful payout into a reported failure — errors are
+  // logged, not surfaced. Each shop's opsSinceRestock counts one "operation";
+  // a shop past its restockIntervalOps threshold restocks and resets to zero.
+  // Sequential per-shop writes (no batch/transaction across shops) — neon-http
+  // has no interactive transaction API, and a half-applied tick across shops
+  // is an acceptable, self-correcting soft failure.
+  try {
+    const allShops = await db.query.shops.findMany();
+    for (const shop of allShops) {
+      const opsSinceRestock = shop.opsSinceRestock + 1;
+      const dueForRestock =
+        shop.restockIntervalOps != null && opsSinceRestock >= shop.restockIntervalOps;
+      if (dueForRestock) {
+        await restockShop(shop.id);
+        await db
+          .update(shops)
+          .set({ opsSinceRestock: 0, updatedAt: new Date() })
+          .where(eq(shops.id, shop.id));
+      } else {
+        await db
+          .update(shops)
+          .set({ opsSinceRestock, updatedAt: new Date() })
+          .where(eq(shops.id, shop.id));
+      }
+    }
+    revalidatePath("/requisitions");
+  } catch (err) {
+    console.error("Shop restock tick failed after mission payout:", err);
+  }
 
   const parts: string[] = [];
   if (creditsResult) parts.push(`${creditsDelta! >= 0 ? "+" : ""}${creditsDelta} Cr`);

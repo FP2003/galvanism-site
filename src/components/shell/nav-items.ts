@@ -23,7 +23,7 @@ export const navItems: NavItem[] = [
   { label: "Roster", icon: Users, href: "/roster" },
   { label: "Missions", icon: Crosshair, phase: "Phase 5" },
   { label: "Facilities", icon: Factory, phase: "Phase 6" },
-  { label: "Requisitions", icon: Package, phase: "Phase 4" },
+  { label: "Requisitions", icon: Package, href: "/requisitions" },
   { label: "Ballots", icon: Vote, phase: "Phase 7" },
   { label: "Registry", icon: BookUser, phase: "Phase 8" },
 ];
