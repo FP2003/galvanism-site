@@ -102,6 +102,19 @@ export function CardForm() {
     if (resetKey > 0) titleRef.current?.focus();
   }, [resetKey]);
 
+  // Item cards usually lean on their weapon stats / descriptive text rather
+  // than a structured effect, so switching into "item" starts from a blank
+  // effect list instead of the usual pre-seeded row — and switching back out
+  // restores it, but only if the DM hasn't already started filling it in.
+  function handleCategoryChange(next: CardCategory) {
+    if (next === "item" && category !== "item") {
+      setEffects([]);
+    } else if (next !== "item" && category === "item" && effects.length === 0) {
+      setEffects([defaultEffectRow()]);
+    }
+    setCategory(next);
+  }
+
   function updateEffect(index: number, patch: Partial<EffectRow>) {
     setEffects((rows) =>
       rows.map((row, i) => (i === index ? { ...row, ...patch } : row)),
@@ -134,7 +147,7 @@ export function CardForm() {
                   id={id}
                   name="category"
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as CardCategory)}
+                  onChange={(e) => handleCategoryChange(e.target.value as CardCategory)}
                 >
                   {CARD_CATEGORIES.map((c) => (
                     <option key={c} value={c}>
@@ -144,6 +157,24 @@ export function CardForm() {
                 </Select>
               )}
             </Field>
+            {category === "item" && (
+              <Field label="Subcategory">
+                {(id) => (
+                  <Select
+                    id={id}
+                    name="subcategory"
+                    value={subcategory}
+                    onChange={(e) => setSubcategory(e.target.value as ItemSubcategory)}
+                  >
+                    {ITEM_SUBCATEGORIES.map((s) => (
+                      <option key={s} value={s}>
+                        {ITEM_SUBCATEGORY_META[s].label}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+            )}
             <Field label="Title">
               {(id) => (
                 <TextInput
@@ -194,98 +225,77 @@ export function CardForm() {
           </Field>
         </fieldset>
 
-        {category === "item" && (
+        {category === "item" && isWeaponSubcategory(subcategory) && (
           <fieldset className="flex flex-col gap-4">
             <legend className="mb-1 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
-              Item details
+              Weapon details
             </legend>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Subcategory">
+              <Field label="Handedness">
                 {(id) => (
-                  <Select
-                    id={id}
-                    name="subcategory"
-                    value={subcategory}
-                    onChange={(e) => setSubcategory(e.target.value as ItemSubcategory)}
-                  >
-                    {ITEM_SUBCATEGORIES.map((s) => (
-                      <option key={s} value={s}>
-                        {ITEM_SUBCATEGORY_META[s].label}
+                  <Select id={id} name="handedness" defaultValue="one_handed">
+                    {WEAPON_HANDEDNESS.map((h) => (
+                      <option key={h} value={h}>
+                        {WEAPON_HANDEDNESS_LABELS[h as WeaponHandedness]}
                       </option>
                     ))}
                   </Select>
                 )}
               </Field>
-
-              {isWeaponSubcategory(subcategory) && (
-                <>
-                  <Field label="Handedness">
-                    {(id) => (
-                      <Select id={id} name="handedness" defaultValue="one_handed">
-                        {WEAPON_HANDEDNESS.map((h) => (
-                          <option key={h} value={h}>
-                            {WEAPON_HANDEDNESS_LABELS[h as WeaponHandedness]}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </Field>
-                  <Field label="Damage type">
-                    {(id) => (
-                      <Select id={id} name="damageType" defaultValue="piercing">
-                        {WEAPON_DAMAGE_TYPES.map((d) => (
-                          <option key={d} value={d}>
-                            {WEAPON_DAMAGE_TYPE_LABELS[d]}
-                          </option>
-                        ))}
-                      </Select>
-                    )}
-                  </Field>
-                  <Field label="Damage">
-                    {(id) => (
-                      <TextInput
-                        id={id}
-                        name="damage"
-                        type="number"
-                        min={1}
-                        max={CARD_TEXT_LIMITS.damageAbs}
-                        inputMode="numeric"
-                        required
-                        placeholder="6"
-                      />
-                    )}
-                  </Field>
-                  <Field label="Range" hint="Meters, optional.">
-                    {(id) => (
-                      <TextInput
-                        id={id}
-                        name="range"
-                        type="number"
-                        min={0}
-                        max={CARD_TEXT_LIMITS.rangeAbs}
-                        inputMode="numeric"
-                        placeholder="20"
-                      />
-                    )}
-                  </Field>
-                  <Field
-                    label="Ammo count"
-                    hint="Optional — descriptive only, not wired to the Ammo resource."
-                  >
-                    {(id) => (
-                      <TextInput
-                        id={id}
-                        name="ammoCount"
-                        type="number"
-                        min={0}
-                        max={CARD_TEXT_LIMITS.ammoCountAbs}
-                        inputMode="numeric"
-                        placeholder="30"
-                      />
-                    )}
-                  </Field>
-                </>
-              )}
+              <Field label="Damage type">
+                {(id) => (
+                  <Select id={id} name="damageType" defaultValue="piercing">
+                    {WEAPON_DAMAGE_TYPES.map((d) => (
+                      <option key={d} value={d}>
+                        {WEAPON_DAMAGE_TYPE_LABELS[d]}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              <Field label="Damage">
+                {(id) => (
+                  <TextInput
+                    id={id}
+                    name="damage"
+                    type="number"
+                    min={1}
+                    max={CARD_TEXT_LIMITS.damageAbs}
+                    inputMode="numeric"
+                    required
+                    placeholder="6"
+                  />
+                )}
+              </Field>
+              <Field label="Range" hint="Meters, optional.">
+                {(id) => (
+                  <TextInput
+                    id={id}
+                    name="range"
+                    type="number"
+                    min={0}
+                    max={CARD_TEXT_LIMITS.rangeAbs}
+                    inputMode="numeric"
+                    placeholder="20"
+                  />
+                )}
+              </Field>
+              <Field
+                label="Ammo count"
+                hint="Optional — descriptive only, not wired to the Ammo resource."
+              >
+                {(id) => (
+                  <TextInput
+                    id={id}
+                    name="ammoCount"
+                    type="number"
+                    min={0}
+                    max={CARD_TEXT_LIMITS.ammoCountAbs}
+                    inputMode="numeric"
+                    placeholder="30"
+                  />
+                )}
+              </Field>
             </div>
           </fieldset>
         )}
