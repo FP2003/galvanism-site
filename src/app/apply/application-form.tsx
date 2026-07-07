@@ -57,9 +57,9 @@ export function ApplicationForm() {
       ))}
 
       <section className="flex flex-col gap-4">
-        <h2 className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
+        <h3 className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
           Identity
-        </h2>
+        </h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Callsign" hint="Your operational codename (e.g. HALYARD).">
             {(id) => (
@@ -104,9 +104,9 @@ export function ApplicationForm() {
 
       {/* Fixed starting kit */}
       <section className="flex flex-col gap-3">
-        <h2 className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
+        <h3 className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
           Standard Issue
-        </h2>
+        </h3>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <IssueStat icon={<Shield size={14} aria-hidden="true" />} label="Health" value={`${BASE_HP}`} />
           <IssueStat icon={<Zap size={14} aria-hidden="true" />} label="Energy" value={`${BASE_ENERGY}`} />
@@ -122,9 +122,9 @@ export function ApplicationForm() {
       {/* Point-buy */}
       <section className="flex flex-col gap-4">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
+          <h3 className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
             Attributes
-          </h2>
+          </h3>
           <span
             className={`font-[family-name:var(--font-jetbrains)] text-sm ${
               remaining === 0 ? "text-signal-cyan" : "text-case-file-white"

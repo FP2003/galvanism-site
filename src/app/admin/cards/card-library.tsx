@@ -147,7 +147,7 @@ function CategoryChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`flex items-center gap-1.5 border px-2.5 py-1 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.06em] transition-colors ${
+      className={`flex items-center gap-1.5 border px-2.5 py-1 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.06em] transition-colors pointer-coarse:min-h-11 ${
         active
           ? "border-signal-cyan bg-signal-cyan/10 text-signal-cyan"
           : "border-elevated-ledger text-muted-ink hover:border-steel-blue hover:text-case-file-white"

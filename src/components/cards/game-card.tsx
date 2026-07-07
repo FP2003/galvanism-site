@@ -157,7 +157,7 @@ export function GameCard({
       </div>
 
       {/* Level pip */}
-      <span className="absolute bottom-1.5 left-2.5 font-[family-name:var(--font-rajdhani)] text-lg font-bold leading-none text-case-file-white">
+      <span className="absolute bottom-1.5 left-2.5 font-[family-name:var(--font-rajdhani)] text-2xl font-bold leading-none text-case-file-white">
         {toRoman(card.level)}
       </span>
     </article>

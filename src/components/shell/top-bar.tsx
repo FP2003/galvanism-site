@@ -37,23 +37,28 @@ export function TopBar({ user }: { user: User | null }) {
           <div className="flex items-center gap-2">
             <Link
               href="/admin/cards"
-              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:py-2.5"
+              aria-label="Card library"
+              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
             >
-              <Layers size={14} />
+              <Layers size={14} aria-hidden="true" />
               <span className="hidden sm:inline">Card library</span>
             </Link>
             <Link
               href="/admin"
-              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:py-2.5"
+              aria-label="Admin"
+              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
             >
-              <ShieldCheck size={14} />
-              Admin
+              <ShieldCheck size={14} aria-hidden="true" />
+              <span className="hidden sm:inline">Admin</span>
             </Link>
           </div>
         )}
 
         <div className="flex items-center gap-2.5 border border-ledger-teal py-1.5 pl-3 pr-1.5">
-          <span className="flex flex-col text-right leading-none">
+          <span className="sr-only sm:hidden">
+            {displayName} — {clearance} clearance
+          </span>
+          <span className="hidden flex-col text-right leading-none sm:flex">
             <span className="font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-case-file-white">
               {displayName}
             </span>
@@ -61,7 +66,7 @@ export function TopBar({ user }: { user: User | null }) {
               CLR · {clearance}
             </span>
           </span>
-          <span className="flex size-6 items-center justify-center bg-ledger-teal font-[family-name:var(--font-chakra)] text-[0.625rem] font-bold text-signal-cyan">
+          <span className="flex size-6 items-center justify-center bg-ledger-teal font-[family-name:var(--font-chakra)] text-[0.625rem] font-bold text-signal-cyan" aria-hidden="true">
             {initials}
           </span>
           <UserButton
