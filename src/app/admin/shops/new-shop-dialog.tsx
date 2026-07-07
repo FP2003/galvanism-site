@@ -1,0 +1,22 @@
+"use client";
+
+import { useState } from "react";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { ShopForm } from "./shop-form";
+
+export function NewShopDialog() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>
+        <Plus size={15} aria-hidden="true" /> New Shop
+      </Button>
+      <Dialog open={open} onClose={() => setOpen(false)} title="New Shop">
+        <ShopForm />
+      </Dialog>
+    </>
+  );
+}
