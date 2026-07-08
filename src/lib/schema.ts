@@ -95,6 +95,27 @@ export const weaponSlot = pgEnum("weapon_slot", [
 // numbered rotating slots). See shopListings below.
 export const listingSource = pgEnum("listing_source", ["manual", "rotation"]);
 
+// Phase 5 — Mission enums (info/roadmap.md §Phase 5). "failed" only happens via
+// an Urgent deadline hitting zero without the mission completing first.
+export const missionStatus = pgEnum("mission_status", [
+  "available",
+  "active",
+  "complete",
+  "failed",
+]);
+export const missionRisk = pgEnum("mission_risk", [
+  "low",
+  "moderate",
+  "high",
+  "severe",
+]);
+// A character's relationship to a mission: self-expressed interest, or a
+// DM-confirmed assignment. See missionAssignments below.
+export const missionAssignmentState = pgEnum("mission_assignment_state", [
+  "interested",
+  "assigned",
+]);
+
 // One row per Clerk account. Admins have no player/character rows.
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Clerk user id
@@ -197,6 +218,7 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
     references: [players.id],
   }),
   xpLedger: many(xpLedger),
+  missionAssignments: many(missionAssignments),
 }));
 
 // Append-only record of every credit change (Phase 2 — the player's read-only
@@ -499,6 +521,91 @@ export const shopRestockRulesRelations = relations(shopRestockRules, ({ one }) =
   }),
 }));
 
+// ---------------------------------------------------------------------------
+// Phase 5 — Missions (info/roadmap.md §Phase 5).
+// ---------------------------------------------------------------------------
+
+// A DM-posted mission. `payoutCredits` and `payoutXp` are each a total pot,
+// split evenly across assigned characters on completion (see lib/missions.ts
+// splitPayoutEvenly + completeMission) — credits land on the player, XP on
+// the character, granted the same way as an admin's manual applyXpGrant
+// (raises both totalXp and currencyXp). `sector` is a free-text location
+// label — real map zones/pins are deferred past this phase. `urgentDeadline`
+// is set iff `urgent = true`: ops (missions) remaining before this mission
+// auto-fails, decremented by 1 each time *any other* mission completes (see
+// completeMission's best-effort tick, mirroring the shop restock tick's
+// non-transactional convention) — the completing mission itself is excluded,
+// so finishing exactly on a deadline of 1 succeeds rather than failing.
+export const missions = pgTable(
+  "missions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    sector: text("sector"),
+    briefing: text("briefing"), // markdown
+    difficulty: integer("difficulty").notNull().default(1),
+    payoutCredits: integer("payout_credits").notNull().default(0),
+    payoutXp: integer("payout_xp").notNull().default(0),
+    risk: missionRisk("risk").notNull().default("low"),
+    status: missionStatus("status").notNull().default("available"),
+    urgent: boolean("urgent").notNull().default(false),
+    urgentDeadline: integer("urgent_deadline"),
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("missions_status_idx").on(t.status)],
+);
+
+// A character's interest in or assignment to a mission. Unique per
+// (mission, character) — re-expressing interest is a no-op, not a second row.
+// Modeled directly on characterCards above.
+export const missionAssignments = pgTable(
+  "mission_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    missionId: uuid("mission_id")
+      .notNull()
+      .references(() => missions.id, { onDelete: "cascade" }),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    state: missionAssignmentState("state").notNull().default("interested"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("mission_assignments_mission_idx").on(t.missionId),
+    index("mission_assignments_character_idx").on(t.characterId),
+    uniqueIndex("mission_assignments_unique").on(t.missionId, t.characterId),
+  ],
+);
+
+export const missionsRelations = relations(missions, ({ many }) => ({
+  assignments: many(missionAssignments),
+}));
+
+export const missionAssignmentsRelations = relations(
+  missionAssignments,
+  ({ one }) => ({
+    mission: one(missions, {
+      fields: [missionAssignments.missionId],
+      references: [missions.id],
+    }),
+    character: one(characters, {
+      fields: [missionAssignments.characterId],
+      references: [characters.id],
+    }),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Character = typeof characters.$inferSelect;
@@ -516,3 +623,7 @@ export type ShopListing = typeof shopListings.$inferSelect;
 export type NewShopListing = typeof shopListings.$inferInsert;
 export type ShopRestockRule = typeof shopRestockRules.$inferSelect;
 export type NewShopRestockRule = typeof shopRestockRules.$inferInsert;
+export type Mission = typeof missions.$inferSelect;
+export type NewMission = typeof missions.$inferInsert;
+export type MissionAssignment = typeof missionAssignments.$inferSelect;
+export type NewMissionAssignment = typeof missionAssignments.$inferInsert;

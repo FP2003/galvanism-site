@@ -1,0 +1,1 @@
+ALTER TABLE "missions" ADD COLUMN "payout_xp" integer DEFAULT 0 NOT NULL;
