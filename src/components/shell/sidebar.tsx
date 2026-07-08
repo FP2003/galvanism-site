@@ -64,9 +64,9 @@ export function Sidebar() {
 
       <div className="hidden border-t border-ledger-teal p-4 lg:block">
         <p className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] leading-relaxed text-muted-ink">
-          CLEARANCE: FOXTROT
+          SKIZZO INC.
           <br />
-          BUILD 0.0 · PHASE 0
+          BUILD 19.3 · PHASE 7
         </p>
       </div>
     </nav>
