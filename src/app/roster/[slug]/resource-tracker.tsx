@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Shield, Zap, Crosshair, Minus, Plus, Check } from "lucide-react";
+import { Shield, Zap, Crosshair, Activity, Minus, Plus, Check } from "lucide-react";
 import { Meter } from "@/components/ui/meter";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form";
@@ -10,22 +10,29 @@ import { updateResources, type SheetState } from "@/app/roster/actions";
 
 type Resource = { current: number; max: number };
 
+// Energy regen has no max — it's a flat rate, not a fillable pool — so it's
+// only floored at 0, never clamped to a ceiling like the other resources.
+const clampRegen = (n: number) => Math.max(0, Math.floor(n));
+
 /*
  * Owner/admin resource tracking on the Case File (Phase 2). Steppers + direct
- * entry adjust current HP/Energy/Ammo; maxes are DM-set and shown read-only. All
- * three post together; the server clamps to [0, max] as the source of truth, and
- * the local values re-baseline on a successful save.
+ * entry adjust current HP/Energy/Ammo (maxes are DM-set and shown read-only)
+ * plus the flat Energy Regen rate. All four post together; the server clamps
+ * to [0, max] (or just floors at 0 for regen) as the source of truth, and the
+ * local values re-baseline on a successful save.
  */
 export function ResourceTracker({
   characterId,
   hp,
   energy,
   ammo,
+  energyRegen,
 }: {
   characterId: string;
   hp: Resource;
   energy: Resource;
   ammo: Resource;
+  energyRegen: number;
 }) {
   const [state, setState] = useState<SheetState>({});
   const [pending, startTransition] = useTransition();
@@ -33,6 +40,7 @@ export function ResourceTracker({
     hpCurrent: hp.current,
     energyCurrent: energy.current,
     ammoCurrent: ammo.current,
+    energyRegen,
   });
 
   function action(formData: FormData) {
@@ -45,6 +53,7 @@ export function ResourceTracker({
             hpCurrent: clampResource(v.hpCurrent, hp.max),
             energyCurrent: clampResource(v.energyCurrent, energy.max),
             ammoCurrent: clampResource(v.ammoCurrent, ammo.max),
+            energyRegen: clampRegen(v.energyRegen),
           }));
         }
       } catch {
@@ -58,9 +67,10 @@ export function ResourceTracker({
   const dirty =
     values.hpCurrent !== hp.current ||
     values.energyCurrent !== energy.current ||
-    values.ammoCurrent !== ammo.current;
+    values.ammoCurrent !== ammo.current ||
+    values.energyRegen !== energyRegen;
 
-  const set = (key: keyof typeof values, next: number, max: number) =>
+  const set = (key: "hpCurrent" | "energyCurrent" | "ammoCurrent", next: number, max: number) =>
     setValues((v) => ({ ...v, [key]: clampResource(next, max) }));
 
   return (
@@ -69,6 +79,7 @@ export function ResourceTracker({
       <input type="hidden" name="hpCurrent" value={values.hpCurrent} />
       <input type="hidden" name="energyCurrent" value={values.energyCurrent} />
       <input type="hidden" name="ammoCurrent" value={values.ammoCurrent} />
+      <input type="hidden" name="energyRegen" value={values.energyRegen} />
 
       <Row
         icon={<Shield size={14} aria-hidden="true" />}
@@ -93,6 +104,14 @@ export function ResourceTracker({
         max={ammo.max}
         tone="steel"
         onChange={(n) => set("ammoCurrent", n, ammo.max)}
+      />
+      <RateRow
+        icon={<Activity size={14} aria-hidden="true" />}
+        label="Energy Regen"
+        value={values.energyRegen}
+        onChange={(n) =>
+          setValues((v) => ({ ...v, energyRegen: clampRegen(n) }))
+        }
       />
 
       <FormMessage state={state} />
@@ -147,6 +166,52 @@ function Row({
           max={max}
           inputMode="numeric"
           aria-label={`${label} current`}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-full border border-elevated-ledger bg-void-navy px-2 py-1.5 text-center font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white outline-none focus:border-signal-cyan pointer-coarse:py-3"
+        />
+        <Stepper label={`Increase ${label}`} onClick={() => onChange(value + 1)}>
+          <Plus size={14} aria-hidden="true" />
+        </Stepper>
+      </div>
+    </div>
+  );
+}
+
+// A flat rate rather than a fillable pool — same steppers + direct entry as
+// Row, but no max and no meter.
+function RateRow({
+  icon,
+  label,
+  value,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
+          <span className="text-steel-blue">{icon}</span>
+          {label}
+        </span>
+        <span className="font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
+          +{value}
+          <span className="text-muted-ink"> / turn</span>
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Stepper label={`Decrease ${label}`} onClick={() => onChange(value - 1)}>
+          <Minus size={14} aria-hidden="true" />
+        </Stepper>
+        <input
+          type="number"
+          min={0}
+          inputMode="numeric"
+          aria-label={label}
           value={value}
           onChange={(e) => onChange(Number(e.target.value))}
           className="w-full border border-elevated-ledger bg-void-navy px-2 py-1.5 text-center font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white outline-none focus:border-signal-cyan pointer-coarse:py-3"

@@ -17,9 +17,9 @@ import {
 
 /*
  * Player self-service on the Case File (Phase 2): a player edits their own bio
- * and tracks their own resources (HP/Energy/Ammo). The DM can do the same on any
- * sheet. Base stats are otherwise admin-only (app/admin/actions.ts) — spending
- * Currency XP against a purchase catalog is Phase 6 (Facilities), not here.
+ * and tracks their own resources (HP/Energy/Ammo/Energy Regen). The DM can do the
+ * same on any sheet. Base stats are otherwise admin-only (app/admin/actions.ts) —
+ * spending Currency XP against a purchase catalog is Phase 6 (Facilities), not here.
  */
 
 export type SheetState = { ok?: boolean; error?: string; message?: string };
@@ -88,12 +88,17 @@ export async function updateResources(
     ammoMax: c.ammoMax,
   });
 
+  // Energy regen is a flat rate, not a fillable pool — no effective max to
+  // clamp against, just a floor of 0.
+  const energyRegen = Math.max(0, read("energyRegen", c.energyRegen));
+
   await auth.db
     .update(characters)
     .set({
       hpCurrent: clampResource(read("hpCurrent", c.hpCurrent), max.hpMax),
       energyCurrent: clampResource(read("energyCurrent", c.energyCurrent), max.energyMax),
       ammoCurrent: clampResource(read("ammoCurrent", c.ammoCurrent), max.ammoMax),
+      energyRegen,
       updatedAt: new Date(),
     })
     .where(eq(characters.id, characterId));

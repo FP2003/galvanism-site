@@ -190,6 +190,7 @@ export default async function CaseFilePage({
                   hp={loadout.resources.hp}
                   energy={loadout.resources.energy}
                   ammo={loadout.resources.ammo}
+                  energyRegen={op.energyRegen}
                 />
               ) : (
                 <div className="flex flex-col gap-4">
@@ -216,18 +217,18 @@ export default async function CaseFilePage({
                     value={loadout.resources.ammo}
                     tone="steel"
                   />
+                  <div className="flex items-center justify-between border-t border-elevated-ledger pt-3">
+                    <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
+                      <Activity size={14} className="text-steel-blue" aria-hidden="true" />
+                      Energy Regen
+                    </span>
+                    <span className="font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
+                      +{op.energyRegen}
+                      <span className="text-muted-ink"> / turn</span>
+                    </span>
+                  </div>
                 </div>
               )}
-              <div className="mt-4 flex items-center justify-between border-t border-elevated-ledger pt-3">
-                <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                  <Activity size={14} className="text-steel-blue" aria-hidden="true" />
-                  Energy Regen
-                </span>
-                <span className="font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
-                  +{op.energyRegen}
-                  <span className="text-muted-ink"> / turn</span>
-                </span>
-              </div>
             </Panel>
 
             <Panel
