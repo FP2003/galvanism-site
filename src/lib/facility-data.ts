@@ -5,6 +5,9 @@ import {
   facilityListings,
   facilityRestockRules,
   facilityXpOfferings,
+  facilityPerks,
+  facilityPerkPurchases,
+  facilityOngoingEntries,
   cards,
   cardEffects,
   type NewFacilityListing,
@@ -19,21 +22,31 @@ import { planRestock, type EligibleCard, type RestockRule } from "./facilities";
  * weighted-draw rules themselves live there, tested in isolation.
  */
 
-/** Every facility, newest first — for the admin facility list. */
+/** Every facility, newest first — for the admin and player facility lists.
+ *  Ongoing entries are pre-filtered to unresolved so both list pages can
+ *  surface an active status line (e.g. "Cards are 15% off today!") without a
+ *  second query. */
 export async function getFacilities() {
   const db = getDb();
   return db.query.facilities.findMany({
-    with: { listings: true, restockRules: true },
+    with: {
+      listings: true,
+      restockRules: true,
+      ongoingEntries: {
+        where: eq(facilityOngoingEntries.resolved, false),
+        orderBy: [desc(facilityOngoingEntries.createdAt)],
+      },
+    },
     orderBy: [desc(facilities.createdAt)],
   });
 }
 
 /** One facility with its listings (joined to their card + effects — GameCard
  *  needs the effects to render its body, same shape as getCardLibrary),
- *  restock rules, and XP offerings. Used by both the admin detail page
- *  (effects/inactive offerings shown for management) and the player detail
- *  page (effects required, offerings filtered to active + unlocked), so one
- *  query serves both. */
+ *  restock rules, XP offerings, perks, and ongoing entries. Used by both the
+ *  admin detail page (effects/inactive rows shown for management) and the
+ *  player detail page (rows filtered to active + unlocked, effects required),
+ *  so one query serves both. */
 export async function getFacility(facilityId: string) {
   const db = getDb();
   return db.query.facilities.findFirst({
@@ -45,8 +58,36 @@ export async function getFacility(facilityId: string) {
       },
       restockRules: { orderBy: [asc(facilityRestockRules.sortOrder)] },
       xpOfferings: { orderBy: [asc(facilityXpOfferings.sortOrder)] },
+      perks: { orderBy: [asc(facilityPerks.sortOrder)] },
+      ongoingEntries: { orderBy: [desc(facilityOngoingEntries.createdAt)] },
     },
   });
+}
+
+/** The perk ids a character already owns, across every facility — feeds the
+ *  player detail page's Owned/Buy button state (mirrors getCharacterCards'
+ *  ownership-set role for the card shop). */
+export async function getOwnedPerkIds(characterId: string): Promise<Set<string>> {
+  const db = getDb();
+  const rows = await db.query.facilityPerkPurchases.findMany({
+    where: eq(facilityPerkPurchases.characterId, characterId),
+    columns: { perkId: true },
+  });
+  return new Set(rows.map((r) => r.perkId));
+}
+
+/** Unresolved ongoing entries across every facility, newest first, joined to
+ *  their facility name — feeds the command dashboard's "Facility Processes"
+ *  panel (replacing the mock fixture). */
+export async function getUnresolvedOngoingEntries(limit = 5) {
+  const db = getDb();
+  const rows = await db.query.facilityOngoingEntries.findMany({
+    where: eq(facilityOngoingEntries.resolved, false),
+    with: { facility: { columns: { name: true } } },
+    orderBy: [desc(facilityOngoingEntries.createdAt)],
+    limit,
+  });
+  return rows.map((r) => ({ facility: r.facility.name, label: r.label }));
 }
 
 /** Library cards with a price set, at or below this facility's level, that
