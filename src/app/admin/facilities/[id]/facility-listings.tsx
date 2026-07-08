@@ -6,27 +6,29 @@ import { Plus, X } from "lucide-react";
 import { Select, FormMessage } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { CARD_CATEGORY_META } from "@/lib/cards";
-import { addListing, removeListing, type FormState } from "@/app/admin/shop-actions";
-import type { Card, ShopListing } from "@/lib/schema";
+import { addListing, removeListing, type FormState } from "@/app/admin/facility-actions";
+import type { Card, FacilityListing } from "@/lib/schema";
 
-// Admin listing management for one shop (Phase 4). Admin can freely add/
-// remove listings regardless of source — a rotation-picked card is just as
-// removable as a manually curated one.
-export function ShopListingManagement({
-  shopId,
+// Admin listing management for one facility (Phase 6, absorbing Phase 4's
+// shop listings). Admin can freely add/remove listings regardless of source
+// — a rotation-picked card is just as removable as a manually curated one.
+// `eligibleCards` is already filtered to this facility's level upstream
+// (getEligibleListingCards), so every option here is safe to list.
+export function FacilityListingManagement({
+  facilityId,
   eligibleCards,
   listings,
 }: {
-  shopId: string;
+  facilityId: string;
   eligibleCards: Card[];
-  listings: (ShopListing & { card: Card })[];
+  listings: (FacilityListing & { card: Card })[];
 }) {
   const [addState, addAction] = useActionState<FormState, FormData>(addListing, {});
 
   return (
     <div className="flex flex-col gap-5">
       <form action={addAction} className="flex flex-col gap-2 sm:flex-row">
-        <input type="hidden" name="shopId" value={shopId} />
+        <input type="hidden" name="facilityId" value={facilityId} />
         <Select
           name="cardId"
           aria-label="Card to list"
@@ -80,7 +82,7 @@ function AddListingButton({ disabled }: { disabled: boolean }) {
   );
 }
 
-function ListingRow({ listing }: { listing: ShopListing & { card: Card } }) {
+function ListingRow({ listing }: { listing: FacilityListing & { card: Card } }) {
   const [, removeAction] = useActionState<FormState, FormData>(removeListing, {});
   const { card } = listing;
 

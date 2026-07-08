@@ -4,18 +4,18 @@ import { useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { ShopForm } from "./shop-form";
+import { FacilityForm } from "./facility-form";
 
-export function NewShopDialog() {
+export function NewFacilityDialog() {
   const [open, setOpen] = useState(false);
 
   return (
     <>
       <Button onClick={() => setOpen(true)}>
-        <Plus size={15} aria-hidden="true" /> New Shop
+        <Plus size={15} aria-hidden="true" /> New Facility
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="New Shop">
-        <ShopForm />
+      <Dialog open={open} onClose={() => setOpen(false)} title="New Facility">
+        <FacilityForm />
       </Dialog>
     </>
   );

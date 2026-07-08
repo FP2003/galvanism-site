@@ -11,19 +11,22 @@ import {
   addRestockRule,
   deleteRestockRule,
   type FormState,
-} from "@/app/admin/shop-actions";
-import type { ShopRestockRule } from "@/lib/schema";
+} from "@/app/admin/facility-actions";
+import type { FacilityRestockRule } from "@/lib/schema";
 
-// The admin's weighted restock pool for a shop (Phase 4). Each rule is an
-// independent row with its own add/delete lifecycle — no dynamic client-
-// array builder needed, unlike card effects which save atomically with
-// their card.
+// The admin's weighted restock pool for a facility (Phase 6, absorbing Phase
+// 4's shop restock rules). Each rule is an independent row with its own
+// add/delete lifecycle — no dynamic client-array builder needed, unlike card
+// effects which save atomically with their card. A rule's level can't exceed
+// the facility's own level (enforced server-side in addRestockRule).
 export function RestockRules({
-  shopId,
+  facilityId,
+  facilityLevel,
   rules,
 }: {
-  shopId: string;
-  rules: ShopRestockRule[];
+  facilityId: string;
+  facilityLevel: number;
+  rules: FacilityRestockRule[];
 }) {
   const [addState, addAction] = useActionState<FormState, FormData>(addRestockRule, {});
 
@@ -33,10 +36,11 @@ export function RestockRules({
         Every restock slot rolls independently against these rules, weighted by
         each rule&apos;s weight ÷ the sum of all weights. E.g. a Level 1 rule at
         weight 80 and a Level 2 rule at weight 20 gives each slot an 80% chance
-        of drawing Level 1 and a 20% chance of Level 2 — a shop with 3 slots
-        might land 3 Level 1s, or 2 Level 1s and 1 Level 2, since each slot
-        rolls on its own. Add a third rule and every existing percentage shifts,
-        since it&apos;s always weight ÷ the new total.
+        of drawing Level 1 and a 20% chance of Level 2 — a facility with 3
+        slots might land 3 Level 1s, or 2 Level 1s and 1 Level 2, since each
+        slot rolls on its own. Add a third rule and every existing percentage
+        shifts, since it&apos;s always weight ÷ the new total. This facility is
+        level {facilityLevel} — a rule above that level can&apos;t be added yet.
       </p>
       {rules.length === 0 ? (
         <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
@@ -51,7 +55,7 @@ export function RestockRules({
       )}
 
       <form action={addAction} className="flex flex-col gap-2">
-        <input type="hidden" name="shopId" value={shopId} />
+        <input type="hidden" name="facilityId" value={facilityId} />
         <Select name="category" aria-label="Category" defaultValue={CARD_CATEGORIES[0]}>
           {CARD_CATEGORIES.map((c) => (
             <option key={c} value={c}>
@@ -66,6 +70,7 @@ export function RestockRules({
               name="level"
               type="number"
               min={1}
+              max={facilityLevel}
               inputMode="numeric"
               aria-label="Level"
               placeholder="Level"
@@ -104,7 +109,7 @@ function AddRuleButton() {
   );
 }
 
-function RuleRow({ rule }: { rule: ShopRestockRule }) {
+function RuleRow({ rule }: { rule: FacilityRestockRule }) {
   const [, deleteAction] = useActionState<FormState, FormData>(deleteRestockRule, {});
   const label = `${CARD_CATEGORY_META[rule.category].label} · Level ${rule.level}`;
 

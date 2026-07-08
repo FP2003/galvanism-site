@@ -6,17 +6,18 @@ import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { FormDialogTrigger } from "@/components/ui/form-dialog-trigger";
 import { requireAdmin } from "@/lib/auth";
-import { getShop, getEligibleListingCards } from "@/lib/shop-data";
-import { ShopForm } from "../shop-form";
+import { getFacility, getEligibleListingCards } from "@/lib/facility-data";
+import { FacilityForm } from "../facility-form";
 import { RestockRules } from "./restock-rules";
 import { RestockNowButton } from "./restock-now-button";
-import { ShopListingManagement } from "./shop-listings";
+import { FacilityListingManagement } from "./facility-listings";
 
-export const metadata: Metadata = { title: "Shop — Personnel Command" };
+export const metadata: Metadata = { title: "Facility — Personnel Command" };
 
-// Admin shop detail (Phase 4): listings, restock rules, and the rotation
-// status/manual-restock control for one shop.
-export default async function AdminShopDetailPage({
+// Admin facility detail (Phase 6, absorbing Phase 4's shop detail): level,
+// listings, restock rules, and the rotation status/manual-restock control
+// for one facility.
+export default async function AdminFacilityDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -24,8 +25,8 @@ export default async function AdminShopDetailPage({
   await requireAdmin();
   const { id } = await params;
 
-  const shop = await getShop(id);
-  if (!shop) notFound();
+  const facility = await getFacility(id);
+  if (!facility) notFound();
 
   const eligibleCards = await getEligibleListingCards(id);
 
@@ -33,24 +34,25 @@ export default async function AdminShopDetailPage({
     <AppShell>
       <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8">
         <Link
-          href="/admin/shops"
+          href="/admin/facilities"
           className="mb-5 inline-flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink transition-colors hover:text-signal-cyan pointer-coarse:min-h-11"
         >
-          <ArrowLeft size={14} aria-hidden="true" /> Shops
+          <ArrowLeft size={14} aria-hidden="true" /> Facilities
         </Link>
 
         <div className="mb-6 flex flex-col gap-3 border-b border-ledger-teal pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <h1 className="font-[family-name:var(--font-rajdhani)] text-3xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white break-words sm:text-4xl">
-              {shop.name}
+              {facility.name}
             </h1>
             <p className="mt-2 max-w-prose text-sm text-muted-ink break-words">
-              {shop.isOpen ? "Open" : "Closed"}
-              {shop.description ? ` · ${shop.description}` : ""}
+              {facility.isOpen ? "Open" : "Closed"}
+              {facility.kind === "station" ? ` · Level ${facility.level}` : " · Field"}
+              {facility.description ? ` · ${facility.description}` : ""}
             </p>
           </div>
-          <FormDialogTrigger label="Edit" title="Edit Shop">
-            <ShopForm shop={shop} />
+          <FormDialogTrigger label="Edit" title="Edit Facility">
+            <FacilityForm facility={facility} />
           </FormDialogTrigger>
         </div>
 
@@ -60,14 +62,14 @@ export default async function AdminShopDetailPage({
               title="Listings"
               meta={
                 <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
-                  {shop.listings.length} for sale
+                  {facility.listings.length} for sale
                 </span>
               }
             >
-              <ShopListingManagement
-                shopId={shop.id}
+              <FacilityListingManagement
+                facilityId={facility.id}
                 eligibleCards={eligibleCards}
-                listings={shop.listings}
+                listings={facility.listings}
               />
             </Panel>
           </div>
@@ -81,7 +83,7 @@ export default async function AdminShopDetailPage({
                       Rotating slots
                     </dt>
                     <dd className="font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white">
-                      {shop.rotatingSlotCount}
+                      {facility.rotatingSlotCount}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between">
@@ -89,18 +91,18 @@ export default async function AdminShopDetailPage({
                       Restock cadence
                     </dt>
                     <dd className="font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white">
-                      {shop.restockIntervalOps
-                        ? `${shop.opsSinceRestock}/${shop.restockIntervalOps} ops`
+                      {facility.restockIntervalOps
+                        ? `${facility.opsSinceRestock}/${facility.restockIntervalOps} ops`
                         : "Manual only"}
                     </dd>
                   </div>
                 </dl>
-                <RestockNowButton shopId={shop.id} />
+                <RestockNowButton facilityId={facility.id} />
               </div>
             </Panel>
 
             <Panel title="Restock Rules">
-              <RestockRules shopId={shop.id} rules={shop.restockRules} />
+              <RestockRules facilityId={facility.id} facilityLevel={facility.level} rules={facility.restockRules} />
             </Panel>
           </div>
         </div>

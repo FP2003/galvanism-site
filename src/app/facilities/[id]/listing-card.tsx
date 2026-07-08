@@ -5,13 +5,14 @@ import { useFormStatus } from "react-dom";
 import { ShoppingCart, Check } from "lucide-react";
 import { GameCard } from "@/components/cards/game-card";
 import { FormMessage } from "@/components/ui/form";
-import { purchaseListing, type FormState } from "./requisitions-actions";
+import { purchaseListing, type FormState } from "./purchase-actions";
 import type { CardWithEffects } from "@/lib/schema";
 
-// One shop listing (Phase 4). Price + Buy are composed around GameCard, not
-// passed into it as props — GameCard stays price-blind by construction so
-// the same component can render a card in the roster loadout (no price)
-// and here in the shop (price shown) without a leak either direction.
+// One facility listing (Phase 6, absorbing Phase 4's shop listing). Price +
+// Buy are composed around GameCard, not passed into it as props — GameCard
+// stays price-blind by construction so the same component can render a card
+// in the roster loadout (no price) and here at a facility (price shown)
+// without a leak either direction.
 export function ListingCard({
   listingId,
   card,

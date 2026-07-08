@@ -4,21 +4,21 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { MoreVertical, Pencil, Lock, Unlock, Trash2, AlertTriangle } from "lucide-react";
 import {
-  setShopOpen,
-  deleteShop,
+  setFacilityOpen,
+  deleteFacility,
   type FormState,
-} from "@/app/admin/shop-actions";
-import type { Shop } from "@/lib/schema";
+} from "@/app/admin/facility-actions";
+import type { Facility } from "@/lib/schema";
 import { Dialog } from "@/components/ui/dialog";
-import { ShopForm } from "./shop-form";
+import { FacilityForm } from "./facility-form";
 
 /*
- * Per-shop action menu (Shops admin list), trimmed down from card-menu.tsx's
- * WAI-ARIA menu-button skeleton — same open/close, roving-focus, and
- * two-step delete confirm, just without the per-operator assignment list
- * (not applicable to a shop).
+ * Per-facility action menu (Facilities admin list), trimmed down from
+ * card-menu.tsx's WAI-ARIA menu-button skeleton — same open/close,
+ * roving-focus, and two-step delete confirm, just without the per-operator
+ * assignment list (not applicable to a facility).
  */
-export function ShopMenu({ shop }: { shop: Shop }) {
+export function FacilityMenu({ facility }: { facility: Facility }) {
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [align, setAlign] = useState<"left" | "right">("right");
@@ -29,8 +29,8 @@ export function ShopMenu({ shop }: { shop: Shop }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const [toggleState, toggleAction] = useActionState<FormState, FormData>(setShopOpen, {});
-  const [deleteState, deleteAction] = useActionState<FormState, FormData>(deleteShop, {});
+  const [toggleState, toggleAction] = useActionState<FormState, FormData>(setFacilityOpen, {});
+  const [deleteState, deleteAction] = useActionState<FormState, FormData>(deleteFacility, {});
 
   function menuItems() {
     return Array.from(
@@ -106,7 +106,7 @@ export function ShopMenu({ shop }: { shop: Shop }) {
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label={`Actions for ${shop.name}`}
+        aria-label={`Actions for ${facility.name}`}
         onClick={toggle}
         className="flex size-7 items-center justify-center bg-void-navy text-case-file-white transition-colors hover:text-signal-cyan pointer-coarse:size-11"
       >
@@ -117,7 +117,7 @@ export function ShopMenu({ shop }: { shop: Shop }) {
         <div
           ref={menuRef}
           role="menu"
-          aria-label={`${shop.name} actions`}
+          aria-label={`${facility.name} actions`}
           onKeyDown={onMenuKeyDown}
           className={`absolute top-full z-20 mt-1 w-52 border border-steel-blue bg-elevated-ledger py-1 ${
             align === "right" ? "right-0" : "left-0"
@@ -141,17 +141,17 @@ export function ShopMenu({ shop }: { shop: Shop }) {
             className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink transition-colors hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan focus:outline-none pointer-coarse:min-h-11"
           >
             <Pencil size={13} className="shrink-0" aria-hidden="true" />
-            Edit shop
+            Edit facility
           </button>
 
           <form action={toggleAction} onSubmit={() => setInteracted(true)}>
-            <input type="hidden" name="shopId" value={shop.id} />
-            <input type="hidden" name="isOpen" value={String(!shop.isOpen)} />
-            <ToggleOpenItem isOpen={shop.isOpen} />
+            <input type="hidden" name="facilityId" value={facility.id} />
+            <input type="hidden" name="isOpen" value={String(!facility.isOpen)} />
+            <ToggleOpenItem isOpen={facility.isOpen} />
           </form>
 
           <form action={deleteAction} onSubmit={() => setInteracted(true)}>
-            <input type="hidden" name="shopId" value={shop.id} />
+            <input type="hidden" name="facilityId" value={facility.id} />
             {confirmingDelete ? (
               <div className="flex flex-col gap-1.5 px-3 py-1.5">
                 <p className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
@@ -171,15 +171,15 @@ export function ShopMenu({ shop }: { shop: Shop }) {
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-muted-ink transition-colors hover:bg-ledger-teal hover:text-stamp-red focus:bg-ledger-teal focus:text-stamp-red focus:outline-none pointer-coarse:min-h-11"
               >
                 <Trash2 size={13} className="shrink-0" aria-hidden="true" />
-                Delete shop
+                Delete facility
               </button>
             )}
           </form>
         </div>
       )}
 
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={`Edit ${shop.name}`}>
-        {editOpen && <ShopForm shop={shop} onSaved={() => setEditOpen(false)} />}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} title={`Edit ${facility.name}`}>
+        {editOpen && <FacilityForm facility={facility} onSaved={() => setEditOpen(false)} />}
       </Dialog>
     </div>
   );
@@ -200,7 +200,7 @@ function ToggleOpenItem({ isOpen }: { isOpen: boolean }) {
       ) : (
         <Unlock size={13} className="shrink-0 text-steel-blue" aria-hidden="true" />
       )}
-      {pending ? "…" : isOpen ? "Close shop" : "Open shop"}
+      {pending ? "…" : isOpen ? "Close facility" : "Open facility"}
     </button>
   );
 }
