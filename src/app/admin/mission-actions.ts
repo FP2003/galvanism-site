@@ -139,29 +139,49 @@ export async function deleteMission(_prev: FormState, formData: FormData): Promi
   return { ok: true, message: "Mission deleted." };
 }
 
-// Quick status toggles (mirrors setShopOpen) — only "active"/"failed" are
-// legal targets here; "complete" always goes through completeMission below so
-// a payout is never skipped, and "available" has no defined re-open path.
+// Quick status toggles (mirrors setShopOpen). "complete" always goes through
+// completeMission below so a payout is never skipped. Each target is only
+// legal from specific current statuses — validated server-side via the WHERE
+// clause rather than trusting the client to only show valid buttons.
+const STATUS_TRANSITION_SOURCES = {
+  active: ["available"],
+  failed: ["available", "active"],
+  available: ["failed"], // the "revert" path — undoes a mistaken/premature failure
+} as const;
+
 export async function setMissionStatus(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const missionId = textField(formData, "missionId");
   const status = textField(formData, "status");
   if (!missionId) return { error: "Missing mission reference." };
-  if (status !== "active" && status !== "failed") return { error: "Invalid status." };
+  if (status !== "active" && status !== "failed" && status !== "available") {
+    return { error: "Invalid status." };
+  }
 
   const db = getDb();
+  const isRevert = status === "available";
   const [updated] = await db
     .update(missions)
-    .set({ status, updatedAt: new Date() })
-    .where(eq(missions.id, missionId))
+    .set(
+      isRevert
+        ? { status, urgent: false, urgentDeadline: null, updatedAt: new Date() }
+        : { status, updatedAt: new Date() },
+    )
+    .where(and(eq(missions.id, missionId), inArray(missions.status, STATUS_TRANSITION_SOURCES[status])))
     .returning({ id: missions.id });
-  if (!updated) return { error: "Mission not found." };
+  if (!updated) return { error: "Mission isn't in a state that allows this change." };
 
   revalidatePath("/admin/missions");
   revalidatePath(`/admin/missions/${missionId}`);
   revalidatePath("/missions");
   revalidatePath("/");
-  return { ok: true, message: status === "active" ? "Mission marked active." : "Mission marked failed." };
+  const message =
+    status === "active"
+      ? "Mission marked active."
+      : status === "failed"
+        ? "Mission marked failed."
+        : "Mission reverted to available.";
+  return { ok: true, message };
 }
 
 // Promotes a self-expressed interest row to a confirmed assignment.

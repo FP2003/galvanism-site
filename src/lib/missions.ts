@@ -35,3 +35,16 @@ export function tickUrgentDeadline(deadline: number): {
   const nextDeadline = deadline - 1;
   return { nextDeadline, failed: nextDeadline <= 0 };
 }
+
+export type MissionStatusBucket = "incomplete" | "complete" | "failed";
+
+/**
+ * Groups a mission's raw status into the three buckets shown in the
+ * All/Incomplete/Complete/Failed filter (available and active both read as
+ * "incomplete" — still open, regardless of whether work has started).
+ */
+export function missionBucket(status: string): MissionStatusBucket {
+  if (status === "complete") return "complete";
+  if (status === "failed") return "failed";
+  return "incomplete";
+}

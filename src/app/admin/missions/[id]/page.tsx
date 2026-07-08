@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
-import { StatusLabel } from "@/components/ui/status-dot";
 import { Markdown } from "@/components/ui/markdown";
 import { FormDialogTrigger } from "@/components/ui/form-dialog-trigger";
+import { LocationTag, RiskTag, MissionStatusBadge, STATUS_WORD } from "@/components/missions/mission-tags";
 import { requireAdmin } from "@/lib/auth";
 import { getMission, getEligibleAssignees } from "@/lib/mission-data";
 import { MissionForm } from "../mission-form";
@@ -14,20 +14,6 @@ import { MissionAssignment } from "./mission-assignment";
 import { CompleteMissionForm } from "./complete-mission-form";
 
 export const metadata: Metadata = { title: "Mission — Personnel Command" };
-
-const RISK_LABEL = { low: "Low", moderate: "Moderate", high: "High", severe: "Severe" } as const;
-const STATUS_TONE = {
-  available: "neutral",
-  active: "live",
-  complete: "live",
-  failed: "critical",
-} as const;
-const STATUS_WORD = {
-  available: "Available",
-  active: "Active",
-  complete: "Complete",
-  failed: "Failed",
-} as const;
 
 // Admin mission detail (Phase 5): briefing, operator assignment, and the
 // urgent-deadline / completion controls for one mission.
@@ -62,11 +48,12 @@ export default async function AdminMissionDetailPage({
               <h1 className="font-[family-name:var(--font-rajdhani)] text-3xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white break-words sm:text-4xl">
                 {mission.title}
               </h1>
-              <StatusLabel tone={STATUS_TONE[mission.status]}>{STATUS_WORD[mission.status]}</StatusLabel>
+              <MissionStatusBadge status={mission.status} />
             </div>
-            <p className="mt-2 max-w-prose text-sm text-muted-ink break-words">
-              {mission.sector ?? "No sector"} · Risk {RISK_LABEL[mission.risk]}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <LocationTag sector={mission.sector} />
+              <RiskTag risk={mission.risk} />
+            </div>
           </div>
           <FormDialogTrigger label="Edit" title="Edit Mission">
             <MissionForm mission={mission} />

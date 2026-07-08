@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { splitPayoutEvenly, tickUrgentDeadline } from "./missions";
+import { splitPayoutEvenly, tickUrgentDeadline, missionBucket } from "./missions";
 
 describe("splitPayoutEvenly", () => {
   it("splits evenly with no remainder", () => {
@@ -30,5 +30,17 @@ describe("tickUrgentDeadline", () => {
 
   it("fails (not crashes) when already past zero", () => {
     expect(tickUrgentDeadline(0)).toEqual({ nextDeadline: -1, failed: true });
+  });
+});
+
+describe("missionBucket", () => {
+  it("groups available and active as incomplete", () => {
+    expect(missionBucket("available")).toBe("incomplete");
+    expect(missionBucket("active")).toBe("incomplete");
+  });
+
+  it("maps complete and failed to their own buckets", () => {
+    expect(missionBucket("complete")).toBe("complete");
+    expect(missionBucket("failed")).toBe("failed");
   });
 });

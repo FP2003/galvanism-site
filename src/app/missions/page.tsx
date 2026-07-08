@@ -1,18 +1,14 @@
-import Link from "next/link";
 import type { Metadata } from "next";
-import { Crosshair, IdCard, MapPin } from "lucide-react";
+import { Crosshair, IdCard } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { ButtonLink } from "@/components/ui/button";
-import { StatusLabel } from "@/components/ui/status-dot";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
 import { getMissionsForViewer } from "@/lib/mission-data";
-import { MissionInterestButton } from "./mission-interest-button";
+import { MissionList } from "./mission-list";
 
 export const metadata: Metadata = { title: "Missions" };
-
-const RISK_LABEL = { low: "Low", moderate: "Moderate", high: "High", severe: "Severe" } as const;
 
 // Player-facing mission board (Phase 5). Admins have no character to claim
 // against, so they get a read-only preview instead — same convention as
@@ -57,59 +53,7 @@ export default async function MissionsPage() {
         {missionList.length === 0 ? (
           <EmptyMissions />
         ) : (
-          <div className="flex flex-col gap-4">
-            {missionList.map((mission) => {
-              const ownRow = character
-                ? mission.assignments.find((a) => a.characterId === character.id)
-                : undefined;
-              const state = ownRow?.state ?? "none";
-              return (
-                <Panel key={mission.id}>
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          href={`/missions/${mission.id}`}
-                          className="font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-case-file-white transition-colors hover:text-signal-cyan"
-                        >
-                          {mission.title}
-                        </Link>
-                        {mission.urgent && mission.urgentDeadline != null && (
-                          <StatusLabel tone="critical">
-                            Urgent · {mission.urgentDeadline} op{mission.urgentDeadline === 1 ? "" : "s"} left
-                          </StatusLabel>
-                        )}
-                      </div>
-                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-ink">
-                        <MapPin size={11} aria-hidden="true" /> {mission.sector ?? "Unknown sector"} · Risk{" "}
-                        {RISK_LABEL[mission.risk]}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
-                        {mission.payoutCredits}
-                        <span className="ml-0.5 text-[0.625rem] text-muted-ink">CR</span>
-                        <span className="mx-1 text-muted-ink">·</span>
-                        {mission.payoutXp}
-                        <span className="ml-0.5 text-[0.625rem] text-muted-ink">XP</span>
-                      </span>
-                      {isAdmin ? (
-                        <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase text-muted-ink">
-                          Preview
-                        </span>
-                      ) : (
-                        <MissionInterestButton
-                          missionId={mission.id}
-                          assignmentId={ownRow?.id ?? null}
-                          state={state}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </Panel>
-              );
-            })}
-          </div>
+          <MissionList missions={missionList} characterId={character?.id ?? null} isAdmin={isAdmin} />
         )}
       </div>
     </AppShell>

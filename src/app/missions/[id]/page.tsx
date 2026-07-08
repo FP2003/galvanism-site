@@ -1,19 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { StatusLabel } from "@/components/ui/status-dot";
 import { Markdown } from "@/components/ui/markdown";
+import { LocationTag, RiskTag, MissionStatusBadge } from "@/components/missions/mission-tags";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
 import { getMission } from "@/lib/mission-data";
 import { MissionInterestButton } from "../mission-interest-button";
 
 export const metadata: Metadata = { title: "Mission Briefing" };
-
-const RISK_LABEL = { low: "Low", moderate: "Moderate", high: "High", severe: "Severe" } as const;
 
 // Player-facing mission briefing detail (info/website_scope.md: "read mission
 // briefing detail"). Same interest control as the list page.
@@ -49,16 +48,17 @@ export default async function MissionDetailPage({
               <h1 className="font-[family-name:var(--font-rajdhani)] text-3xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white break-words sm:text-4xl">
                 {mission.title}
               </h1>
+              <MissionStatusBadge status={mission.status} />
               {mission.urgent && mission.urgentDeadline != null && (
                 <StatusLabel tone="critical">
                   Urgent · {mission.urgentDeadline} op{mission.urgentDeadline === 1 ? "" : "s"} left
                 </StatusLabel>
               )}
             </div>
-            <p className="mt-2 flex items-center gap-1 text-sm text-muted-ink">
-              <MapPin size={13} aria-hidden="true" /> {mission.sector ?? "Unknown sector"} · Risk{" "}
-              {RISK_LABEL[mission.risk]}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <LocationTag sector={mission.sector} />
+              <RiskTag risk={mission.risk} />
+            </div>
           </div>
           <div className="shrink-0 border border-ledger-teal px-3 py-1.5 text-right">
             <span className="block font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
@@ -85,7 +85,7 @@ export default async function MissionDetailPage({
             )}
           </Panel>
 
-          {!isAdmin && character && (
+          {!isAdmin && character && (mission.status === "available" || mission.status === "active") && (
             <Panel title="Your Standing">
               <MissionInterestButton
                 missionId={mission.id}

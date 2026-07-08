@@ -1,29 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowLeft, Crosshair, ChevronRight } from "lucide-react";
+import { ArrowLeft, Crosshair } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
-import { StatusLabel } from "@/components/ui/status-dot";
 import { requireAdmin } from "@/lib/auth";
 import { getMissions } from "@/lib/mission-data";
 import { NewMissionDialog } from "./new-mission-dialog";
-import { MissionMenu } from "./mission-menu";
+import { MissionList } from "./mission-list";
 
 export const metadata: Metadata = { title: "Missions — Personnel Command" };
-
-const RISK_LABEL = { low: "Low", moderate: "Moderate", high: "High", severe: "Severe" } as const;
-const STATUS_TONE = {
-  available: "neutral",
-  active: "live",
-  complete: "live",
-  failed: "critical",
-} as const;
-const STATUS_WORD = {
-  available: "Available",
-  active: "Active",
-  complete: "Complete",
-  failed: "Failed",
-} as const;
 
 // Admin mission list (info/roadmap.md Phase 5). Each row links to the
 // mission's detail page for assignment management and completion.
@@ -73,50 +58,7 @@ export default async function AdminMissionsPage() {
               </p>
             </div>
           ) : (
-            <ul>
-              {missionList.map((mission) => {
-                const assignedCount = mission.assignments.filter((a) => a.state === "assigned").length;
-                const interestedCount = mission.assignments.filter((a) => a.state === "interested").length;
-                return (
-                  <li
-                    key={mission.id}
-                    className="group flex items-center gap-4 border-b border-elevated-ledger px-5 py-4 transition-colors last:border-b-0 hover:bg-elevated-ledger"
-                  >
-                    <Link
-                      href={`/admin/missions/${mission.id}`}
-                      className="flex min-w-0 flex-1 items-center gap-4"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="truncate font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-case-file-white">
-                            {mission.title}
-                          </span>
-                          <StatusLabel tone={STATUS_TONE[mission.status]}>
-                            {STATUS_WORD[mission.status]}
-                          </StatusLabel>
-                          {mission.urgent && mission.urgentDeadline != null && (
-                            <StatusLabel tone="critical">
-                              Urgent · {mission.urgentDeadline} op{mission.urgentDeadline === 1 ? "" : "s"} left
-                            </StatusLabel>
-                          )}
-                        </div>
-                        <p className="mt-1 font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
-                          {mission.sector ?? "No sector"} · Risk {RISK_LABEL[mission.risk]} ·{" "}
-                          {mission.payoutCredits} Cr · {mission.payoutXp} XP · {assignedCount} assigned,{" "}
-                          {interestedCount} interested
-                        </p>
-                      </div>
-                      <ChevronRight
-                        size={16}
-                        className="shrink-0 text-steel-blue transition-colors group-hover:text-signal-cyan"
-                        aria-hidden="true"
-                      />
-                    </Link>
-                    <MissionMenu mission={mission} />
-                  </li>
-                );
-              })}
-            </ul>
+            <MissionList missions={missionList} />
           )}
         </Panel>
       </div>

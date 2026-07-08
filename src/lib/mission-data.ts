@@ -45,13 +45,13 @@ export async function getMissionsForDashboard(limit = 5) {
   });
 }
 
-/** Every mission a player can see (not yet failed), with assignments — the
- *  player-facing Missions list computes the viewer's own interest/assigned
- *  state per mission by matching their characterId against `assignments`. */
+/** Every mission, with assignments — the player-facing Missions list filters
+ *  by status bucket client-side (mirrors getMissions) and computes the
+ *  viewer's own interest/assigned state per mission by matching their
+ *  characterId against `assignments`. */
 export async function getMissionsForViewer() {
   const db = getDb();
   return db.query.missions.findMany({
-    where: ne(missions.status, "failed"),
     with: { assignments: true },
     orderBy: [desc(missions.urgent), asc(missions.createdAt)],
   });

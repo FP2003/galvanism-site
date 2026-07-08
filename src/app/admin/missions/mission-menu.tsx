@@ -7,6 +7,7 @@ import {
   Pencil,
   Radio,
   AlertOctagon,
+  RotateCcw,
   Trash2,
   AlertTriangle,
   type LucideIcon,
@@ -163,6 +164,14 @@ export function MissionMenu({ mission }: { mission: Mission }) {
               <input type="hidden" name="missionId" value={mission.id} />
               <input type="hidden" name="status" value="failed" />
               <StatusItem icon={AlertOctagon} label="Mark failed" tone="danger" />
+            </form>
+          )}
+
+          {mission.status === "failed" && (
+            <form action={statusAction} onSubmit={() => setInteracted(true)}>
+              <input type="hidden" name="missionId" value={mission.id} />
+              <input type="hidden" name="status" value="available" />
+              <StatusItem icon={RotateCcw} label="Revert to available" />
             </form>
           )}
 
