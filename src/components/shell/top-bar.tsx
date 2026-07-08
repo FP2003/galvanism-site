@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
-import { Layers, Store, ShieldCheck } from "lucide-react";
+import { Layers, Store, Crosshair, ShieldCheck } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { regiment } from "@/lib/mock-data";
 import type { User } from "@/lib/schema";
@@ -50,6 +50,14 @@ export function TopBar({ user }: { user: User | null }) {
             >
               <Store size={14} aria-hidden="true" />
               <span className="hidden sm:inline">Shops</span>
+            </Link>
+            <Link
+              href="/admin/missions"
+              aria-label="Missions"
+              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
+            >
+              <Crosshair size={14} aria-hidden="true" />
+              <span className="hidden sm:inline">Missions</span>
             </Link>
             <Link
               href="/admin"
