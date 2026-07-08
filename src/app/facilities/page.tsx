@@ -1,12 +1,13 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Factory, Store, ChevronRight } from "lucide-react";
+import { Factory, Store, ChevronRight, Radio } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { StatusLabel } from "@/components/ui/status-dot";
 import { requireUser } from "@/lib/auth";
 import { getFacilities } from "@/lib/facility-data";
-import type { Facility } from "@/lib/schema";
+
+type FacilityWithMeta = Awaited<ReturnType<typeof getFacilities>>[number];
 
 export const metadata: Metadata = { title: "Facilities" };
 
@@ -61,7 +62,7 @@ function FacilityGroup({
   title: string;
   icon: React.ReactNode;
   emptyLabel: string;
-  facilities: Facility[];
+  facilities: FacilityWithMeta[];
 }) {
   return (
     <Panel
@@ -91,6 +92,7 @@ function FacilityGroup({
                     <span className="truncate font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-case-file-white">
                       {facility.name}
                     </span>
+                    <StatusLabel tone="live">Open</StatusLabel>
                     {facility.kind === "station" && (
                       <StatusLabel tone="neutral">Lv {facility.level}</StatusLabel>
                     )}
@@ -99,6 +101,22 @@ function FacilityGroup({
                     <p className="mt-1 truncate font-[family-name:var(--font-inter)] text-[0.75rem] text-muted-ink">
                       {facility.description}
                     </p>
+                  )}
+                  <p className="mt-1 font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+                    {facility.listings.length} listing{facility.listings.length === 1 ? "" : "s"}
+                  </p>
+                  {facility.ongoingEntries.length > 0 && (
+                    <ul className="mt-1.5 flex flex-col gap-1">
+                      {facility.ongoingEntries.map((entry) => (
+                        <li
+                          key={entry.id}
+                          className="flex items-center gap-1.5 font-[family-name:var(--font-inter)] text-[0.75rem] text-signal-cyan"
+                        >
+                          <Radio size={11} className="shrink-0" aria-hidden="true" />
+                          <span className="truncate">{entry.label}</span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
                 <ChevronRight

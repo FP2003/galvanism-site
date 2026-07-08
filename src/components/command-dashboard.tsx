@@ -3,7 +3,7 @@ import { ChevronRight, MapPin } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
 import { StatusLabel } from "@/components/ui/status-dot";
-import { facilityProcesses, openBallot, regiment, type MissionStatus } from "@/lib/mock-data";
+import { openBallot, regiment, type MissionStatus } from "@/lib/mock-data";
 import { statusTone, statusWord, type CharacterStatus } from "@/lib/status";
 
 // The subset of a character the dashboard renders. Satisfied by both the live
@@ -39,21 +39,33 @@ export interface DashboardMission {
   urgentDeadline: number | null;
 }
 
+// The subset of a facility ongoing entry the dashboard renders — `facility`
+// is the joined facility name, `label` is the whole hand-typed status string
+// (e.g. "Ammo Resupply: 2 days"), matching the real `facility_ongoing_entries`
+// row (src/lib/schema.ts) shape returned by getUnresolvedOngoingEntries.
+export interface DashboardFacilityProcess {
+  facility: string;
+  label: string;
+}
+
 /*
  * The Ops Terminal overview. Presentational — the caller supplies `operators`
- * (live roster on the authenticated `/`, mock fixtures on the public `/preview`)
- * and `missions` (live non-terminal missions, or the same mock fixtures).
- * Facility processes and the ballot are still mock pending their own phases.
- * When `linkOperators` is false (preview mode), operator rows are static so
- * they don't lead into auth-gated case files.
+ * (live roster on the authenticated `/`, mock fixtures on the public `/preview`),
+ * `missions` (live non-terminal missions, or the same mock fixtures), and
+ * `facilityProcesses` (live unresolved Ongoing entries, or mock fixtures).
+ * The ballot is still mock pending its own phase. When `linkOperators` is
+ * false (preview mode), operator rows are static so they don't lead into
+ * auth-gated case files.
  */
 export function CommandDashboard({
   operators,
   missions,
+  facilityProcesses,
   linkOperators = true,
 }: {
   operators: DashboardOperator[];
   missions: DashboardMission[];
+  facilityProcesses: DashboardFacilityProcess[];
   linkOperators?: boolean;
 }) {
   const activeCount = operators.filter((o) => o.status === "active").length;
@@ -223,27 +235,30 @@ export function CommandDashboard({
         {/* Facility processes — the "Ongoing" readout */}
         <div className="lg:col-span-4">
           <Panel title="Facility Processes" className="h-full" bodyClassName="p-0">
-            <ul>
-              {facilityProcesses.map((p) => (
-                <li
-                  key={`${p.facility}-${p.label}`}
-                  className="flex items-center justify-between gap-3 border-b border-elevated-ledger px-5 py-3 last:border-b-0"
-                >
-                  <div className="min-w-0">
-                    <StatusLabel tone="live" pulse>
-                      Ongoing
-                    </StatusLabel>
-                    <p className="mt-1 truncate text-sm text-case-file-white">
-                      <span className="text-muted-ink">{p.facility} —</span>{" "}
-                      {p.label}
-                    </p>
-                  </div>
-                  <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
-                    {p.remaining}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {facilityProcesses.length === 0 ? (
+              <p className="px-5 py-8 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
+                No ongoing processes.
+              </p>
+            ) : (
+              <ul>
+                {facilityProcesses.map((p, i) => (
+                  <li
+                    key={`${p.facility}-${i}`}
+                    className="flex items-center gap-3 border-b border-elevated-ledger px-5 py-3 last:border-b-0"
+                  >
+                    <div className="min-w-0">
+                      <StatusLabel tone="live" pulse>
+                        Ongoing
+                      </StatusLabel>
+                      <p className="mt-1 truncate text-sm text-case-file-white">
+                        <span className="text-muted-ink">{p.facility} —</span>{" "}
+                        {p.label}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </Panel>
         </div>
 

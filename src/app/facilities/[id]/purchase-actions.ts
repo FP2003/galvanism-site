@@ -7,6 +7,8 @@ import { getDb } from "@/lib/db";
 import {
   facilityListings,
   facilityXpOfferings,
+  facilityPerks,
+  facilityPerkPurchases,
   players,
   characters,
   creditLedger,
@@ -215,4 +217,78 @@ export async function purchaseXpOffering(
   revalidatePath("/roster");
   revalidatePath(`/roster/${character.slug}`);
   return { ok: true, message: `${offering.name} — spent ${offering.cost} Cr.` };
+}
+
+// Unlocks a facility perk (Phase 6 Step 3): debits Credits and records a
+// permanent per-character ownership row — the DM manually honors the
+// described effect at the table, no new mission-engine mechanic reads this.
+// Unlike XP offerings, a perk is a one-time purchase per character (mirrors
+// purchaseListing's ownership check), so the unique (perkId, characterId)
+// index is the last line of defense against a duplicate under concurrency.
+export async function purchasePerk(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requireUser();
+  const perkId = textField(formData, "perkId");
+  if (!perkId) return { error: "Missing perk reference." };
+
+  const db = getDb();
+  const perk = await db.query.facilityPerks.findFirst({
+    where: eq(facilityPerks.id, perkId),
+    with: { facility: true },
+  });
+  if (!perk) return { error: "Perk not found." };
+  if (!perk.facility.isOpen) return { error: "This facility is closed." };
+  if (!perk.active) return { error: "This perk is no longer available." };
+  if (perk.facility.level < perk.minLevel) {
+    return { error: "This perk isn't unlocked at this facility's current level." };
+  }
+
+  const viewer = await getViewerCharacterState(user.id);
+  if (viewer.kind !== "approved") {
+    return { error: "You need an active character on file to unlock a perk." };
+  }
+  const { player, character } = viewer;
+
+  const already = await db.query.facilityPerkPurchases.findFirst({
+    where: and(
+      eq(facilityPerkPurchases.perkId, perkId),
+      eq(facilityPerkPurchases.characterId, character.id),
+    ),
+  });
+  if (already) return { error: "You already unlocked this perk." };
+
+  const result = applyPurchase(player.credits, perk.priceCredits);
+  if (!result.ok) return { error: result.error };
+
+  try {
+    await db.batch([
+      db
+        .update(players)
+        .set({ credits: result.value, updatedAt: new Date() })
+        .where(eq(players.id, player.id)),
+      db.insert(creditLedger).values({
+        playerId: player.id,
+        description: `${perk.name} (${perk.facility.name})`,
+        delta: -perk.priceCredits,
+        balanceAfter: result.value,
+        createdByUserId: user.id,
+      }),
+      db.insert(facilityPerkPurchases).values({
+        perkId: perk.id,
+        characterId: character.id,
+      }),
+    ]);
+  } catch {
+    return {
+      error: "You already unlocked this perk, or a concurrent purchase just completed.",
+    };
+  }
+
+  revalidatePath("/facilities");
+  revalidatePath(`/facilities/${perk.facilityId}`);
+  revalidatePath("/roster");
+  revalidatePath(`/roster/${character.slug}`);
+  return { ok: true, message: `Unlocked ${perk.name} for ${perk.priceCredits} Cr.` };
 }

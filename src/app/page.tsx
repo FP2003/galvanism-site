@@ -6,16 +6,18 @@ import { ButtonLink } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { getRosterViews, getViewerCharacterState } from "@/lib/characters";
 import { getMissionsForDashboard } from "@/lib/mission-data";
+import { getUnresolvedOngoingEntries } from "@/lib/facility-data";
 
-// Ops Terminal command overview (authenticated). Personnel and missions are
-// live data; the facility/ballot panels remain mock pending their own phases.
-// Players without an approved character get an enlistment prompt above the
-// dashboard.
+// Ops Terminal command overview (authenticated). Personnel, missions, and
+// facility processes are live data; the ballot panel remains mock pending its
+// own phase. Players without an approved character get an enlistment prompt
+// above the dashboard.
 export default async function CommandPage() {
   const user = await requireUser();
-  const [operators, missions, viewer] = await Promise.all([
+  const [operators, missions, facilityProcesses, viewer] = await Promise.all([
     getRosterViews(),
     getMissionsForDashboard(),
+    getUnresolvedOngoingEntries(),
     user.role === "admin"
       ? Promise.resolve(null)
       : getViewerCharacterState(user.id),
@@ -76,7 +78,7 @@ export default async function CommandPage() {
         </div>
       )}
 
-      <CommandDashboard operators={operators} missions={missions} />
+      <CommandDashboard operators={operators} missions={missions} facilityProcesses={facilityProcesses} />
     </AppShell>
   );
 }

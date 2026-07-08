@@ -1,17 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ClipboardList, IdCard, Store } from "lucide-react";
+import { ArrowLeft, ClipboardList, IdCard, Store, Radio } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { StatusLabel } from "@/components/ui/status-dot";
 import { ButtonLink } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
-import { getFacility } from "@/lib/facility-data";
+import { getFacility, getOwnedPerkIds } from "@/lib/facility-data";
 import { getCharacterCards } from "@/lib/card-data";
 import { ListingCard } from "./listing-card";
 import { XpOfferingRow } from "./xp-offering-row";
+import { PerkRow } from "./perk-row";
 
 export async function generateMetadata({
   params,
@@ -65,7 +66,10 @@ export default async function FacilityDetailPage({
 
   const player = viewer?.kind === "approved" ? viewer.player : null;
   const character = viewer?.kind === "approved" ? viewer.character : null;
-  const owned = character ? await getCharacterCards(character.id) : [];
+  const [owned, ownedPerkIds] = await Promise.all([
+    character ? getCharacterCards(character.id) : Promise.resolve([]),
+    character ? getOwnedPerkIds(character.id) : Promise.resolve(new Set<string>()),
+  ]);
   const ownedCardIds = new Set(owned.map((o) => o.card.id));
 
   const listings = facility.listings.filter((l) => l.card.priceCredits != null);
@@ -73,6 +77,8 @@ export default async function FacilityDetailPage({
   const availableOfferings = facility.xpOfferings.filter(
     (o) => o.active && facility.level >= o.minLevel,
   );
+  const availablePerks = facility.perks.filter((p) => p.active && facility.level >= p.minLevel);
+  const unresolvedEntries = facility.ongoingEntries.filter((e) => !e.resolved);
 
   return (
     <AppShell>
@@ -109,9 +115,24 @@ export default async function FacilityDetailPage({
           )}
         </div>
 
+        {facility.isOpen && unresolvedEntries.length > 0 && (
+          <Panel title="Ongoing" className="mb-6">
+            <ul className="flex flex-col divide-y divide-elevated-ledger">
+              {unresolvedEntries.map((entry) => (
+                <li key={entry.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                  <Radio size={14} className="shrink-0 text-steel-blue" aria-hidden="true" />
+                  <span className="font-[family-name:var(--font-inter)] text-sm text-case-file-white">
+                    {entry.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        )}
+
         {!facility.isOpen ? (
           <ClosedNotice />
-        ) : !hasShop && availableOfferings.length === 0 ? (
+        ) : !hasShop && availableOfferings.length === 0 && availablePerks.length === 0 ? (
           <Panel>
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
               <Store size={28} className="text-steel-blue" aria-hidden="true" />
@@ -172,6 +193,31 @@ export default async function FacilityDetailPage({
                       offering={offering}
                       currencyXp={character?.currencyXp ?? 0}
                       credits={player?.credits ?? 0}
+                      previewOnly={isAdmin}
+                    />
+                  ))}
+                </ul>
+              </Panel>
+            )}
+
+            {availablePerks.length > 0 && (
+              <Panel
+                title="Perks"
+                meta={
+                  player && (
+                    <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
+                      {player.credits.toLocaleString()} Cr available
+                    </span>
+                  )
+                }
+              >
+                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {availablePerks.map((perk) => (
+                    <PerkRow
+                      key={perk.id}
+                      perk={perk}
+                      credits={player?.credits ?? 0}
+                      owned={ownedPerkIds.has(perk.id)}
                       previewOnly={isAdmin}
                     />
                   ))}

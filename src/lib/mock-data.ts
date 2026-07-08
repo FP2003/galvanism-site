@@ -158,13 +158,12 @@ export const missions: Mission[] = [
 export interface FacilityProcess {
   facility: string;
   label: string;
-  remaining: string;
 }
 
 export const facilityProcesses: FacilityProcess[] = [
-  { facility: "Armory", label: "Ammo Resupply", remaining: "2 DAYS" },
-  { facility: "Intel Center", label: "Sensor Grid Upgrade", remaining: "1 DAY" },
-  { facility: "Medical Center", label: "Trauma Bay Restock", remaining: "4 DAYS" },
+  { facility: "Armory", label: "Ammo Resupply: 2 days" },
+  { facility: "Intel Center", label: "Sensor Grid Upgrade: 1 day" },
+  { facility: "Medical Center", label: "Trauma Bay Restock: 4 days" },
 ];
 
 export interface Ballot {
