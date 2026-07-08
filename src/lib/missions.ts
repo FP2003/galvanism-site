@@ -1,6 +1,6 @@
 /*
  * Pure mission math (Phase 5). Kept free of DB/Clerk imports, same convention
- * as lib/ledger.ts and lib/shops.ts, so the payout split and the Urgent
+ * as lib/ledger.ts and lib/facilities.ts, so the payout split and the Urgent
  * countdown — both called out in info/roadmap.md as logic worth testing — are
  * unit-testable in isolation (lib/missions.test.ts).
  */
@@ -8,7 +8,7 @@
 /**
  * Splits a mission's total payout evenly across its assigned operators.
  * Floor-divides; any remainder from an uneven split is dropped rather than
- * distributed, same "acceptable soft imprecision" spirit as the shop restock
+ * distributed, same "acceptable soft imprecision" spirit as the facility restock
  * tick's non-transactional cross-row writes. Caller is responsible for
  * rejecting `operatorCount <= 0` before calling.
  */

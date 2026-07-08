@@ -251,7 +251,7 @@ export function CardForm({
             </Field>
             <Field
               label="Price (Cr)"
-              hint="Optional — required before this card can be listed in a shop. Never shown to players outside the shop."
+              hint="Optional — required before this card can be listed at a facility. Never shown to players outside the facility view."
             >
               {(id) => (
                 <TextInput

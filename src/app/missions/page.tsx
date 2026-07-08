@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Missions" };
 
 // Player-facing mission board (Phase 5). Admins have no character to claim
 // against, so they get a read-only preview instead — same convention as
-// requisitions/page.tsx.
+// facilities/[id]/page.tsx.
 export default async function MissionsPage() {
   const user = await requireUser();
   const isAdmin = user.role === "admin";

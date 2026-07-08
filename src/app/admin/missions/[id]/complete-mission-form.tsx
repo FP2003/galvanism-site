@@ -10,7 +10,7 @@ import { splitPayoutEvenly } from "@/lib/missions";
 
 // Two-step confirm before posting a mission's payout — this moves credits to
 // every assigned operator and can't be undone, same "hard to reverse, ask
-// first" bar as the shop/mission delete confirms.
+// first" bar as the facility/mission delete confirms.
 export function CompleteMissionForm({
   missionId,
   payoutCredits,

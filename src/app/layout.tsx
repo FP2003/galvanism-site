@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     template: "%s — Galvanism",
   },
   description:
-    "Frontier Custodian Brigade command interface. Regiment Foxtrot operations, personnel, and requisitions.",
+    "Frontier Custodian Brigade command interface. Regiment Foxtrot operations, personnel, and facilities.",
 };
 
 export default function RootLayout({

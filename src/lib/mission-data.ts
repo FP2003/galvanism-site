@@ -5,7 +5,7 @@ import { missions, missionAssignments, missionAttachments, characters } from "./
 /*
  * Mission read model (Phase 5). DB access only — the payout split and Urgent
  * countdown math live in lib/missions.ts, tested in isolation. Mirrors the
- * shape of lib/shop-data.ts.
+ * shape of lib/facility-data.ts.
  */
 
 /** Every mission, newest first, with its interest/assignment rows — for the

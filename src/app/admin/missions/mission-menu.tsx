@@ -19,7 +19,7 @@ import { MissionForm } from "./mission-form";
 
 /*
  * Per-mission action menu (Missions admin list), trimmed down from
- * shop-menu.tsx's WAI-ARIA menu-button skeleton. Complete isn't offered here
+ * facility-menu.tsx's WAI-ARIA menu-button skeleton. Complete isn't offered here
  * — it lives on the detail page, where the assignment list and payout
  * preview are visible before that irreversible action is confirmed.
  */

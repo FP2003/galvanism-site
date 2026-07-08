@@ -20,7 +20,7 @@ function SubmitButton({ isEdit }: { isEdit: boolean }) {
 }
 
 // Create/edit form for a mission (Phase 5). Doubles as the edit form, same
-// dual-mode pattern as ShopForm. Status isn't editable here — Active/Failed
+// dual-mode pattern as FacilityForm. Status isn't editable here — Active/Failed
 // are dedicated quick actions (mission-menu.tsx) and Complete lives on the
 // detail page, since it needs assignment context and moves money.
 export function MissionForm({

@@ -24,7 +24,7 @@ import { getMission } from "@/lib/mission-data";
 
 /*
  * Mission CRUD + assignment + completion (Phase 5, admin only). Mirrors
- * app/admin/shop-actions.ts's shape: requireAdmin() -> validate -> mutate ->
+ * app/admin/facility-actions.ts's shape: requireAdmin() -> validate -> mutate ->
  * revalidatePath. Status transitions (active/failed/complete) are dedicated
  * actions rather than an editable form field — completion in particular moves
  * money and ticks other missions' Urgent deadlines, so it can't be a
@@ -340,7 +340,7 @@ export async function removeAssignment(_prev: FormState, formData: FormData): Pr
 // XP on the character via the same applyXpGrant convention as an admin's
 // manual grant (raises both totalXp and currencyXp) — marks the mission
 // complete, then best-effort ticks every other active Urgent mission's
-// deadline. Non-transactional, try/catch-guarded convention as the shop
+// deadline. Non-transactional, try/catch-guarded convention as the facility
 // restock tick in app/admin/actions.ts's postMissionPayout.
 export async function completeMission(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
