@@ -65,36 +65,38 @@ export function MissionList({
             const state = ownRow?.state ?? "none";
             const canAct = mission.status === "available" || mission.status === "active";
             return (
-              <Panel key={mission.id}>
+              <Panel key={mission.id} className="group transition-colors hover:bg-elevated-ledger">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        href={`/missions/${mission.id}`}
-                        className="font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-case-file-white transition-colors hover:text-signal-cyan"
-                      >
-                        {mission.title}
-                      </Link>
-                      <MissionStatusBadge status={mission.status} />
-                      {mission.urgent && mission.urgentDeadline != null && (
-                        <StatusLabel tone="critical">
-                          Urgent · {mission.urgentDeadline} op{mission.urgentDeadline === 1 ? "" : "s"} left
-                        </StatusLabel>
-                      )}
+                  <Link
+                    href={`/missions/${mission.id}`}
+                    className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-case-file-white transition-colors group-hover:text-signal-cyan">
+                          {mission.title}
+                        </span>
+                        <MissionStatusBadge status={mission.status} />
+                        {mission.urgent && mission.urgentDeadline != null && (
+                          <StatusLabel tone="critical">
+                            Urgent · {mission.urgentDeadline} op{mission.urgentDeadline === 1 ? "" : "s"} left
+                          </StatusLabel>
+                        )}
+                      </div>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <LocationTag sector={mission.sector} />
+                        <RiskTag risk={mission.risk} />
+                      </div>
                     </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      <LocationTag sector={mission.sector} />
-                      <RiskTag risk={mission.risk} />
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <span className="font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
+                    <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
                       {mission.payoutCredits}
                       <span className="ml-0.5 text-[0.625rem] text-muted-ink">CR</span>
                       <span className="mx-1 text-muted-ink">·</span>
                       {mission.payoutXp}
                       <span className="ml-0.5 text-[0.625rem] text-muted-ink">XP</span>
                     </span>
+                  </Link>
+                  <div className="flex shrink-0 items-center gap-3">
                     {isAdmin ? (
                       <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase text-muted-ink">
                         Preview
