@@ -39,4 +39,7 @@ export const TEXT_LIMITS = {
   bio: 4000,
   ledgerDescription: 140,
   refCode: 32,
+  missionTitle: 80,
+  missionSector: 48,
+  missionBriefing: 4000,
 } as const;
