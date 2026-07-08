@@ -12,6 +12,8 @@ import { RestockRules } from "./restock-rules";
 import { RestockNowButton } from "./restock-now-button";
 import { FacilityListingManagement } from "./facility-listings";
 import { FacilityXpOfferings } from "./facility-xp-offerings";
+import { FacilityPerks } from "./facility-perks";
+import { FacilityOngoing } from "./facility-ongoing";
 
 export const metadata: Metadata = { title: "Facility — Personnel Command" };
 
@@ -73,6 +75,10 @@ export default async function AdminFacilityDetailPage({
                 listings={facility.listings}
               />
             </Panel>
+
+            <Panel title="Ongoing">
+              <FacilityOngoing facilityId={facility.id} entries={facility.ongoingEntries} />
+            </Panel>
           </div>
 
           <div className="flex flex-col gap-6">
@@ -112,6 +118,10 @@ export default async function AdminFacilityDetailPage({
                 facilityLevel={facility.level}
                 offerings={facility.xpOfferings}
               />
+            </Panel>
+
+            <Panel title="Perks">
+              <FacilityPerks facilityId={facility.id} facilityLevel={facility.level} perks={facility.perks} />
             </Panel>
           </div>
         </div>
