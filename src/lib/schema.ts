@@ -587,8 +587,30 @@ export const missionAssignments = pgTable(
   ],
 );
 
+// A photo attached to a mission's briefing (case-file gallery). `url` is the
+// full public Vercel Blob URL — rendered directly and passed to del() on
+// cleanup, so no separate pathname/contentType/size columns are needed.
+export const missionAttachments = pgTable(
+  "mission_attachments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    missionId: uuid("mission_id")
+      .notNull()
+      .references(() => missions.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("mission_attachments_mission_idx").on(t.missionId, t.createdAt)],
+);
+
 export const missionsRelations = relations(missions, ({ many }) => ({
   assignments: many(missionAssignments),
+  attachments: many(missionAttachments),
 }));
 
 export const missionAssignmentsRelations = relations(
@@ -601,6 +623,16 @@ export const missionAssignmentsRelations = relations(
     character: one(characters, {
       fields: [missionAssignments.characterId],
       references: [characters.id],
+    }),
+  }),
+);
+
+export const missionAttachmentsRelations = relations(
+  missionAttachments,
+  ({ one }) => ({
+    mission: one(missions, {
+      fields: [missionAttachments.missionId],
+      references: [missions.id],
     }),
   }),
 );
@@ -626,3 +658,5 @@ export type Mission = typeof missions.$inferSelect;
 export type NewMission = typeof missions.$inferInsert;
 export type MissionAssignment = typeof missionAssignments.$inferSelect;
 export type NewMissionAssignment = typeof missionAssignments.$inferInsert;
+export type MissionAttachment = typeof missionAttachments.$inferSelect;
+export type NewMissionAttachment = typeof missionAttachments.$inferInsert;
