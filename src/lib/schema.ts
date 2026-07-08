@@ -90,10 +90,15 @@ export const weaponSlot = pgEnum("weapon_slot", [
   "tertiary",
 ]);
 
-// A shop listing is either admin-curated (permanent until removed by hand) or
-// rotation-owned (auto-picked by restockShop, occupying one of the shop's
-// numbered rotating slots). See shopListings below.
+// A facility listing is either admin-curated (permanent until removed by hand)
+// or rotation-owned (auto-picked by restockFacility, occupying one of the
+// facility's numbered rotating slots). See facilityListings below.
 export const listingSource = pgEnum("listing_source", ["manual", "rotation"]);
+
+// Phase 6 — Facility kind (info/roadmap.md §Phase 6). "station" facilities are
+// the named, admin-leveled services (Gym, Armory, ...); "field" facilities are
+// small flavor shops (food, arcade, ...) that never level up.
+export const facilityKind = pgEnum("facility_kind", ["station", "field"]);
 
 // Phase 5 — Mission enums (info/roadmap.md §Phase 5). "failed" only happens via
 // an Urgent deadline hitting zero without the mission completing first.
@@ -309,11 +314,11 @@ export const cards = pgTable("cards", {
   level: integer("level").notNull().default(1), // Roman-numeral pip
   colorOverride: text("color_override"), // hex for one-off custom cards; null = category preset
 
-  // Phase 4 — global sale price shown in shops. Null = not for sale; a card
-  // can't be added to a shop listing until this is set (enforced in the
-  // listing-add action, not a DB constraint, same convention as the item/
-  // weapon fields below). Never shown to players outside the shop/
-  // requisitions view — GameCard itself stays price-blind (lib/shops.ts).
+  // Phase 6 — global sale price shown at facilities. Null = not for sale; a
+  // card can't be added to a facility listing until this is set (enforced in
+  // the listing-add action, not a DB constraint, same convention as the item/
+  // weapon fields below). Never shown to players outside the facility view —
+  // GameCard itself stays price-blind (lib/facilities.ts).
   priceCredits: integer("price_credits"),
 
   // Optional flavor/feat-like text shown under the sheet's Effects section,
@@ -400,7 +405,7 @@ export const characterCards = pgTable(
 export const cardsRelations = relations(cards, ({ many }) => ({
   assignments: many(characterCards),
   effects: many(cardEffects),
-  listings: many(shopListings),
+  listings: many(facilityListings),
 }));
 
 export const cardEffectsRelations = relations(cardEffects, ({ one }) => ({
@@ -422,20 +427,29 @@ export const characterCardsRelations = relations(characterCards, ({ one }) => ({
 }));
 
 // ---------------------------------------------------------------------------
-// Phase 4 — Shops (info/roadmap.md §Phase 4).
+// Phase 6 — Facilities (info/roadmap.md §Phase 6). Absorbs Phase 4's shops —
+// a facility IS a shop (plus, for "station" kind, a level and, in later
+// migrations, XP-training/perk/ongoing-process catalogs), not a wrapper
+// around a separate shop entity.
 // ---------------------------------------------------------------------------
 
-// A DM-run storefront. `rotatingSlotCount` is how many of its listings are
-// auto-managed by restockShop (lib/shop-data.ts); an admin can also curate
-// any number of permanent manual listings alongside those slots.
-// `restockIntervalOps` is null for manual-restock-only shops; when set, the
-// postMissionPayout admin action (app/admin/actions.ts) ticks
+// A DM-run facility. `rotatingSlotCount` is how many of its listings are
+// auto-managed by restockFacility (lib/facility-data.ts); an admin can also
+// curate any number of permanent manual listings alongside those slots.
+// `restockIntervalOps` is null for manual-restock-only facilities; when set,
+// the postMissionPayout admin action (app/admin/actions.ts) ticks
 // `opsSinceRestock` and auto-restocks once it reaches the interval.
-export const shops = pgTable("shops", {
+// `level` is admin-set by hand (no automatic leveling) and caps which
+// `cards.level` this facility can list/roll — see lib/facilities.ts
+// isCardLevelUnlocked. `kind` distinguishes named Station facilities (leveled,
+// specialized) from small Field shops (food/arcade-type, never leveled).
+export const facilities = pgTable("facilities", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   description: text("description"),
   isOpen: boolean("is_open").notNull().default(true),
+  level: integer("level").notNull().default(1),
+  kind: facilityKind("kind").notNull().default("station"),
   rotatingSlotCount: integer("rotating_slot_count").notNull().default(4),
   restockIntervalOps: integer("restock_interval_ops"),
   opsSinceRestock: integer("ops_since_restock").notNull().default(0),
@@ -450,21 +464,22 @@ export const shops = pgTable("shops", {
     .defaultNow(),
 });
 
-// A card currently for sale in a shop. `source` distinguishes admin-curated
-// listings (never touched by restockShop) from rotation-owned ones;
-// `slotIndex` is set iff source = "rotation" and identifies which of the
-// shop's rotatingSlotCount slots this row occupies — a restock replaces that
-// slot's row in place rather than deleting + reinserting. Unique on
-// (shopId, cardId): a shop never lists the same card twice regardless of
-// source. Unique on (shopId, slotIndex) where not null: at most one row per
-// rotation slot, same partial-unique-index shape as characterCards.weaponSlot.
-export const shopListings = pgTable(
-  "shop_listings",
+// A card currently for sale at a facility. `source` distinguishes admin-
+// curated listings (never touched by restockFacility) from rotation-owned
+// ones; `slotIndex` is set iff source = "rotation" and identifies which of
+// the facility's rotatingSlotCount slots this row occupies — a restock
+// replaces that slot's row in place rather than deleting + reinserting.
+// Unique on (facilityId, cardId): a facility never lists the same card twice
+// regardless of source. Unique on (facilityId, slotIndex) where not null: at
+// most one row per rotation slot, same partial-unique-index shape as
+// characterCards.weaponSlot.
+export const facilityListings = pgTable(
+  "facility_listings",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    shopId: uuid("shop_id")
+    facilityId: uuid("facility_id")
       .notNull()
-      .references(() => shops.id, { onDelete: "cascade" }),
+      .references(() => facilities.id, { onDelete: "cascade" }),
     cardId: uuid("card_id")
       .notNull()
       .references(() => cards.id, { onDelete: "cascade" }),
@@ -476,23 +491,25 @@ export const shopListings = pgTable(
       .defaultNow(),
   },
   (t) => [
-    index("shop_listings_shop_idx").on(t.shopId),
-    uniqueIndex("shop_listings_shop_card_unique").on(t.shopId, t.cardId),
-    uniqueIndex("shop_listings_shop_slot_unique")
-      .on(t.shopId, t.slotIndex)
+    index("facility_listings_facility_idx").on(t.facilityId),
+    uniqueIndex("facility_listings_facility_card_unique").on(t.facilityId, t.cardId),
+    uniqueIndex("facility_listings_facility_slot_unique")
+      .on(t.facilityId, t.slotIndex)
       .where(sql`${t.slotIndex} is not null`),
   ],
 );
 
-// The admin's weighted restock pool for a shop, e.g. category=tech level=1
-// weight=80, category=tech level=2 weight=20 — see lib/shops.ts planRestock.
-export const shopRestockRules = pgTable(
-  "shop_restock_rules",
+// The admin's weighted restock pool for a facility, e.g. category=tech
+// level=1 weight=80, category=tech level=2 weight=20 — see lib/facilities.ts
+// planRestock. `level` must not exceed the parent facility's own `level`
+// (enforced in the addRestockRule action, not a DB constraint).
+export const facilityRestockRules = pgTable(
+  "facility_restock_rules",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    shopId: uuid("shop_id")
+    facilityId: uuid("facility_id")
       .notNull()
-      .references(() => shops.id, { onDelete: "cascade" }),
+      .references(() => facilities.id, { onDelete: "cascade" }),
     category: cardCategory("category").notNull(),
     level: integer("level").notNull(),
     weight: integer("weight").notNull(),
@@ -501,23 +518,26 @@ export const shopRestockRules = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("shop_restock_rules_shop_idx").on(t.shopId)],
+  (t) => [index("facility_restock_rules_facility_idx").on(t.facilityId)],
 );
 
-export const shopsRelations = relations(shops, ({ many }) => ({
-  listings: many(shopListings),
-  restockRules: many(shopRestockRules),
+export const facilitiesRelations = relations(facilities, ({ many }) => ({
+  listings: many(facilityListings),
+  restockRules: many(facilityRestockRules),
 }));
 
-export const shopListingsRelations = relations(shopListings, ({ one }) => ({
-  shop: one(shops, { fields: [shopListings.shopId], references: [shops.id] }),
-  card: one(cards, { fields: [shopListings.cardId], references: [cards.id] }),
+export const facilityListingsRelations = relations(facilityListings, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [facilityListings.facilityId],
+    references: [facilities.id],
+  }),
+  card: one(cards, { fields: [facilityListings.cardId], references: [cards.id] }),
 }));
 
-export const shopRestockRulesRelations = relations(shopRestockRules, ({ one }) => ({
-  shop: one(shops, {
-    fields: [shopRestockRules.shopId],
-    references: [shops.id],
+export const facilityRestockRulesRelations = relations(facilityRestockRules, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [facilityRestockRules.facilityId],
+    references: [facilities.id],
   }),
 }));
 
@@ -648,12 +668,12 @@ export type CardEffect = typeof cardEffects.$inferSelect;
 export type NewCardEffect = typeof cardEffects.$inferInsert;
 export type CardWithEffects = Card & { effects: CardEffect[] };
 export type CharacterCard = typeof characterCards.$inferSelect;
-export type Shop = typeof shops.$inferSelect;
-export type NewShop = typeof shops.$inferInsert;
-export type ShopListing = typeof shopListings.$inferSelect;
-export type NewShopListing = typeof shopListings.$inferInsert;
-export type ShopRestockRule = typeof shopRestockRules.$inferSelect;
-export type NewShopRestockRule = typeof shopRestockRules.$inferInsert;
+export type Facility = typeof facilities.$inferSelect;
+export type NewFacility = typeof facilities.$inferInsert;
+export type FacilityListing = typeof facilityListings.$inferSelect;
+export type NewFacilityListing = typeof facilityListings.$inferInsert;
+export type FacilityRestockRule = typeof facilityRestockRules.$inferSelect;
+export type NewFacilityRestockRule = typeof facilityRestockRules.$inferInsert;
 export type Mission = typeof missions.$inferSelect;
 export type NewMission = typeof missions.$inferInsert;
 export type MissionAssignment = typeof missionAssignments.$inferSelect;
