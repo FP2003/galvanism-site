@@ -5,14 +5,17 @@ import { CommandDashboard } from "@/components/command-dashboard";
 import { ButtonLink } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { getRosterViews, getViewerCharacterState } from "@/lib/characters";
+import { getMissionsForDashboard } from "@/lib/mission-data";
 
-// Ops Terminal command overview (authenticated). Personnel is live roster data;
-// the mission/facility/ballot panels remain mock pending their own phases. Players
-// without an approved character get an enlistment prompt above the dashboard.
+// Ops Terminal command overview (authenticated). Personnel and missions are
+// live data; the facility/ballot panels remain mock pending their own phases.
+// Players without an approved character get an enlistment prompt above the
+// dashboard.
 export default async function CommandPage() {
   const user = await requireUser();
-  const [operators, viewer] = await Promise.all([
+  const [operators, missions, viewer] = await Promise.all([
     getRosterViews(),
+    getMissionsForDashboard(),
     user.role === "admin"
       ? Promise.resolve(null)
       : getViewerCharacterState(user.id),
@@ -73,7 +76,7 @@ export default async function CommandPage() {
         </div>
       )}
 
-      <CommandDashboard operators={operators} />
+      <CommandDashboard operators={operators} missions={missions} />
     </AppShell>
   );
 }

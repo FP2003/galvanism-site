@@ -101,61 +101,61 @@ export const operators: Operator[] = [
   },
 ];
 
-export type MissionStatus = "available" | "active" | "complete";
+export type MissionStatus = "available" | "active" | "complete" | "failed";
 
+// Field names match the real `missions` DB row (src/lib/schema.ts) so this
+// fixture and a live query satisfy the same DashboardMission shape without a
+// mapping step — same convention as the `operators` fixtures above and
+// CharacterView.
 export interface Mission {
-  code: string;
+  id: string;
   title: string;
-  sector: string;
+  sector: string | null;
   difficulty: number;
-  payout: number;
+  payoutCredits: number;
+  payoutXp: number;
   risk: "low" | "moderate" | "high" | "severe";
   status: MissionStatus;
   urgent: boolean;
-  permanent: boolean;
-  deadline: number | null; // ops remaining before failure, if urgent
-  assigned: string[];
+  urgentDeadline: number | null; // ops remaining before failure, if urgent
 }
 
 export const missions: Mission[] = [
   {
-    code: "OP-0148",
+    id: "OP-0148",
     title: "Sublevel Purge — Tenderloin Access",
     sector: "Sector 4",
     difficulty: 3,
-    payout: 600,
+    payoutCredits: 600,
+    payoutXp: 60,
     risk: "high",
     status: "active",
     urgent: true,
-    permanent: false,
-    deadline: 2,
-    assigned: ["HALYARD", "VESPER"],
+    urgentDeadline: 2,
   },
   {
-    code: "OP-0150",
+    id: "OP-0150",
     title: "Relay Reclamation",
     sector: "Sector 9",
     difficulty: 2,
-    payout: 340,
+    payoutCredits: 340,
+    payoutXp: 30,
     risk: "moderate",
     status: "available",
     urgent: false,
-    permanent: true,
-    deadline: null,
-    assigned: [],
+    urgentDeadline: null,
   },
   {
-    code: "OP-0151",
+    id: "OP-0151",
     title: "Checkpoint Reinforcement",
     sector: "Sector 2",
     difficulty: 1,
-    payout: 180,
+    payoutCredits: 180,
+    payoutXp: 15,
     risk: "low",
     status: "available",
     urgent: false,
-    permanent: true,
-    deadline: null,
-    assigned: [],
+    urgentDeadline: null,
   },
 ];
 

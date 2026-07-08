@@ -21,7 +21,7 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { label: "Command", icon: Radar, href: "/" },
   { label: "Roster", icon: Users, href: "/roster" },
-  { label: "Missions", icon: Crosshair, phase: "Phase 5" },
+  { label: "Missions", icon: Crosshair, href: "/missions" },
   { label: "Facilities", icon: Factory, phase: "Phase 6" },
   { label: "Requisitions", icon: Package, href: "/requisitions" },
   { label: "Ballots", icon: Vote, phase: "Phase 7" },

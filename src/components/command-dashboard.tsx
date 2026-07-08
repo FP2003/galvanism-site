@@ -3,12 +3,7 @@ import { ChevronRight, MapPin } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
 import { StatusLabel } from "@/components/ui/status-dot";
-import {
-  missions,
-  facilityProcesses,
-  openBallot,
-  regiment,
-} from "@/lib/mock-data";
+import { facilityProcesses, openBallot, regiment, type MissionStatus } from "@/lib/mock-data";
 import { statusTone, statusWord, type CharacterStatus } from "@/lib/status";
 
 // The subset of a character the dashboard renders. Satisfied by both the live
@@ -29,18 +24,36 @@ const riskLabel = {
   severe: "SEV",
 } as const;
 
+// The subset of a mission the dashboard renders. Field names match the real
+// `missions` DB row (src/lib/schema.ts) — satisfied by both a live query and
+// the mock fixtures (lib/mock-data.ts), same convention as DashboardOperator.
+export interface DashboardMission {
+  id: string;
+  title: string;
+  sector: string | null;
+  risk: "low" | "moderate" | "high" | "severe";
+  payoutCredits: number;
+  payoutXp: number;
+  status: MissionStatus;
+  urgent: boolean;
+  urgentDeadline: number | null;
+}
+
 /*
  * The Ops Terminal overview. Presentational — the caller supplies `operators`
- * (live roster on the authenticated `/`, mock fixtures on the public `/preview`).
- * Missions, facility processes, and the ballot are still mock pending their own
- * phases. When `linkOperators` is false (preview mode), operator rows are static
- * so they don't lead into auth-gated case files.
+ * (live roster on the authenticated `/`, mock fixtures on the public `/preview`)
+ * and `missions` (live non-terminal missions, or the same mock fixtures).
+ * Facility processes and the ballot are still mock pending their own phases.
+ * When `linkOperators` is false (preview mode), operator rows are static so
+ * they don't lead into auth-gated case files.
  */
 export function CommandDashboard({
   operators,
+  missions,
   linkOperators = true,
 }: {
   operators: DashboardOperator[];
+  missions: DashboardMission[];
   linkOperators?: boolean;
 }) {
   const activeCount = operators.filter((o) => o.status === "active").length;
@@ -66,7 +79,7 @@ export function CommandDashboard({
           />
           <Readout
             label="Open Ops"
-            value={String(missions.filter((m) => m.status !== "complete").length)}
+            value={String(missions.filter((m) => m.status !== "complete" && m.status !== "failed").length)}
             suffix="LOGGED"
           />
           <Readout label="Sector" value="S.F." suffix="ZONE 4" />
@@ -164,37 +177,38 @@ export function CommandDashboard({
         <div className="lg:col-span-5">
           {/* Active operations */}
           <Panel title="Active Operations" className="h-full" bodyClassName="p-0">
+            {missions.length === 0 && (
+              <p className="px-5 py-8 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
+                No open operations.
+              </p>
+            )}
             <ul>
               {missions.map((m) => (
                 <li
-                  key={m.code}
+                  key={m.id}
                   className="border-b border-elevated-ledger px-5 py-3.5 last:border-b-0"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
-                          {m.code}
+                      {m.urgent && m.urgentDeadline != null && (
+                        <span className="bg-stamp-red px-1.5 py-0.5 font-[family-name:var(--font-chakra)] text-[0.5625rem] font-bold uppercase tracking-[0.08em] text-case-file-white">
+                          Urgent · {m.urgentDeadline} ops left
                         </span>
-                        {m.urgent && (
-                          <span className="bg-stamp-red px-1.5 py-0.5 font-[family-name:var(--font-chakra)] text-[0.5625rem] font-bold uppercase tracking-[0.08em] text-case-file-white">
-                            Urgent · {m.deadline} ops left
-                          </span>
-                        )}
-                      </div>
+                      )}
                       <p className="mt-1 truncate font-[family-name:var(--font-chakra)] text-sm font-semibold text-case-file-white">
                         {m.title}
                       </p>
                       <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-ink">
-                        <MapPin size={11} aria-hidden="true" /> {m.sector} · Risk{" "}
+                        <MapPin size={11} aria-hidden="true" /> {m.sector ?? "Unknown sector"} · Risk{" "}
                         {riskLabel[m.risk]}
                       </p>
                     </div>
                     <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
-                      {m.payout}
-                      <span className="ml-0.5 text-[0.625rem] text-muted-ink">
-                        CR
-                      </span>
+                      {m.payoutCredits}
+                      <span className="ml-0.5 text-[0.625rem] text-muted-ink">CR</span>
+                      <span className="mx-1 text-muted-ink">·</span>
+                      {m.payoutXp}
+                      <span className="ml-0.5 text-[0.625rem] text-muted-ink">XP</span>
                     </span>
                   </div>
                 </li>
