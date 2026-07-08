@@ -11,6 +11,7 @@ import { FacilityForm } from "../facility-form";
 import { RestockRules } from "./restock-rules";
 import { RestockNowButton } from "./restock-now-button";
 import { FacilityListingManagement } from "./facility-listings";
+import { FacilityXpOfferings } from "./facility-xp-offerings";
 
 export const metadata: Metadata = { title: "Facility — Personnel Command" };
 
@@ -103,6 +104,14 @@ export default async function AdminFacilityDetailPage({
 
             <Panel title="Restock Rules">
               <RestockRules facilityId={facility.id} facilityLevel={facility.level} rules={facility.restockRules} />
+            </Panel>
+
+            <Panel title="XP Offerings">
+              <FacilityXpOfferings
+                facilityId={facility.id}
+                facilityLevel={facility.level}
+                offerings={facility.xpOfferings}
+              />
             </Panel>
           </div>
         </div>
