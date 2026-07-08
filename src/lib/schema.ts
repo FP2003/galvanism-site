@@ -230,6 +230,7 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   }),
   xpLedger: many(xpLedger),
   missionAssignments: many(missionAssignments),
+  perkPurchases: many(facilityPerkPurchases),
 }));
 
 // Append-only record of every credit change (Phase 2 — the player's read-only
@@ -562,15 +563,112 @@ export const facilityXpOfferings = pgTable(
   (t) => [index("facility_xp_offerings_facility_idx").on(t.facilityId)],
 );
 
+// A facility's descriptive-perk catalog entry (Phase 6 Step 3), e.g. the
+// Communication Center's "Called Extraction time reduction." Purely
+// descriptive — purchasing debits Credits and records the unlock; the DM
+// manually honors the effect at the table, no mission-engine mechanic reads
+// this row. `minLevel`/`active` follow the same gating convention as
+// facilityXpOfferings.
+export const facilityPerks = pgTable(
+  "facility_perks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    facilityId: uuid("facility_id")
+      .notNull()
+      .references(() => facilities.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    priceCredits: integer("price_credits").notNull(),
+    minLevel: integer("min_level").notNull().default(1),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("facility_perks_facility_idx").on(t.facilityId)],
+);
+
+// A character's permanent ownership of a perk — unlike facilityXpOfferings,
+// perks are a one-time purchase per character (mirrors characterCards' unique
+// ownership shape) rather than repeatable.
+export const facilityPerkPurchases = pgTable(
+  "facility_perk_purchases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    perkId: uuid("perk_id")
+      .notNull()
+      .references(() => facilityPerks.id, { onDelete: "cascade" }),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    purchasedAt: timestamp("purchased_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("facility_perk_purchases_character_idx").on(t.characterId),
+    uniqueIndex("facility_perk_purchases_unique").on(t.perkId, t.characterId),
+  ],
+);
+
+// A DM-authored free-text status line for one facility (Phase 6 Step 4), e.g.
+// "Ammo Resupply: 2 days" — `label` is the whole hand-typed string, there's no
+// structured countdown or automatic timer. "Clearing" one toggles `resolved`
+// rather than deleting the row, so the dashboard/admin view keeps a real
+// history instead of losing completed processes.
+export const facilityOngoingEntries = pgTable(
+  "facility_ongoing_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    facilityId: uuid("facility_id")
+      .notNull()
+      .references(() => facilities.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    resolved: boolean("resolved").notNull().default(false),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("facility_ongoing_entries_facility_idx").on(t.facilityId)],
+);
+
 export const facilitiesRelations = relations(facilities, ({ many }) => ({
   listings: many(facilityListings),
   restockRules: many(facilityRestockRules),
   xpOfferings: many(facilityXpOfferings),
+  perks: many(facilityPerks),
+  ongoingEntries: many(facilityOngoingEntries),
 }));
 
 export const facilityXpOfferingsRelations = relations(facilityXpOfferings, ({ one }) => ({
   facility: one(facilities, {
     fields: [facilityXpOfferings.facilityId],
+    references: [facilities.id],
+  }),
+}));
+
+export const facilityPerksRelations = relations(facilityPerks, ({ one, many }) => ({
+  facility: one(facilities, {
+    fields: [facilityPerks.facilityId],
+    references: [facilities.id],
+  }),
+  purchases: many(facilityPerkPurchases),
+}));
+
+export const facilityPerkPurchasesRelations = relations(facilityPerkPurchases, ({ one }) => ({
+  perk: one(facilityPerks, {
+    fields: [facilityPerkPurchases.perkId],
+    references: [facilityPerks.id],
+  }),
+  character: one(characters, {
+    fields: [facilityPerkPurchases.characterId],
+    references: [characters.id],
+  }),
+}));
+
+export const facilityOngoingEntriesRelations = relations(facilityOngoingEntries, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [facilityOngoingEntries.facilityId],
     references: [facilities.id],
   }),
 }));
@@ -725,6 +823,12 @@ export type FacilityRestockRule = typeof facilityRestockRules.$inferSelect;
 export type NewFacilityRestockRule = typeof facilityRestockRules.$inferInsert;
 export type FacilityXpOffering = typeof facilityXpOfferings.$inferSelect;
 export type NewFacilityXpOffering = typeof facilityXpOfferings.$inferInsert;
+export type FacilityPerk = typeof facilityPerks.$inferSelect;
+export type NewFacilityPerk = typeof facilityPerks.$inferInsert;
+export type FacilityPerkPurchase = typeof facilityPerkPurchases.$inferSelect;
+export type NewFacilityPerkPurchase = typeof facilityPerkPurchases.$inferInsert;
+export type FacilityOngoingEntry = typeof facilityOngoingEntries.$inferSelect;
+export type NewFacilityOngoingEntry = typeof facilityOngoingEntries.$inferInsert;
 export type Mission = typeof missions.$inferSelect;
 export type NewMission = typeof missions.$inferInsert;
 export type MissionAssignment = typeof missionAssignments.$inferSelect;

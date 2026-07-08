@@ -141,6 +141,13 @@
       "when": 1783546664344,
       "tag": "0019_facility_xp_offering_cost_currency",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1783548306077,
+      "tag": "0020_facility_perks_and_ongoing",
+      "breakpoints": true
     }
   ]
 }
