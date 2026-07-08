@@ -82,7 +82,7 @@ export default async function MissionsPage() {
                       </div>
                       <p className="mt-1 flex items-center gap-1 text-xs text-muted-ink">
                         <MapPin size={11} aria-hidden="true" /> {mission.sector ?? "Unknown sector"} · Risk{" "}
-                        {RISK_LABEL[mission.risk]} · Difficulty {mission.difficulty}
+                        {RISK_LABEL[mission.risk]}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">

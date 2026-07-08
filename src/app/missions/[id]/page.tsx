@@ -57,7 +57,7 @@ export default async function MissionDetailPage({
             </div>
             <p className="mt-2 flex items-center gap-1 text-sm text-muted-ink">
               <MapPin size={13} aria-hidden="true" /> {mission.sector ?? "Unknown sector"} · Risk{" "}
-              {RISK_LABEL[mission.risk]} · Difficulty {mission.difficulty}
+              {RISK_LABEL[mission.risk]}
             </p>
           </div>
           <div className="shrink-0 border border-ledger-teal px-3 py-1.5 text-right">

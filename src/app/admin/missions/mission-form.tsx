@@ -76,18 +76,6 @@ export function MissionForm({
             />
           )}
         </Field>
-        <Field label="Difficulty">
-          {(id) => (
-            <TextInput
-              id={id}
-              name="difficulty"
-              type="number"
-              min={1}
-              inputMode="numeric"
-              defaultValue={mission?.difficulty ?? 1}
-            />
-          )}
-        </Field>
         <Field label="Risk">
           {(id) => (
             <Select id={id} name="risk" defaultValue={mission?.risk ?? "low"}>

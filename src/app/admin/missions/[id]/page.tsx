@@ -65,7 +65,7 @@ export default async function AdminMissionDetailPage({
               <StatusLabel tone={STATUS_TONE[mission.status]}>{STATUS_WORD[mission.status]}</StatusLabel>
             </div>
             <p className="mt-2 max-w-prose text-sm text-muted-ink break-words">
-              {mission.sector ?? "No sector"} · Risk {RISK_LABEL[mission.risk]} · Difficulty {mission.difficulty}
+              {mission.sector ?? "No sector"} · Risk {RISK_LABEL[mission.risk]}
             </p>
           </div>
           <FormDialogTrigger label="Edit" title="Edit Mission">

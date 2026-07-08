@@ -53,9 +53,6 @@ function parseMissionFields(
   const sector = textField(formData, "sector", TEXT_LIMITS.missionSector) || null;
   const briefing = textField(formData, "briefing", TEXT_LIMITS.missionBriefing) || null;
 
-  const difficulty = intField(formData, "difficulty", 1);
-  if (difficulty < 1) return { ok: false, error: "Difficulty must be 1 or more." };
-
   const payoutCredits = intField(formData, "payoutCredits", 0);
   if (payoutCredits < 0) return { ok: false, error: "Credit payout must be zero or more." };
 
@@ -80,7 +77,6 @@ function parseMissionFields(
       title,
       sector,
       briefing,
-      difficulty,
       payoutCredits,
       payoutXp,
       risk,

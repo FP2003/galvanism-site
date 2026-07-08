@@ -543,7 +543,6 @@ export const missions = pgTable(
     title: text("title").notNull(),
     sector: text("sector"),
     briefing: text("briefing"), // markdown
-    difficulty: integer("difficulty").notNull().default(1),
     payoutCredits: integer("payout_credits").notNull().default(0),
     payoutXp: integer("payout_xp").notNull().default(0),
     risk: missionRisk("risk").notNull().default("low"),

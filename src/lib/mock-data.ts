@@ -111,7 +111,6 @@ export interface Mission {
   id: string;
   title: string;
   sector: string | null;
-  difficulty: number;
   payoutCredits: number;
   payoutXp: number;
   risk: "low" | "moderate" | "high" | "severe";
@@ -125,7 +124,6 @@ export const missions: Mission[] = [
     id: "OP-0148",
     title: "Sublevel Purge — Tenderloin Access",
     sector: "Sector 4",
-    difficulty: 3,
     payoutCredits: 600,
     payoutXp: 60,
     risk: "high",
@@ -137,7 +135,6 @@ export const missions: Mission[] = [
     id: "OP-0150",
     title: "Relay Reclamation",
     sector: "Sector 9",
-    difficulty: 2,
     payoutCredits: 340,
     payoutXp: 30,
     risk: "moderate",
@@ -149,7 +146,6 @@ export const missions: Mission[] = [
     id: "OP-0151",
     title: "Checkpoint Reinforcement",
     sector: "Sector 2",
-    difficulty: 1,
     payoutCredits: 180,
     payoutXp: 15,
     risk: "low",
