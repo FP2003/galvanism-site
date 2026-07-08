@@ -52,11 +52,19 @@ export function Textarea(
 }
 
 export function Select(
-  props: React.SelectHTMLAttributes<HTMLSelectElement> & { className?: string },
+  props: React.SelectHTMLAttributes<HTMLSelectElement> & {
+    className?: string;
+    // Only needed to grow the control inside a horizontal flex row (e.g.
+    // beside a submit button). Leave unset in a Field — the wrapper already
+    // gets full width from the column's default cross-axis stretch, and
+    // `flex-1` there would grow the wrapper vertically instead, detaching
+    // the chevron's centering from the visible select box.
+    wrapperClassName?: string;
+  },
 ) {
-  const { className = "", children, ...rest } = props;
+  const { className = "", wrapperClassName = "", children, ...rest } = props;
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className={`relative min-w-0 ${wrapperClassName}`}>
       <select
         className={`${controlClass} appearance-none pr-9 ${className}`}
         {...rest}

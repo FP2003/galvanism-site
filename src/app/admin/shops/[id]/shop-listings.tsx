@@ -32,6 +32,7 @@ export function ShopListingManagement({
           aria-label="Card to list"
           defaultValue=""
           disabled={eligibleCards.length === 0}
+          wrapperClassName="flex-1"
         >
           <option value="" disabled>
             {eligibleCards.length === 0

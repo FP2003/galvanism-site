@@ -49,7 +49,12 @@ export function MissionAssignment({
         <form action={formAction} className="flex flex-col gap-3">
           <input type="hidden" name="missionId" value={missionId} />
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Select name="characterId" aria-label="Operator to assign" defaultValue="">
+            <Select
+              name="characterId"
+              aria-label="Operator to assign"
+              defaultValue=""
+              wrapperClassName="flex-1"
+            >
               <option value="" disabled>
                 Assign directly…
               </option>

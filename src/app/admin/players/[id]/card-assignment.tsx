@@ -60,6 +60,7 @@ export function CardAssignment({
               aria-label="Card to assign"
               defaultValue=""
               disabled={assignable.length === 0}
+              wrapperClassName="flex-1"
             >
               <option value="" disabled>
                 {assignable.length === 0
