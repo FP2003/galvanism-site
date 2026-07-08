@@ -1,75 +1,70 @@
-import { eq, and, asc, desc, isNotNull, gte, notInArray } from "drizzle-orm";
+import { eq, and, asc, desc, isNotNull, gte, lte, notInArray } from "drizzle-orm";
 import { getDb } from "./db";
 import {
-  shops,
-  shopListings,
-  shopRestockRules,
+  facilities,
+  facilityListings,
+  facilityRestockRules,
   cards,
   cardEffects,
-  type NewShopListing,
+  type NewFacilityListing,
 } from "./schema";
 import { CARD_CATEGORY_META, type CardCategory } from "./cards";
-import { planRestock, type EligibleCard, type RestockRule } from "./shops";
+import { planRestock, type EligibleCard, type RestockRule } from "./facilities";
 
 /*
- * Shop read/write model (Phase 4). DB access + the restock orchestration
- * around the pure logic in lib/shops.ts — this file only fetches rows and
- * applies the plan; the weighted-draw rules themselves live there, tested in
- * isolation.
+ * Facility read/write model (Phase 6, absorbing Phase 4's shop model). DB
+ * access + the restock orchestration around the pure logic in
+ * lib/facilities.ts — this file only fetches rows and applies the plan; the
+ * weighted-draw rules themselves live there, tested in isolation.
  */
 
-/** Every shop, newest first — for the admin shop list. */
-export async function getShops() {
+/** Every facility, newest first — for the admin facility list. */
+export async function getFacilities() {
   const db = getDb();
-  return db.query.shops.findMany({
+  return db.query.facilities.findMany({
     with: { listings: true, restockRules: true },
-    orderBy: [desc(shops.createdAt)],
+    orderBy: [desc(facilities.createdAt)],
   });
 }
 
-/** One shop with its listings (joined to their card) and restock rules. */
-export async function getShop(shopId: string) {
+/** One facility with its listings (joined to their card + effects — GameCard
+ *  needs the effects to render its body, same shape as getCardLibrary) and
+ *  restock rules. Used by both the admin detail page (effects unused there)
+ *  and the player detail page (effects required), so one query serves both. */
+export async function getFacility(facilityId: string) {
   const db = getDb();
-  return db.query.shops.findFirst({
-    where: eq(shops.id, shopId),
-    with: {
-      listings: { with: { card: true }, orderBy: [asc(shopListings.sortOrder)] },
-      restockRules: { orderBy: [asc(shopRestockRules.sortOrder)] },
-    },
-  });
-}
-
-/** Open shops with their listings (joined to their card + effects, price
- *  included) — the player-facing Requisitions view; GameCard needs the
- *  card's effects to render its body, same shape as getCardLibrary. */
-export async function getOpenShopsWithListings() {
-  const db = getDb();
-  return db.query.shops.findMany({
-    where: eq(shops.isOpen, true),
+  return db.query.facilities.findFirst({
+    where: eq(facilities.id, facilityId),
     with: {
       listings: {
         with: { card: { with: { effects: { orderBy: [asc(cardEffects.sortOrder)] } } } },
-        orderBy: [asc(shopListings.sortOrder)],
+        orderBy: [asc(facilityListings.sortOrder)],
       },
+      restockRules: { orderBy: [asc(facilityRestockRules.sortOrder)] },
     },
-    orderBy: [asc(shops.name)],
   });
 }
 
-/** Library cards with a price set that aren't already listed in this shop —
- *  feeds the admin "add manual listing" picker. */
-export async function getEligibleListingCards(shopId: string) {
+/** Library cards with a price set, at or below this facility's level, that
+ *  aren't already listed here — feeds the admin "add manual listing" picker. */
+export async function getEligibleListingCards(facilityId: string) {
   const db = getDb();
-  const existing = await db.query.shopListings.findMany({
-    where: eq(shopListings.shopId, shopId),
-    columns: { cardId: true },
-  });
+  const [facility, existing] = await Promise.all([
+    db.query.facilities.findFirst({
+      where: eq(facilities.id, facilityId),
+      columns: { level: true },
+    }),
+    db.query.facilityListings.findMany({
+      where: eq(facilityListings.facilityId, facilityId),
+      columns: { cardId: true },
+    }),
+  ]);
+  if (!facility) return [];
   const existingIds = existing.map((l) => l.cardId);
 
+  const levelFilter = and(isNotNull(cards.priceCredits), lte(cards.level, facility.level));
   return db.query.cards.findMany({
-    where: existingIds.length > 0
-      ? and(isNotNull(cards.priceCredits), notInArray(cards.id, existingIds))
-      : isNotNull(cards.priceCredits),
+    where: existingIds.length > 0 ? and(levelFilter, notInArray(cards.id, existingIds)) : levelFilter,
     orderBy: [asc(cards.title)],
   });
 }
@@ -81,22 +76,25 @@ export interface RestockOutcome {
 }
 
 /**
- * Restocks a shop's rotating slots per its configured restock rules (see
- * lib/shops.ts planRestock). Each slot is upserted independently in a
- * try/catch so one failing write doesn't abort the rest — a slot with no
- * matching rule or no eligible card is left with its prior listing untouched
- * and reported back as a skip reason, never emptied or crashed on.
+ * Restocks a facility's rotating slots per its configured restock rules (see
+ * lib/facilities.ts planRestock), only ever drawing cards at or below the
+ * facility's level. Each slot is upserted independently in a try/catch so
+ * one failing write doesn't abort the rest — a slot with no matching rule or
+ * no eligible card is left with its prior listing untouched and reported
+ * back as a skip reason, never emptied or crashed on.
  */
-export async function restockShop(shopId: string): Promise<RestockOutcome> {
+export async function restockFacility(facilityId: string): Promise<RestockOutcome> {
   const db = getDb();
-  const shop = await db.query.shops.findFirst({ where: eq(shops.id, shopId) });
-  if (!shop) return { filled: 0, skipped: 0, reasons: [] };
+  const facility = await db.query.facilities.findFirst({ where: eq(facilities.id, facilityId) });
+  if (!facility) return { filled: 0, skipped: 0, reasons: [] };
 
   const [ruleRows, existingListings, priceableCards] = await Promise.all([
-    db.query.shopRestockRules.findMany({ where: eq(shopRestockRules.shopId, shopId) }),
-    db.query.shopListings.findMany({ where: eq(shopListings.shopId, shopId) }),
+    db.query.facilityRestockRules.findMany({
+      where: eq(facilityRestockRules.facilityId, facilityId),
+    }),
+    db.query.facilityListings.findMany({ where: eq(facilityListings.facilityId, facilityId) }),
     db.query.cards.findMany({
-      where: isNotNull(cards.priceCredits),
+      where: and(isNotNull(cards.priceCredits), lte(cards.level, facility.level)),
       columns: { id: true, category: true, level: true },
     }),
   ]);
@@ -125,7 +123,7 @@ export async function restockShop(shopId: string): Promise<RestockOutcome> {
     .filter((l) => l.source === "manual")
     .map((l) => l.cardId);
 
-  const plan = planRestock(rules, eligible, alreadyListedCardIds, shop.rotatingSlotCount);
+  const plan = planRestock(rules, eligible, alreadyListedCardIds, facility.rotatingSlotCount);
 
   let filled = 0;
   let skipped = 0;
@@ -145,23 +143,23 @@ export async function restockShop(shopId: string): Promise<RestockOutcome> {
       const existingRow = existingBySlot.get(slot.slotIndex);
       if (existingRow) {
         await db
-          .update(shopListings)
+          .update(facilityListings)
           .set({ cardId: slot.cardId, addedAt: new Date() })
-          .where(eq(shopListings.id, existingRow.id));
+          .where(eq(facilityListings.id, existingRow.id));
       } else {
-        const row: NewShopListing = {
-          shopId,
+        const row: NewFacilityListing = {
+          facilityId,
           cardId: slot.cardId,
           source: "rotation",
           slotIndex: slot.slotIndex,
         };
-        await db.insert(shopListings).values(row);
+        await db.insert(facilityListings).values(row);
       }
       filled++;
     } catch (err) {
       skipped++;
       reasons.push(`Slot ${slot.slotIndex + 1}: write failed`);
-      console.error(`Shop restock failed for shop ${shopId}, slot ${slot.slotIndex}:`, err);
+      console.error(`Facility restock failed for facility ${facilityId}, slot ${slot.slotIndex}:`, err);
     }
   }
 
@@ -169,17 +167,17 @@ export async function restockShop(shopId: string): Promise<RestockOutcome> {
 }
 
 /** Deletes rotation-sourced listings whose slot no longer exists, called
- *  immediately when an admin shrinks a shop's rotatingSlotCount so the
+ *  immediately when an admin shrinks a facility's rotatingSlotCount so the
  *  change takes effect right away rather than waiting for the next restock. */
-export async function pruneRotationSlots(shopId: string, newSlotCount: number): Promise<void> {
+export async function pruneRotationSlots(facilityId: string, newSlotCount: number): Promise<void> {
   const db = getDb();
   await db
-    .delete(shopListings)
+    .delete(facilityListings)
     .where(
       and(
-        eq(shopListings.shopId, shopId),
-        eq(shopListings.source, "rotation"),
-        gte(shopListings.slotIndex, newSlotCount),
+        eq(facilityListings.facilityId, facilityId),
+        eq(facilityListings.source, "rotation"),
+        gte(facilityListings.slotIndex, newSlotCount),
       ),
     );
 }

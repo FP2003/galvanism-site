@@ -4,9 +4,10 @@ import {
   pickWeightedRule,
   pickRandomCard,
   planRestock,
+  isCardLevelUnlocked,
   type RestockRule,
   type EligibleCard,
-} from "./shops";
+} from "./facilities";
 
 // Deterministic rng from a fixed sequence, cycling if exhausted — lets a test
 // script exactly which draw comes out of each weighted/uniform pick.
@@ -144,5 +145,16 @@ describe("planRestock", () => {
       { slotIndex: 0, cardId: "a", ruleId: "tech1" },
       { slotIndex: 1, cardId: "b", ruleId: "tech2" },
     ]);
+  });
+});
+
+describe("isCardLevelUnlocked", () => {
+  it("allows a card at or below the facility's level", () => {
+    expect(isCardLevelUnlocked(1, 3)).toBe(true);
+    expect(isCardLevelUnlocked(3, 3)).toBe(true);
+  });
+
+  it("blocks a card above the facility's level", () => {
+    expect(isCardLevelUnlocked(4, 3)).toBe(false);
   });
 });

@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { users, players, characters, creditLedger, xpLedger, shops } from "@/lib/schema";
-import { restockShop } from "@/lib/shop-data";
+import { users, players, characters, creditLedger, xpLedger, facilities } from "@/lib/schema";
+import { restockFacility } from "@/lib/facility-data";
 import { slugifyCallsign } from "@/lib/characters";
 import { CHARACTER_STATUSES, type CharacterStatus } from "@/lib/status";
 import { TEXT_LIMITS } from "@/lib/game-rules";
@@ -507,36 +507,37 @@ export async function postMissionPayout(
   revalidatePath("/roster");
   if (character) revalidatePath(`/roster/${character.slug}`);
 
-  // Best-effort shop economy tick. Runs after the credits/XP batch above (the
-  // payout's primary purpose) has already committed, so a restock hiccup here
-  // can never turn a successful payout into a reported failure — errors are
-  // logged, not surfaced. Each shop's opsSinceRestock counts one "operation";
-  // a shop past its restockIntervalOps threshold restocks and resets to zero.
-  // Sequential per-shop writes (no batch/transaction across shops) — neon-http
-  // has no interactive transaction API, and a half-applied tick across shops
-  // is an acceptable, self-correcting soft failure.
+  // Best-effort facility economy tick. Runs after the credits/XP batch above
+  // (the payout's primary purpose) has already committed, so a restock
+  // hiccup here can never turn a successful payout into a reported failure —
+  // errors are logged, not surfaced. Each facility's opsSinceRestock counts
+  // one "operation"; a facility past its restockIntervalOps threshold
+  // restocks and resets to zero. Sequential per-facility writes (no batch/
+  // transaction across facilities) — neon-http has no interactive
+  // transaction API, and a half-applied tick across facilities is an
+  // acceptable, self-correcting soft failure.
   try {
-    const allShops = await db.query.shops.findMany();
-    for (const shop of allShops) {
-      const opsSinceRestock = shop.opsSinceRestock + 1;
+    const allFacilities = await db.query.facilities.findMany();
+    for (const facility of allFacilities) {
+      const opsSinceRestock = facility.opsSinceRestock + 1;
       const dueForRestock =
-        shop.restockIntervalOps != null && opsSinceRestock >= shop.restockIntervalOps;
+        facility.restockIntervalOps != null && opsSinceRestock >= facility.restockIntervalOps;
       if (dueForRestock) {
-        await restockShop(shop.id);
+        await restockFacility(facility.id);
         await db
-          .update(shops)
+          .update(facilities)
           .set({ opsSinceRestock: 0, updatedAt: new Date() })
-          .where(eq(shops.id, shop.id));
+          .where(eq(facilities.id, facility.id));
       } else {
         await db
-          .update(shops)
+          .update(facilities)
           .set({ opsSinceRestock, updatedAt: new Date() })
-          .where(eq(shops.id, shop.id));
+          .where(eq(facilities.id, facility.id));
       }
     }
-    revalidatePath("/requisitions");
+    revalidatePath("/facilities");
   } catch (err) {
-    console.error("Shop restock tick failed after mission payout:", err);
+    console.error("Facility restock tick failed after mission payout:", err);
   }
 
   const parts: string[] = [];

@@ -1,15 +1,20 @@
 /*
- * Pure shop logic (Phase 4). No DB/Clerk/React imports so it's unit-testable in
- * isolation, same rationale as lib/ledger.ts/lib/cards.ts — the weighted
- * restock draw and the credit-debit purchase are exactly the kind of logic
- * that's expensive to get wrong silently. Server actions and DB helpers
- * (lib/shop-data.ts) only orchestrate I/O around these functions.
+ * Pure facility logic (Phase 6, absorbing Phase 4's shop logic). No DB/Clerk/
+ * React imports so it's unit-testable in isolation, same rationale as
+ * lib/ledger.ts/lib/cards.ts — the weighted restock draw, the credit-debit
+ * purchase, and the XP-offering math are exactly the kind of logic that's
+ * expensive to get wrong silently. Server actions and DB helpers
+ * (lib/facility-data.ts) only orchestrate I/O around these functions.
  */
 import type { Result } from "./ledger";
+import type { facilityKind } from "./schema";
 import type { CardCategory } from "./cards";
 
-/** Validates a shop purchase: price must be a positive integer and the buyer
- *  must be able to afford it. Returns the buyer's new credit balance. */
+export type FacilityKind = (typeof facilityKind.enumValues)[number];
+export const FACILITY_KINDS: FacilityKind[] = ["station", "field"];
+
+/** Validates a facility purchase: price must be a positive integer and the
+ *  buyer must be able to afford it. Returns the buyer's new credit balance. */
 export function applyPurchase(
   currentCredits: number,
   priceCredits: number,
@@ -110,4 +115,10 @@ export function planRestock(
     results.push({ slotIndex, cardId: picked.id, ruleId: rule.id });
   }
   return results;
+}
+
+/** True iff a card of `cardLevel` is purchasable/rollable at a facility of
+ *  `facilityLevel` — a facility's level is a ceiling, never a floor. */
+export function isCardLevelUnlocked(cardLevel: number, facilityLevel: number): boolean {
+  return cardLevel <= facilityLevel;
 }
