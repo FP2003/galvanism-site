@@ -11,6 +11,7 @@ import { getViewerCharacterState } from "@/lib/characters";
 import { getFacility } from "@/lib/facility-data";
 import { getCharacterCards } from "@/lib/card-data";
 import { ListingCard } from "./listing-card";
+import { XpOfferingRow } from "./xp-offering-row";
 
 export async function generateMetadata({
   params,
@@ -69,6 +70,9 @@ export default async function FacilityDetailPage({
 
   const listings = facility.listings.filter((l) => l.card.priceCredits != null);
   const hasShop = facility.listings.length > 0 || facility.restockRules.length > 0;
+  const availableOfferings = facility.xpOfferings.filter(
+    (o) => o.active && facility.level >= o.minLevel,
+  );
 
   return (
     <AppShell>
@@ -107,45 +111,74 @@ export default async function FacilityDetailPage({
 
         {!facility.isOpen ? (
           <ClosedNotice />
-        ) : hasShop ? (
-          <Panel
-            title="For Sale"
-            meta={
-              <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
-                {listings.length} for sale
-              </span>
-            }
-          >
-            {listings.length === 0 ? (
-              <p className="font-[family-name:var(--font-inter)] text-sm text-muted-ink">
-                Nothing in stock right now. Check back later.
-              </p>
-            ) : (
-              <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {listings.map((listing) => (
-                  <li key={listing.id}>
-                    <ListingCard
-                      listingId={listing.id}
-                      card={listing.card}
-                      priceCredits={listing.card.priceCredits!}
-                      alreadyOwned={ownedCardIds.has(listing.cardId)}
-                      canAfford={player ? player.credits >= listing.card.priceCredits! : false}
-                      previewOnly={isAdmin}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Panel>
-        ) : (
+        ) : !hasShop && availableOfferings.length === 0 ? (
           <Panel>
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
               <Store size={28} className="text-steel-blue" aria-hidden="true" />
               <p className="max-w-sm text-pretty text-sm text-muted-ink">
-                This facility doesn&rsquo;t sell gear.
+                This facility doesn&rsquo;t sell gear or offer training right now.
               </p>
             </div>
           </Panel>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {hasShop && (
+              <Panel
+                title="For Sale"
+                meta={
+                  <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
+                    {listings.length} for sale
+                  </span>
+                }
+              >
+                {listings.length === 0 ? (
+                  <p className="font-[family-name:var(--font-inter)] text-sm text-muted-ink">
+                    Nothing in stock right now. Check back later.
+                  </p>
+                ) : (
+                  <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                    {listings.map((listing) => (
+                      <li key={listing.id}>
+                        <ListingCard
+                          listingId={listing.id}
+                          card={listing.card}
+                          priceCredits={listing.card.priceCredits!}
+                          alreadyOwned={ownedCardIds.has(listing.cardId)}
+                          canAfford={player ? player.credits >= listing.card.priceCredits! : false}
+                          previewOnly={isAdmin}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Panel>
+            )}
+
+            {availableOfferings.length > 0 && (
+              <Panel
+                title="Training & Recovery"
+                meta={
+                  character && (
+                    <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
+                      {character.currencyXp.toLocaleString()} XP · {(player?.credits ?? 0).toLocaleString()} Cr
+                    </span>
+                  )
+                }
+              >
+                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {availableOfferings.map((offering) => (
+                    <XpOfferingRow
+                      key={offering.id}
+                      offering={offering}
+                      currencyXp={character?.currencyXp ?? 0}
+                      credits={player?.credits ?? 0}
+                      previewOnly={isAdmin}
+                    />
+                  ))}
+                </ul>
+              </Panel>
+            )}
+          </div>
         )}
       </div>
     </AppShell>
