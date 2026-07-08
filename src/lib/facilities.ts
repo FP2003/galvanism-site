@@ -6,9 +6,9 @@
  * expensive to get wrong silently. Server actions and DB helpers
  * (lib/facility-data.ts) only orchestrate I/O around these functions.
  */
-import type { Result } from "./ledger";
-import type { facilityKind } from "./schema";
-import type { CardCategory } from "./cards";
+import { clampResource, type Result } from "./ledger";
+import type { facilityKind, xpOfferingType } from "./schema";
+import { STAT_TARGETS, type CardCategory } from "./cards";
 
 export type FacilityKind = (typeof facilityKind.enumValues)[number];
 export const FACILITY_KINDS: FacilityKind[] = ["station", "field"];
@@ -121,4 +121,68 @@ export function planRestock(
  *  `facilityLevel` — a facility's level is a ceiling, never a floor. */
 export function isCardLevelUnlocked(cardLevel: number, facilityLevel: number): boolean {
   return cardLevel <= facilityLevel;
+}
+
+// ---------------------------------------------------------------------------
+// XP offerings (Step 2). A facility's training catalog: each entry is either
+// a permanent stat bump (priced in Currency XP) or a one-off current-resource
+// refill (priced in Credits, like any other facility purchase). `targetKey`
+// matches a `characters` DB column, same convention as cardEffects.effectTarget
+// (lib/cards.ts) — reusing STAT_TARGETS for the bump side keeps the two
+// catalogs' stat keys/labels in lockstep.
+// ---------------------------------------------------------------------------
+export type XpOfferingType = (typeof xpOfferingType.enumValues)[number];
+export const XP_OFFERING_TYPES: XpOfferingType[] = ["stat_bump", "resource_refill"];
+
+export type OfferingCurrency = "xp" | "credits";
+
+/** The currency an offering's `cost` is charged in — fixed by its type, not a
+ *  per-row choice: permanent training costs XP, a resource top-up costs
+ *  Credits like any other facility purchase. */
+export function offeringCostCurrency(type: XpOfferingType): OfferingCurrency {
+  return type === "stat_bump" ? "xp" : "credits";
+}
+
+export interface OfferingTarget {
+  key: string;
+  label: string;
+}
+
+export const STAT_BUMP_TARGETS: OfferingTarget[] = STAT_TARGETS.map(({ key, label }) => ({
+  key,
+  label,
+}));
+
+// Current-resource keys, distinct from cards.ts's RESOURCE_TARGETS (which
+// target *Max — card effects boost ceilings, not fill the pool). Net-new:
+// nothing else in the app treats hpCurrent/energyCurrent/ammoCurrent as a
+// selectable target key today.
+export const RESOURCE_REFILL_TARGETS: OfferingTarget[] = [
+  { key: "hpCurrent", label: "HP" },
+  { key: "energyCurrent", label: "Energy" },
+  { key: "ammoCurrent", label: "Ammo" },
+];
+
+export function offeringTargetsFor(type: XpOfferingType): OfferingTarget[] {
+  return type === "stat_bump" ? STAT_BUMP_TARGETS : RESOURCE_REFILL_TARGETS;
+}
+
+export function isValidOfferingTarget(type: XpOfferingType, targetKey: string): boolean {
+  return offeringTargetsFor(type).some((t) => t.key === targetKey);
+}
+
+export function offeringTargetLabel(type: XpOfferingType, targetKey: string): string {
+  return offeringTargetsFor(type).find((t) => t.key === targetKey)?.label ?? targetKey;
+}
+
+/** Permanent stat bump: a straight, uncapped addition onto a base stat —
+ *  mirrors how admin stat edits (app/admin/actions.ts) have no upper ceiling. */
+export function applyStatBump(current: number, amount: number): number {
+  return current + amount;
+}
+
+/** One-off current-resource refill, clamped to (possibly card-boosted) max —
+ *  delegates to the same clampResource used by resource-tracking edits. */
+export function applyResourceRefill(current: number, max: number, amount: number): number {
+  return clampResource(current + amount, max);
 }

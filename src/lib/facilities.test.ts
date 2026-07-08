@@ -5,6 +5,12 @@ import {
   pickRandomCard,
   planRestock,
   isCardLevelUnlocked,
+  offeringTargetsFor,
+  isValidOfferingTarget,
+  offeringTargetLabel,
+  offeringCostCurrency,
+  applyStatBump,
+  applyResourceRefill,
   type RestockRule,
   type EligibleCard,
 } from "./facilities";
@@ -156,5 +162,68 @@ describe("isCardLevelUnlocked", () => {
 
   it("blocks a card above the facility's level", () => {
     expect(isCardLevelUnlocked(4, 3)).toBe(false);
+  });
+});
+
+describe("offeringTargetsFor / isValidOfferingTarget", () => {
+  it("lists the six stat keys for stat_bump", () => {
+    expect(offeringTargetsFor("stat_bump").map((t) => t.key)).toEqual([
+      "statTech",
+      "statPrecision",
+      "statStrength",
+      "statImmunity",
+      "statResilience",
+      "statAgility",
+    ]);
+  });
+
+  it("lists the three current-resource keys for resource_refill", () => {
+    expect(offeringTargetsFor("resource_refill").map((t) => t.key)).toEqual([
+      "hpCurrent",
+      "energyCurrent",
+      "ammoCurrent",
+    ]);
+  });
+
+  it("accepts a target that matches its offering type", () => {
+    expect(isValidOfferingTarget("stat_bump", "statTech")).toBe(true);
+    expect(isValidOfferingTarget("resource_refill", "hpCurrent")).toBe(true);
+  });
+
+  it("rejects a target from the other offering type", () => {
+    expect(isValidOfferingTarget("stat_bump", "hpCurrent")).toBe(false);
+    expect(isValidOfferingTarget("resource_refill", "statTech")).toBe(false);
+  });
+
+  it("falls back to the raw key when a label isn't found", () => {
+    expect(offeringTargetLabel("stat_bump", "statTech")).toBe("Tech");
+    expect(offeringTargetLabel("stat_bump", "bogus")).toBe("bogus");
+  });
+});
+
+describe("offeringCostCurrency", () => {
+  it("charges XP for a stat bump", () => {
+    expect(offeringCostCurrency("stat_bump")).toBe("xp");
+  });
+
+  it("charges Credits for a resource refill", () => {
+    expect(offeringCostCurrency("resource_refill")).toBe("credits");
+  });
+});
+
+describe("applyStatBump", () => {
+  it("adds the amount onto the current stat with no ceiling", () => {
+    expect(applyStatBump(5, 2)).toBe(7);
+  });
+});
+
+describe("applyResourceRefill", () => {
+  it("adds the amount and clamps at the max", () => {
+    expect(applyResourceRefill(5, 10, 3)).toBe(8);
+    expect(applyResourceRefill(8, 10, 5)).toBe(10);
+  });
+
+  it("never goes below zero", () => {
+    expect(applyResourceRefill(0, 10, -100)).toBe(0);
   });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   applyCreditsDelta,
   applyXpGrant,
+  applyXpSpend,
   clampResource,
   parseSignedInt,
   validateAttributeAllocation,
@@ -62,6 +63,32 @@ describe("applyXpGrant", () => {
 
   it("rejects exceeding the maximum total", () => {
     expect(applyXpGrant(MAX_XP, 0, 1).ok).toBe(false);
+  });
+});
+
+describe("applyXpSpend", () => {
+  it("debits an affordable spend", () => {
+    expect(applyXpSpend(500, 200)).toEqual({ ok: true, value: 300 });
+  });
+
+  it("allows spending down to exactly zero", () => {
+    expect(applyXpSpend(200, 200)).toEqual({ ok: true, value: 0 });
+  });
+
+  it("refuses to overdraw", () => {
+    expect(applyXpSpend(100, 200).ok).toBe(false);
+  });
+
+  it("rejects a zero cost", () => {
+    expect(applyXpSpend(500, 0).ok).toBe(false);
+  });
+
+  it("rejects a negative cost", () => {
+    expect(applyXpSpend(500, -50).ok).toBe(false);
+  });
+
+  it("rejects a non-integer cost", () => {
+    expect(applyXpSpend(500, 49.99).ok).toBe(false);
   });
 });
 

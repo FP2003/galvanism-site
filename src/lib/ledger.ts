@@ -80,6 +80,26 @@ export function applyXpGrant(
   return { ok: true, value: { totalXp: nextTotal, currencyXp: currencyXp + amount } };
 }
 
+/**
+ * Validates a Currency XP spend (Phase 6 facility XP offerings) against the
+ * current balance — the debit-only counterpart to applyXpGrant. Touches only
+ * Currency XP; Total XP never decreases, so a spend is never "corrected" by
+ * going negative here, only by a fresh admin grant.
+ */
+export function applyXpSpend(currencyXp: number, cost: number): Result<number> {
+  if (!Number.isInteger(cost) || cost <= 0) {
+    return { ok: false, error: "This offering has no valid XP cost." };
+  }
+  const next = currencyXp - cost;
+  if (next < 0) {
+    return {
+      ok: false,
+      error: `Not enough Currency XP (balance ${currencyXp}, cost ${cost}).`,
+    };
+  }
+  return { ok: true, value: next };
+}
+
 /** Clamps a resource's current value into [0, max]. Used for HP/Energy/Ammo. */
 export function clampResource(value: number, max: number): number {
   if (!Number.isFinite(value)) return 0;

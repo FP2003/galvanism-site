@@ -4,6 +4,7 @@ import {
   facilities,
   facilityListings,
   facilityRestockRules,
+  facilityXpOfferings,
   cards,
   cardEffects,
   type NewFacilityListing,
@@ -28,9 +29,11 @@ export async function getFacilities() {
 }
 
 /** One facility with its listings (joined to their card + effects — GameCard
- *  needs the effects to render its body, same shape as getCardLibrary) and
- *  restock rules. Used by both the admin detail page (effects unused there)
- *  and the player detail page (effects required), so one query serves both. */
+ *  needs the effects to render its body, same shape as getCardLibrary),
+ *  restock rules, and XP offerings. Used by both the admin detail page
+ *  (effects/inactive offerings shown for management) and the player detail
+ *  page (effects required, offerings filtered to active + unlocked), so one
+ *  query serves both. */
 export async function getFacility(facilityId: string) {
   const db = getDb();
   return db.query.facilities.findFirst({
@@ -41,6 +44,7 @@ export async function getFacility(facilityId: string) {
         orderBy: [asc(facilityListings.sortOrder)],
       },
       restockRules: { orderBy: [asc(facilityRestockRules.sortOrder)] },
+      xpOfferings: { orderBy: [asc(facilityXpOfferings.sortOrder)] },
     },
   });
 }
