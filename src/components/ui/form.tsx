@@ -3,7 +3,7 @@
  * share these so every field carries the same label type, focus ring, and error/
  * status styling (DESIGN.md §5). Field wires label↔control via a generated id.
  */
-import { forwardRef, useId } from "react";
+import { cloneElement, forwardRef, isValidElement, useId } from "react";
 import { AlertTriangle, Check, ChevronDown } from "lucide-react";
 
 export const fieldLabelClass =
@@ -20,14 +20,24 @@ type FieldProps = {
 
 export function Field({ label, hint, children }: FieldProps) {
   const id = useId();
+  const hintId = `${id}-hint`;
+  const control = children(id);
+  // Wire the hint to the control via aria-describedby so screen reader users
+  // hear it (e.g. a size limit or slot count), not just see it — every Field
+  // call site stays untouched since children still just returns one element.
+  const wiredControl =
+    hint && isValidElement(control)
+      ? cloneElement(control, { "aria-describedby": hintId } as Record<string, unknown>)
+      : control;
+
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className={fieldLabelClass}>
         {label}
       </label>
-      {children(id)}
+      {wiredControl}
       {hint && (
-        <p className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
+        <p id={hintId} className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
           {hint}
         </p>
       )}
@@ -40,6 +50,20 @@ export const TextInput = forwardRef<
   React.InputHTMLAttributes<HTMLInputElement> & { className?: string }
 >(function TextInput({ className = "", ...rest }, ref) {
   return <input ref={ref} className={`${controlClass} ${className}`} {...rest} />;
+});
+
+export const FileInput = forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { className?: string }
+>(function FileInput({ className = "", ...rest }, ref) {
+  return (
+    <input
+      ref={ref}
+      type="file"
+      className={`w-full border border-elevated-ledger bg-void-navy px-3 py-2 font-[family-name:var(--font-inter)] text-sm text-muted-ink outline-none file:mr-3 file:border-0 file:bg-signal-cyan file:px-3 file:py-1.5 file:font-[family-name:var(--font-chakra)] file:text-[0.6875rem] file:font-semibold file:uppercase file:tracking-[0.08em] file:text-void-navy focus:border-signal-cyan disabled:opacity-60 ${className}`}
+      {...rest}
+    />
+  );
 });
 
 export function Textarea(

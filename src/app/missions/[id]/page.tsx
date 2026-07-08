@@ -7,9 +7,10 @@ import { Panel } from "@/components/ui/panel";
 import { StatusLabel } from "@/components/ui/status-dot";
 import { Markdown } from "@/components/ui/markdown";
 import { LocationTag, RiskTag, MissionStatusBadge } from "@/components/missions/mission-tags";
+import { AttachmentGallery } from "@/components/missions/attachment-gallery";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
-import { getMission } from "@/lib/mission-data";
+import { getMissionWithAttachments } from "@/lib/mission-data";
 import { MissionInterestButton } from "../mission-interest-button";
 
 export const metadata: Metadata = { title: "Mission Briefing" };
@@ -25,7 +26,7 @@ export default async function MissionDetailPage({
   const isAdmin = user.role === "admin";
   const { id } = await params;
 
-  const mission = await getMission(id);
+  const mission = await getMissionWithAttachments(id);
   if (!mission) notFound();
 
   const viewer = isAdmin ? null : await getViewerCharacterState(user.id);
@@ -84,6 +85,12 @@ export default async function MissionDetailPage({
               </p>
             )}
           </Panel>
+
+          {mission.attachments.length > 0 && (
+            <Panel title="Photos">
+              <AttachmentGallery attachments={mission.attachments} />
+            </Panel>
+          )}
 
           {!isAdmin && character && (mission.status === "available" || mission.status === "active") && (
             <Panel title="Your Standing">

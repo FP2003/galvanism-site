@@ -7,11 +7,14 @@ import { Panel } from "@/components/ui/panel";
 import { Markdown } from "@/components/ui/markdown";
 import { FormDialogTrigger } from "@/components/ui/form-dialog-trigger";
 import { LocationTag, RiskTag, MissionStatusBadge, STATUS_WORD } from "@/components/missions/mission-tags";
+import { AttachmentGallery } from "@/components/missions/attachment-gallery";
+import { MAX_MISSION_ATTACHMENTS } from "@/lib/game-rules";
 import { requireAdmin } from "@/lib/auth";
-import { getMission, getEligibleAssignees } from "@/lib/mission-data";
+import { getMissionWithAttachments, getEligibleAssignees } from "@/lib/mission-data";
 import { MissionForm } from "../mission-form";
 import { MissionAssignment } from "./mission-assignment";
 import { CompleteMissionForm } from "./complete-mission-form";
+import { AttachmentUploadForm } from "./attachment-upload-form";
 
 export const metadata: Metadata = { title: "Mission — Personnel Command" };
 
@@ -25,7 +28,7 @@ export default async function AdminMissionDetailPage({
   await requireAdmin();
   const { id } = await params;
 
-  const mission = await getMission(id);
+  const mission = await getMissionWithAttachments(id);
   if (!mission) notFound();
 
   const eligible = await getEligibleAssignees(id);
@@ -74,6 +77,16 @@ export default async function AdminMissionDetailPage({
 
             <Panel title="Assignment">
               <MissionAssignment missionId={mission.id} eligible={eligible} assignments={mission.assignments} />
+            </Panel>
+
+            <Panel title="Photos">
+              <div className="flex flex-col gap-4">
+                <AttachmentUploadForm
+                  missionId={mission.id}
+                  remainingSlots={MAX_MISSION_ATTACHMENTS - mission.attachments.length}
+                />
+                <AttachmentGallery attachments={mission.attachments} admin />
+              </div>
             </Panel>
           </div>
 
