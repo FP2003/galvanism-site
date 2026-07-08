@@ -127,6 +127,20 @@
       "when": 1783536997910,
       "tag": "0017_rename_shops_to_facilities",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1783545664344,
+      "tag": "0018_facility_xp_offerings",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1783546664344,
+      "tag": "0019_facility_xp_offering_cost_currency",
+      "breakpoints": true
     }
   ]
 }

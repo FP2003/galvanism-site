@@ -100,6 +100,12 @@ export const listingSource = pgEnum("listing_source", ["manual", "rotation"]);
 // small flavor shops (food, arcade, ...) that never level up.
 export const facilityKind = pgEnum("facility_kind", ["station", "field"]);
 
+// Phase 6 Step 2 — an XP offering is either a permanent stat bump (targets one
+// of the 6 stat columns) or a one-off refill of a current resource (targets
+// hpCurrent/energyCurrent/ammoCurrent, clamped to its — possibly card-boosted
+// — max). See lib/facilities.ts offeringTargetsFor.
+export const xpOfferingType = pgEnum("xp_offering_type", ["stat_bump", "resource_refill"]);
+
 // Phase 5 — Mission enums (info/roadmap.md §Phase 5). "failed" only happens via
 // an Urgent deadline hitting zero without the mission completing first.
 export const missionStatus = pgEnum("mission_status", [
@@ -521,9 +527,52 @@ export const facilityRestockRules = pgTable(
   (t) => [index("facility_restock_rules_facility_idx").on(t.facilityId)],
 );
 
+// A facility's XP-training catalog entry (Phase 6 Step 2). `targetKey` matches
+// a `characters` DB column, same convention as `cardEffects.effectTarget`
+// (see offeringTargetsFor in lib/facilities.ts) — a stat key for a stat_bump,
+// or a *Current resource key for a resource_refill. `minLevel` gates player
+// visibility/purchase against the facility's own level (facility.level >=
+// minLevel), independent of when the row was created — an admin can pre-stage
+// a higher-tier offering before the facility is leveled up to unlock it.
+// `active` retires an offering without deleting it, keeping historical
+// xp_ledger/credit_ledger rows (which store no FK back here) meaningful.
+// `cost` is charged in Currency XP for a stat_bump but Credits for a
+// resource_refill — the currency is derived from `offeringType`, not chosen
+// per row (see offeringCostCurrency in lib/facilities.ts): permanent training
+// costs XP, a patch-up at Medical Bay costs Credits like any other purchase.
+export const facilityXpOfferings = pgTable(
+  "facility_xp_offerings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    facilityId: uuid("facility_id")
+      .notNull()
+      .references(() => facilities.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    offeringType: xpOfferingType("offering_type").notNull(),
+    targetKey: text("target_key").notNull(),
+    amount: integer("amount").notNull(),
+    cost: integer("cost").notNull(),
+    minLevel: integer("min_level").notNull().default(1),
+    active: boolean("active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("facility_xp_offerings_facility_idx").on(t.facilityId)],
+);
+
 export const facilitiesRelations = relations(facilities, ({ many }) => ({
   listings: many(facilityListings),
   restockRules: many(facilityRestockRules),
+  xpOfferings: many(facilityXpOfferings),
+}));
+
+export const facilityXpOfferingsRelations = relations(facilityXpOfferings, ({ one }) => ({
+  facility: one(facilities, {
+    fields: [facilityXpOfferings.facilityId],
+    references: [facilities.id],
+  }),
 }));
 
 export const facilityListingsRelations = relations(facilityListings, ({ one }) => ({
@@ -674,6 +723,8 @@ export type FacilityListing = typeof facilityListings.$inferSelect;
 export type NewFacilityListing = typeof facilityListings.$inferInsert;
 export type FacilityRestockRule = typeof facilityRestockRules.$inferSelect;
 export type NewFacilityRestockRule = typeof facilityRestockRules.$inferInsert;
+export type FacilityXpOffering = typeof facilityXpOfferings.$inferSelect;
+export type NewFacilityXpOffering = typeof facilityXpOfferings.$inferInsert;
 export type Mission = typeof missions.$inferSelect;
 export type NewMission = typeof missions.$inferInsert;
 export type MissionAssignment = typeof missionAssignments.$inferSelect;
