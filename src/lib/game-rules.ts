@@ -43,3 +43,10 @@ export const TEXT_LIMITS = {
   missionSector: 48,
   missionBriefing: 4000,
 } as const;
+
+// Mission briefing photo attachments — bounded gallery, not an open-ended
+// media manager. Kept low enough to comfortably clear both Next's
+// bodySizeLimit and Vercel's platform-level 4.5MB request ceiling.
+export const MAX_MISSION_ATTACHMENTS = 8;
+export const MAX_ATTACHMENT_BYTES = 3.5 * 1024 * 1024;
+export const ATTACHMENT_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;

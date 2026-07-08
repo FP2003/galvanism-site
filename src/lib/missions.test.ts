@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { splitPayoutEvenly, tickUrgentDeadline, missionBucket } from "./missions";
+import { splitPayoutEvenly, tickUrgentDeadline, missionBucket, attachmentTiltDeg } from "./missions";
 
 describe("splitPayoutEvenly", () => {
   it("splits evenly with no remainder", () => {
@@ -42,5 +42,27 @@ describe("missionBucket", () => {
   it("maps complete and failed to their own buckets", () => {
     expect(missionBucket("complete")).toBe("complete");
     expect(missionBucket("failed")).toBe("failed");
+  });
+});
+
+describe("attachmentTiltDeg", () => {
+  it("is deterministic for the same id", () => {
+    const id = "550e8400-e29b-41d4-a716-446655440000";
+    expect(attachmentTiltDeg(id)).toBe(attachmentTiltDeg(id));
+  });
+
+  it("stays within the 2..6deg magnitude range", () => {
+    const ids = ["a", "bb", "ccc", "550e8400-e29b-41d4-a716-446655440000", "11111111-1111-1111-1111-111111111111"];
+    for (const id of ids) {
+      const deg = attachmentTiltDeg(id);
+      expect(Math.abs(deg)).toBeGreaterThanOrEqual(2);
+      expect(Math.abs(deg)).toBeLessThanOrEqual(6);
+    }
+  });
+
+  it("differs across at least some distinct ids", () => {
+    const ids = ["a", "bb", "ccc", "dddd", "eeeee", "ffffff"];
+    const degrees = new Set(ids.map(attachmentTiltDeg));
+    expect(degrees.size).toBeGreaterThan(1);
   });
 });

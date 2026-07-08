@@ -1,6 +1,6 @@
 import { eq, and, ne, asc, desc, inArray, notInArray } from "drizzle-orm";
 import { getDb } from "./db";
-import { missions, missionAssignments, characters } from "./schema";
+import { missions, missionAssignments, missionAttachments, characters } from "./schema";
 
 /*
  * Mission read model (Phase 5). DB access only — the payout split and Urgent
@@ -54,6 +54,24 @@ export async function getMissionsForViewer() {
   return db.query.missions.findMany({
     with: { assignments: true },
     orderBy: [desc(missions.urgent), asc(missions.createdAt)],
+  });
+}
+
+/** Same as getMission, plus photo attachments oldest-first — the admin and
+ *  player detail pages (list pages don't render photos, so use getMission(s)
+ *  there instead). completeMission also keeps using plain getMission, since
+ *  the payout path has no need for photos. */
+export async function getMissionWithAttachments(missionId: string) {
+  const db = getDb();
+  return db.query.missions.findFirst({
+    where: eq(missions.id, missionId),
+    with: {
+      assignments: {
+        with: { character: { with: { player: true } } },
+        orderBy: [asc(missionAssignments.createdAt)],
+      },
+      attachments: { orderBy: [asc(missionAttachments.createdAt)] },
+    },
   });
 }
 

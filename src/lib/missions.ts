@@ -48,3 +48,17 @@ export function missionBucket(status: string): MissionStatusBucket {
   if (status === "failed") return "failed";
   return "incomplete";
 }
+
+/**
+ * Deterministic "stapled photo" tilt angle for a mission attachment, derived
+ * from its id — same id always produces the same angle, so the gallery's
+ * server-rendered tilt matches the client on hydration (no Math.random). The
+ * magnitude is kept in 2..6deg so every photo visibly reads as tilted, sign
+ * alternates by hash parity so adjacent photos don't cluster on one side.
+ */
+export function attachmentTiltDeg(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  const magnitude = 2 + (Math.abs(hash) % 5);
+  return hash % 2 === 0 ? magnitude : -magnitude;
+}

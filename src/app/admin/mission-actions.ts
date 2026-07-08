@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { eq, and, ne, inArray } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
+import { put, del } from "@vercel/blob";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import {
   missions,
   missionAssignments,
+  missionAttachments,
   players,
   characters,
   creditLedger,
@@ -15,7 +17,7 @@ import {
   type NewMission,
   type NewMissionAssignment,
 } from "@/lib/schema";
-import { TEXT_LIMITS } from "@/lib/game-rules";
+import { TEXT_LIMITS, MAX_MISSION_ATTACHMENTS, MAX_ATTACHMENT_BYTES, ATTACHMENT_MIME_TYPES } from "@/lib/game-rules";
 import { applyCreditsDelta, applyXpGrant } from "@/lib/ledger";
 import { splitPayoutEvenly, tickUrgentDeadline } from "@/lib/missions";
 import { getMission } from "@/lib/mission-data";
@@ -131,12 +133,100 @@ export async function deleteMission(_prev: FormState, formData: FormData): Promi
   if (!missionId) return { error: "Missing mission reference." };
 
   const db = getDb();
+  // Fetch attachment URLs before the delete cascades their rows away — the
+  // blob cleanup below is best-effort and must not block mission deletion.
+  const attachments = await db.query.missionAttachments.findMany({
+    where: eq(missionAttachments.missionId, missionId),
+    columns: { url: true },
+  });
+
   await db.delete(missions).where(eq(missions.id, missionId));
+
+  if (attachments.length > 0) {
+    try {
+      await del(attachments.map((a) => a.url));
+    } catch (err) {
+      console.error("Blob cleanup failed after mission deletion:", err);
+    }
+  }
 
   revalidatePath("/admin/missions");
   revalidatePath("/missions");
   revalidatePath("/");
   return { ok: true, message: "Mission deleted." };
+}
+
+// Photo attachments (case-file gallery, detail pages only). Uploaded one at
+// a time by design — Vercel's platform-level request-body ceiling (4.5MB,
+// unaffected by next.config's bodySizeLimit) makes a true multi-file batch
+// input a real, badly-surfaced failure mode with real phone-photo sizes.
+export async function uploadMissionAttachment(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  const missionId = textField(formData, "missionId");
+  if (!missionId) return { error: "Missing mission reference." };
+
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) return { error: "Pick a photo to upload." };
+
+  const db = getDb();
+  const existing = await db.query.missionAttachments.findMany({
+    where: eq(missionAttachments.missionId, missionId),
+    columns: { id: true },
+  });
+  if (existing.length >= MAX_MISSION_ATTACHMENTS) {
+    return { error: `This mission already has the maximum of ${MAX_MISSION_ATTACHMENTS} photos.` };
+  }
+
+  if (!ATTACHMENT_MIME_TYPES.includes(file.type as (typeof ATTACHMENT_MIME_TYPES)[number])) {
+    return { error: "Only PNG, JPEG, WebP, or GIF images are allowed." };
+  }
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    return { error: `Photo is too large — max ${MAX_ATTACHMENT_BYTES / (1024 * 1024)}MB.` };
+  }
+
+  // Strip path separators and other unsafe characters from the original
+  // filename — it lands directly in the blob pathname below, and a stray
+  // "/" would create an unintended nested key rather than a flat file.
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_") || "photo";
+
+  let blob;
+  try {
+    blob = await put(`missions/${missionId}/${safeName}`, file, {
+      access: "public",
+      addRandomSuffix: true,
+    });
+  } catch (err) {
+    console.error("Blob upload failed:", err);
+    return { error: "Upload failed — check your connection and try again." };
+  }
+  await db.insert(missionAttachments).values({ missionId, url: blob.url });
+
+  revalidatePath(`/admin/missions/${missionId}`);
+  revalidatePath(`/missions/${missionId}`);
+  return { ok: true, message: "Photo added." };
+}
+
+export async function deleteMissionAttachment(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  const attachmentId = textField(formData, "attachmentId");
+  if (!attachmentId) return { error: "Missing photo reference." };
+
+  const db = getDb();
+  const [row] = await db
+    .delete(missionAttachments)
+    .where(eq(missionAttachments.id, attachmentId))
+    .returning({ missionId: missionAttachments.missionId, url: missionAttachments.url });
+  if (!row) return { error: "Photo not found." };
+
+  try {
+    await del(row.url);
+  } catch (err) {
+    console.error("Blob cleanup failed after photo deletion:", err);
+  }
+
+  revalidatePath(`/admin/missions/${row.missionId}`);
+  revalidatePath(`/missions/${row.missionId}`);
+  return { ok: true, message: "Photo removed." };
 }
 
 // Quick status toggles (mirrors setShopOpen). "complete" always goes through
