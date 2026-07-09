@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and, ne, inArray } from "drizzle-orm";
+import { eq, and, ne, inArray, isNotNull } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import { put, del } from "@vercel/blob";
 import { requireAdmin } from "@/lib/auth";
@@ -14,12 +14,14 @@ import {
   characters,
   creditLedger,
   xpLedger,
+  ballots,
   type NewMission,
   type NewMissionAssignment,
 } from "@/lib/schema";
 import { TEXT_LIMITS, MAX_MISSION_ATTACHMENTS, MAX_ATTACHMENT_BYTES, ATTACHMENT_MIME_TYPES } from "@/lib/game-rules";
 import { applyCreditsDelta, applyXpGrant } from "@/lib/ledger";
 import { splitPayoutEvenly, tickUrgentDeadline } from "@/lib/missions";
+import { tickBallotDeadline } from "@/lib/ballots";
 import { getMission } from "@/lib/mission-data";
 
 /*
@@ -463,9 +465,35 @@ export async function completeMission(_prev: FormState, formData: FormData): Pro
     console.error("Urgent deadline tick failed after mission completion:", err);
   }
 
+  // Independent try/catch (not merged into the Urgent-tick block above) so
+  // one tick type failing can't abort the other. Unlike the Urgent tick,
+  // there's no ne(ballots.id, ...) exclusion — a ballot is never "the thing
+  // that just completed."
+  try {
+    const openBallots = await db.query.ballots.findMany({
+      where: and(eq(ballots.status, "open"), isNotNull(ballots.opsDeadline)),
+    });
+    for (const ballot of openBallots) {
+      const { nextDeadline, closed } = tickBallotDeadline(ballot.opsDeadline!);
+      await db
+        .update(ballots)
+        .set({
+          opsDeadline: nextDeadline,
+          status: closed ? "closed" : ballot.status,
+          closedAt: closed ? new Date() : ballot.closedAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(ballots.id, ballot.id));
+    }
+  } catch (err) {
+    console.error("Ballot deadline tick failed after mission completion:", err);
+  }
+
   revalidatePath("/admin/missions");
   revalidatePath(`/admin/missions/${missionId}`);
   revalidatePath("/missions");
+  revalidatePath("/admin/ballots");
+  revalidatePath("/ballots");
   revalidatePath("/");
 
   const parts: string[] = [];
