@@ -127,6 +127,11 @@ export const missionAssignmentState = pgEnum("mission_assignment_state", [
   "assigned",
 ]);
 
+// Phase 7 — Ballot status (info/roadmap.md §Phase 7). "closed" happens either
+// by an admin's manual close or an ops deadline hitting zero — both are purely
+// informational (they just lock the tally), unlike a mission's "failed".
+export const ballotStatus = pgEnum("ballot_status", ["open", "closed"]);
+
 // One row per Clerk account. Admins have no player/character rows.
 export const users = pgTable("users", {
   id: text("id").primaryKey(), // Clerk user id
@@ -231,6 +236,7 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   xpLedger: many(xpLedger),
   missionAssignments: many(missionAssignments),
   perkPurchases: many(facilityPerkPurchases),
+  ballotVotes: many(ballotVotes),
 }));
 
 // Append-only record of every credit change (Phase 2 — the player's read-only
@@ -804,6 +810,125 @@ export const missionAttachmentsRelations = relations(
   }),
 );
 
+// ---------------------------------------------------------------------------
+// Phase 7 — Ballots (info/roadmap.md §Phase 7).
+// ---------------------------------------------------------------------------
+
+// A DM-posted shared-upgrade vote. `opsDeadline` is set iff there's a time
+// limit: ops (missions) remaining before this ballot auto-closes, decremented
+// by 1 each time *any* mission completes (see completeMission's best-effort
+// tick in app/admin/mission-actions.ts, mirroring the Urgent-mission tick's
+// non-transactional convention — but every open ballot ticks, there's no
+// "exclude the one that just happened" exclusion since a ballot is never
+// itself the thing that completes). Closing — manual or via deadline — is
+// purely informational: it locks the tally for display, nothing else. Null
+// opsDeadline = no time limit, closes only by an admin's manual action.
+export const ballots = pgTable(
+  "ballots",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    description: text("description"),
+    status: ballotStatus("status").notNull().default("open"),
+    opsDeadline: integer("ops_deadline"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("ballots_status_idx").on(t.status)],
+);
+
+// One option on a ballot. Not editable once votes exist (see
+// app/admin/ballot-actions.ts) — delete-and-recreate the ballot is the escape
+// hatch for a typo'd option set.
+export const ballotOptions = pgTable(
+  "ballot_options",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ballotId: uuid("ballot_id")
+      .notNull()
+      .references(() => ballots.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("ballot_options_ballot_idx").on(t.ballotId)],
+);
+
+// A character's current pick on a ballot. Single-choice and changeable: one
+// row per (ballot, character) — unique on that pair, not on (option,
+// character) — so changing a vote is an UPDATE of this row's optionId (upsert
+// via onConflictDoUpdate, same idiom as mission-actions.ts's
+// assignCharacterDirect), never a second row. `ballotId` is denormalized
+// directly onto the row (rather than only reachable via optionId) for the
+// same reason missionAssignments stores missionId directly.
+export const ballotVotes = pgTable(
+  "ballot_votes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ballotId: uuid("ballot_id")
+      .notNull()
+      .references(() => ballots.id, { onDelete: "cascade" }),
+    optionId: uuid("option_id")
+      .notNull()
+      .references(() => ballotOptions.id, { onDelete: "cascade" }),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("ballot_votes_ballot_idx").on(t.ballotId),
+    index("ballot_votes_option_idx").on(t.optionId),
+    uniqueIndex("ballot_votes_unique").on(t.ballotId, t.characterId),
+  ],
+);
+
+export const ballotsRelations = relations(ballots, ({ many }) => ({
+  options: many(ballotOptions),
+  votes: many(ballotVotes),
+}));
+
+export const ballotOptionsRelations = relations(
+  ballotOptions,
+  ({ one, many }) => ({
+    ballot: one(ballots, {
+      fields: [ballotOptions.ballotId],
+      references: [ballots.id],
+    }),
+    votes: many(ballotVotes),
+  }),
+);
+
+export const ballotVotesRelations = relations(ballotVotes, ({ one }) => ({
+  ballot: one(ballots, {
+    fields: [ballotVotes.ballotId],
+    references: [ballots.id],
+  }),
+  option: one(ballotOptions, {
+    fields: [ballotVotes.optionId],
+    references: [ballotOptions.id],
+  }),
+  character: one(characters, {
+    fields: [ballotVotes.characterId],
+    references: [characters.id],
+  }),
+}));
+
 export type User = typeof users.$inferSelect;
 export type Player = typeof players.$inferSelect;
 export type Character = typeof characters.$inferSelect;
@@ -835,3 +960,9 @@ export type MissionAssignment = typeof missionAssignments.$inferSelect;
 export type NewMissionAssignment = typeof missionAssignments.$inferInsert;
 export type MissionAttachment = typeof missionAttachments.$inferSelect;
 export type NewMissionAttachment = typeof missionAttachments.$inferInsert;
+export type Ballot = typeof ballots.$inferSelect;
+export type NewBallot = typeof ballots.$inferInsert;
+export type BallotOption = typeof ballotOptions.$inferSelect;
+export type NewBallotOption = typeof ballotOptions.$inferInsert;
+export type BallotVote = typeof ballotVotes.$inferSelect;
+export type NewBallotVote = typeof ballotVotes.$inferInsert;
