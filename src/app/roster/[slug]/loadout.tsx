@@ -6,10 +6,20 @@ import { Layers, Crosshair } from "lucide-react";
 import { GameCard } from "@/components/cards/game-card";
 import { EquipToggleButton } from "@/components/cards/equip-toggle";
 import { Select } from "@/components/ui/form";
-import { partitionByWeapon, type OwnedCard } from "@/lib/card-data";
-import { setCardEquipped, setWeaponSlot, type SheetState } from "@/app/roster/actions";
-import { WEAPON_SLOTS, WEAPON_SLOT_META, isSlotLegalFor } from "@/lib/weapons";
-import type { WeaponSlotName } from "@/lib/cards";
+import { partitionByWeapon, groupInstalledMods, type OwnedCard } from "@/lib/card-data";
+import {
+  setCardEquipped,
+  setWeaponSlot,
+  installMod,
+  type SheetState,
+} from "@/app/roster/actions";
+import {
+  WEAPON_SLOTS,
+  WEAPON_SLOT_META,
+  isSlotLegalFor,
+  modCategoryForWeapon,
+} from "@/lib/weapons";
+import { isWeaponSubcategory, type WeaponSlotName } from "@/lib/cards";
 
 /*
  * Case File loadout (Phase 3). Shows the operator's equipped cards as full card
@@ -26,7 +36,8 @@ export function Loadout({
   owned: OwnedCard[];
   canEdit: boolean;
 }) {
-  const { weapons, rest } = partitionByWeapon(owned);
+  const { weapons, mods, rest } = partitionByWeapon(owned);
+  const { byHost } = groupInstalledMods(mods);
   const equipped = rest.filter((o) => o.equipped);
   const inventory = rest.filter((o) => !o.equipped);
 
@@ -49,7 +60,12 @@ export function Loadout({
   return (
     <div className="flex flex-col gap-6">
       {(canEdit || weapons.length > 0) && (
-        <WeaponSlots characterId={characterId} weapons={weapons} canEdit={canEdit} />
+        <WeaponSlots
+          characterId={characterId}
+          weapons={weapons}
+          modsByHost={byHost}
+          canEdit={canEdit}
+        />
       )}
       <CardGroup
         heading="Equipped"
@@ -64,6 +80,14 @@ export function Loadout({
           cards={inventory}
           characterId={characterId}
           canEdit={canEdit}
+        />
+      )}
+      {canEdit && mods.length > 0 && (
+        <ModsSection
+          characterId={characterId}
+          weapons={weapons}
+          mods={mods}
+          modsByHost={byHost}
         />
       )}
     </div>
@@ -81,10 +105,12 @@ export function Loadout({
 function WeaponSlots({
   characterId,
   weapons,
+  modsByHost,
   canEdit,
 }: {
   characterId: string;
   weapons: OwnedCard[];
+  modsByHost: Map<string, OwnedCard[]>;
   canEdit: boolean;
 }) {
   const unslotted = weapons.filter((w) => !w.weaponSlot);
@@ -116,7 +142,10 @@ function WeaponSlots({
               </span>
               {occupant ? (
                 <>
-                  <GameCard card={occupant.card} />
+                  <GameCard
+                    card={occupant.card}
+                    mods={(modsByHost.get(occupant.assignmentId) ?? []).map((m) => m.card)}
+                  />
                   {canEdit && (
                     <WeaponSlotForm
                       characterId={characterId}
@@ -150,11 +179,167 @@ function WeaponSlots({
       </ul>
 
       {unslotted.length > 0 && (
-        <p className="mt-3 text-xs text-muted-ink">
-          Unslotted: {unslotted.map((w) => w.card.title).join(", ")}
-        </p>
+        <div className="mt-4">
+          <h4 className="mb-2 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+            Unslotted
+          </h4>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {unslotted.map((w) => {
+              const installed = modsByHost.get(w.assignmentId) ?? [];
+              const legalSlots =
+                w.card.subcategory && w.card.handedness
+                  ? WEAPON_SLOTS.filter((slot) =>
+                      isSlotLegalFor(
+                        {
+                          subcategory: w.card.subcategory as "rifle" | "pistol" | "melee",
+                          handedness: w.card.handedness!,
+                        },
+                        slot,
+                      ),
+                    )
+                  : [];
+              return (
+                <li key={w.assignmentId} className="flex flex-col gap-2">
+                  <GameCard card={w.card} mods={installed.map((m) => m.card)} />
+                  {canEdit && legalSlots.length > 0 && (
+                    <UnslottedEquipForm
+                      characterId={characterId}
+                      assignmentId={w.assignmentId}
+                      legalSlots={legalSlots}
+                    />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </div>
+  );
+}
+
+// Picks a slot for a currently-unslotted weapon. setWeaponSlot resolves any
+// conflicts server-side (e.g. evicting Secondary for a 2H weapon taking
+// Primary) — legalSlots here is UX only, to avoid offering a doomed choice.
+function UnslottedEquipForm({
+  characterId,
+  assignmentId,
+  legalSlots,
+}: {
+  characterId: string;
+  assignmentId: string;
+  legalSlots: WeaponSlotName[];
+}) {
+  const [, formAction] = useActionState<SheetState, FormData>(setWeaponSlot, {});
+  return (
+    <form action={formAction} className="flex flex-col gap-2">
+      <input type="hidden" name="characterId" value={characterId} />
+      <input type="hidden" name="assignmentId" value={assignmentId} />
+      <Select name="slot" aria-label="Equip to slot" defaultValue="" required>
+        <option value="" disabled>
+          Equip to…
+        </option>
+        {legalSlots.map((slot) => (
+          <option key={slot} value={slot}>
+            {WEAPON_SLOT_META[slot].label}
+          </option>
+        ))}
+      </Select>
+      <SlotSubmitButton label="Equip" />
+    </form>
+  );
+}
+
+// Weapon customisation. Lists every owned firearm_mod/melee_mod card:
+// installed ones read-only ("Installed on {host}" — a mod can be installed on
+// an unslotted weapon, which otherwise has no card-face home of its own),
+// uninstalled ones with an "Install on…" picker. Installation is permanent
+// for players — no remove/uninstall control here, only the admin-side
+// detachMod (admin/players/[id]/card-assignment.tsx).
+function ModsSection({
+  characterId,
+  weapons,
+  mods,
+  modsByHost,
+}: {
+  characterId: string;
+  weapons: OwnedCard[];
+  mods: OwnedCard[];
+  modsByHost: Map<string, OwnedCard[]>;
+}) {
+  const hostTitle = (assignmentId: string) =>
+    weapons.find((w) => w.assignmentId === assignmentId)?.card.title ?? "—";
+
+  return (
+    <div>
+      <h3 className="mb-3 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
+        Weapon Mods
+      </h3>
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {mods.map((m) => {
+          const candidates = weapons.filter((w) => {
+            if (!w.card.subcategory || !isWeaponSubcategory(w.card.subcategory)) {
+              return false;
+            }
+            if (modCategoryForWeapon(w.card.subcategory) !== m.card.category) {
+              return false;
+            }
+            const installedCount = modsByHost.get(w.assignmentId)?.length ?? 0;
+            return installedCount < (w.card.modSlots ?? 0);
+          });
+
+          return (
+            <li key={m.assignmentId} className="flex flex-col gap-2">
+              <GameCard card={m.card} />
+              {m.installedOnAssignmentId ? (
+                <p className="text-center font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan">
+                  Installed on {hostTitle(m.installedOnAssignmentId)}
+                </p>
+              ) : candidates.length > 0 ? (
+                <InstallModForm
+                  characterId={characterId}
+                  modAssignmentId={m.assignmentId}
+                  candidates={candidates}
+                />
+              ) : (
+                <p className="text-center text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
+                  No compatible weapon with a free slot
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function InstallModForm({
+  characterId,
+  modAssignmentId,
+  candidates,
+}: {
+  characterId: string;
+  modAssignmentId: string;
+  candidates: OwnedCard[];
+}) {
+  const [, formAction] = useActionState<SheetState, FormData>(installMod, {});
+  return (
+    <form action={formAction} className="flex flex-col gap-2">
+      <input type="hidden" name="characterId" value={characterId} />
+      <input type="hidden" name="modAssignmentId" value={modAssignmentId} />
+      <Select name="hostAssignmentId" aria-label="Install on…" defaultValue="" required>
+        <option value="" disabled>
+          Install on…
+        </option>
+        {candidates.map((w) => (
+          <option key={w.assignmentId} value={w.assignmentId}>
+            {w.card.title}
+          </option>
+        ))}
+      </Select>
+      <SlotSubmitButton label="Install" />
+    </form>
   );
 }
 

@@ -1,17 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and, ne, inArray, isNotNull } from "drizzle-orm";
+import { eq, and, ne, inArray, isNotNull, isNull } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { characters, characterCards } from "@/lib/schema";
 import { clampResource } from "@/lib/ledger";
 import { effectiveResourceMaxes } from "@/lib/card-data";
 import { TEXT_LIMITS } from "@/lib/game-rules";
-import { isWeaponSubcategory, type WeaponSlotName } from "@/lib/cards";
+import { isWeaponSubcategory, isModCategory, type WeaponSlotName } from "@/lib/cards";
 import {
   WEAPON_SLOTS,
   resolveWeaponSlotAssignment,
+  modCategoryForWeapon,
   type OccupiedSlots,
 } from "@/lib/weapons";
 
@@ -120,6 +121,18 @@ export async function setCardEquipped(
   const equipped = String(formData.get("equipped") ?? "") === "true";
   const auth = await authorizeEdit(characterId);
   if ("error" in auth) return { error: auth.error };
+
+  const assignment = await auth.db.query.characterCards.findFirst({
+    where: and(
+      eq(characterCards.id, assignmentId),
+      eq(characterCards.characterId, characterId),
+    ),
+    with: { card: true },
+  });
+  if (!assignment) return { error: "Card not found in this inventory." };
+  if (isModCategory(assignment.card.category)) {
+    return { error: "Mods are installed on weapons, not equipped." };
+  }
 
   const [row] = await auth.db
     .update(characterCards)
@@ -252,5 +265,75 @@ export async function setWeaponSlot(
     ok: true,
     message: `${card.title} equipped to ${targetSlot[0].toUpperCase()}${targetSlot.slice(1)}.`,
   };
+}
+
+// Installs a firearm_mod/melee_mod card onto one of this character's weapon
+// assignments (weapon customisation). Owner or admin only. Permanent for
+// players — there's no player-facing uninstall, only the admin detachMod
+// action (app/admin/card-actions.ts). Both assignments must belong to this
+// same character; a caller can't install onto or with someone else's card.
+export async function installMod(
+  _prev: SheetState,
+  formData: FormData,
+): Promise<SheetState> {
+  const characterId = String(formData.get("characterId") ?? "");
+  const modAssignmentId = String(formData.get("modAssignmentId") ?? "");
+  const hostAssignmentId = String(formData.get("hostAssignmentId") ?? "");
+  const auth = await authorizeEdit(characterId);
+  if ("error" in auth) return { error: auth.error };
+  const { db } = auth;
+
+  const mod = await db.query.characterCards.findFirst({
+    where: and(
+      eq(characterCards.id, modAssignmentId),
+      eq(characterCards.characterId, characterId),
+    ),
+    with: { card: true },
+  });
+  if (!mod) return { error: "Mod not found in this inventory." };
+  if (!isModCategory(mod.card.category)) return { error: "That card isn't a mod." };
+  if (mod.installedOnCharacterCardId) {
+    return { error: "This mod is already installed." };
+  }
+
+  const host = await db.query.characterCards.findFirst({
+    where: and(
+      eq(characterCards.id, hostAssignmentId),
+      eq(characterCards.characterId, characterId),
+    ),
+    with: { card: true },
+  });
+  if (!host) return { error: "Weapon not found in this inventory." };
+  if (
+    host.card.category !== "item" ||
+    !isWeaponSubcategory(host.card.subcategory) ||
+    modCategoryForWeapon(host.card.subcategory) !== mod.card.category
+  ) {
+    return { error: "That mod doesn't fit this weapon." };
+  }
+
+  const installedCount = await db.query.characterCards.findMany({
+    where: eq(characterCards.installedOnCharacterCardId, hostAssignmentId),
+    columns: { id: true },
+  });
+  if (installedCount.length >= (host.card.modSlots ?? 0)) {
+    return { error: "No free mod slots on that weapon." };
+  }
+
+  const [row] = await db
+    .update(characterCards)
+    .set({ installedOnCharacterCardId: hostAssignmentId })
+    .where(
+      and(
+        eq(characterCards.id, modAssignmentId),
+        isNull(characterCards.installedOnCharacterCardId),
+      ),
+    )
+    .returning({ id: characterCards.id });
+  if (!row) return { error: "This mod is already installed." };
+
+  revalidatePath(`/roster/${auth.character.slug}`);
+  revalidatePath(`/admin/players/${auth.character.playerId}`);
+  return { ok: true, message: `${mod.card.title} installed on ${host.card.title}.` };
 }
 
