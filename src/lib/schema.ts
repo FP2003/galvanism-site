@@ -15,6 +15,7 @@ import {
   boolean,
   index,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -29,6 +30,10 @@ export const characterStatus = pgEnum("character_status", [
 // Phase 3 — Card system enums (info/roadmap.md §Phase 3, info/card_system.md).
 // The six colored categories match the reference designs' one-color-per-category
 // scheme; "ability"/"item" are the generic (neutral) cards.
+// firearm_mod/melee_mod are the weapon-customisation categories (Components,
+// info/galvanism_prep.md) — distinct from "mod" (body mods/Modifications).
+// They install onto a rifle/pistol or melee weapon's character_cards row
+// rather than sitting in the character's plain equipped/inventory toggle.
 export const cardCategory = pgEnum("card_category", [
   "combat",
   "defense",
@@ -38,6 +43,8 @@ export const cardCategory = pgEnum("card_category", [
   "tech",
   "ability",
   "item",
+  "firearm_mod",
+  "melee_mod",
 ]);
 // The ACTIVE/PASSIVE tag on an effect (per-effect, not per-card — a card can
 // carry both at once).
@@ -350,6 +357,20 @@ export const cards = pgTable("cards", {
   range: integer("range"), // meters
   ammoCount: integer("ammo_count"),
 
+  // Weapon customisation. modSlots is set iff subcategory is a weapon type
+  // (rifle/pistol/melee) — how many mods that weapon can carry. The mod*
+  // fields are set iff category is firearm_mod/melee_mod — the structured
+  // delta a mod applies to its host weapon's displayed stat line once
+  // installed (lib/weapons.ts computeWeaponProfile); everything else about a
+  // mod (EP penalties, ACC, SHOCK, ...) is descriptive-only via
+  // descriptiveText above. Legality enforced in lib/weapons.ts + the create
+  // action, not via a DB CHECK constraint, same convention as the item/
+  // weapon fields.
+  modSlots: integer("mod_slots"),
+  modDamageDelta: integer("mod_damage_delta"),
+  modRangeDelta: integer("mod_range_delta"),
+  modAddedDamageType: weaponDamageType("mod_added_damage_type"),
+
   createdByUserId: text("created_by_user_id").references(() => users.id, {
     onDelete: "set null",
   }),
@@ -401,12 +422,23 @@ export const characterCards = pgTable(
     // Set iff this row is an equipped weapon (rifle/pistol/melee card). Written
     // together with `equipped` by setWeaponSlot; non-weapon rows never set it.
     weaponSlot: weaponSlot("weapon_slot"),
+    // Set iff this row is a firearm_mod/melee_mod card that's been installed
+    // on one of this same character's weapon rows — points at the host's
+    // character_cards.id. Installation is permanent for players (only an
+    // admin can detach, via detachMod); `set null` means unassigning or
+    // deleting the host weapon automatically returns its mods to uninstalled
+    // inventory with no extra cleanup code.
+    installedOnCharacterCardId: uuid("installed_on_character_card_id").references(
+      (): AnyPgColumn => characterCards.id,
+      { onDelete: "set null" },
+    ),
     acquiredAt: timestamp("acquired_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
     index("character_cards_character_idx").on(t.characterId),
+    index("character_cards_installed_on_idx").on(t.installedOnCharacterCardId),
     uniqueIndex("character_cards_unique").on(t.characterId, t.cardId),
     // At most one weapon per character per slot.
     uniqueIndex("character_cards_weapon_slot_unique")

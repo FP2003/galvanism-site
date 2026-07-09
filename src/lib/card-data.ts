@@ -15,6 +15,7 @@ import {
   effectSummary,
   isPersistentEffect,
   isWeaponSubcategory,
+  isModCategory,
 } from "./cards";
 import type { WeaponSlotName } from "./cards";
 import { clampResource } from "./ledger";
@@ -30,25 +31,59 @@ export interface OwnedCard {
   assignmentId: string; // character_cards.id
   equipped: boolean;
   weaponSlot: WeaponSlotName | null;
+  installedOnAssignmentId: string | null; // set iff a mod installed on a weapon assignment
   card: CardWithEffects;
 }
 
 /**
- * Splits owned cards into weapon-subcategory (rifle/pistol/melee — these use
- * the primary/secondary/tertiary slot system) vs. everything else, which
- * keeps using the plain equipped/inventory toggle. Shared by the Case File
- * Loadout and the admin per-character card assignment panel.
+ * Splits owned cards three ways: weapon-subcategory (rifle/pistol/melee —
+ * these use the primary/secondary/tertiary slot system), firearm_mod/melee_mod
+ * (these install onto a weapon instead of using either toggle), and
+ * everything else, which keeps using the plain equipped/inventory toggle.
+ * Shared by the Case File Loadout and the admin per-character card
+ * assignment panel.
  */
 export function partitionByWeapon(owned: OwnedCard[]): {
   weapons: OwnedCard[];
+  mods: OwnedCard[];
   rest: OwnedCard[];
 } {
   const weapons: OwnedCard[] = [];
+  const mods: OwnedCard[] = [];
   const rest: OwnedCard[] = [];
   for (const o of owned) {
-    (isWeaponSubcategory(o.card.subcategory) ? weapons : rest).push(o);
+    if (isWeaponSubcategory(o.card.subcategory)) {
+      weapons.push(o);
+    } else if (isModCategory(o.card.category)) {
+      mods.push(o);
+    } else {
+      rest.push(o);
+    }
   }
-  return { weapons, rest };
+  return { weapons, mods, rest };
+}
+
+/**
+ * Groups a character's owned mods by the weapon assignment they're installed
+ * on. `uninstalled` holds mods not yet placed on any weapon. Callers pass the
+ * `mods` bucket from {@link partitionByWeapon}.
+ */
+export function groupInstalledMods(mods: OwnedCard[]): {
+  byHost: Map<string, OwnedCard[]>;
+  uninstalled: OwnedCard[];
+} {
+  const byHost = new Map<string, OwnedCard[]>();
+  const uninstalled: OwnedCard[] = [];
+  for (const m of mods) {
+    if (!m.installedOnAssignmentId) {
+      uninstalled.push(m);
+      continue;
+    }
+    const list = byHost.get(m.installedOnAssignmentId) ?? [];
+    list.push(m);
+    byHost.set(m.installedOnAssignmentId, list);
+  }
+  return { byHost, uninstalled };
 }
 
 /** Every card definition, newest first — for the admin library + assign picker. */
@@ -120,6 +155,7 @@ export async function getCharacterCards(
     assignmentId: r.id,
     equipped: r.equipped,
     weaponSlot: r.weaponSlot,
+    installedOnAssignmentId: r.installedOnCharacterCardId,
     card: r.card,
   }));
 }
@@ -257,6 +293,27 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
       category: o.card.category,
       text: o.card.descriptiveText!,
     }));
+
+  // Mods carry no card_effects (character stats are untouched by design —
+  // they only alter their host weapon's displayed stat line, see
+  // lib/weapons.ts computeWeaponProfile). Their descriptive text (EP
+  // penalties, ACC, SHOCK, ...) surfaces here only while the host weapon is
+  // equipped, so the DM-adjudicated line is visible on the Case File.
+  const { byHost } = groupInstalledMods(
+    owned.filter((o) => isModCategory(o.card.category)),
+  );
+  for (const host of equipped) {
+    const installed = byHost.get(host.assignmentId);
+    if (!installed) continue;
+    for (const mod of installed) {
+      if (!mod.card.descriptiveText) continue;
+      descriptiveEffects.push({
+        cardTitle: `${mod.card.title} (on ${host.card.title})`,
+        category: mod.card.category,
+        text: mod.card.descriptiveText,
+      });
+    }
+  }
 
   return {
     owned,

@@ -50,6 +50,11 @@ export const CARD_CATEGORY_META: Record<CardCategory, CardCategoryMeta> = {
   // title bar ("ABILITY"/"ITEM") does the distinguishing.
   ability: { label: "Ability", color: "#1481ba", icon: "ability" },
   item: { label: "Item", color: "#1481ba", icon: "item" },
+  // Weapon customisation — each echoes its host weapon family's accent
+  // (ITEM_SUBCATEGORY_META rifle/pistol Brass Ochre, melee Oxblood) so
+  // compatibility reads at a glance in the library.
+  firearm_mod: { label: "Firearm Mod", color: "#8a6d1f", icon: "firearm_mod" },
+  melee_mod: { label: "Melee Mod", color: "#7d4a33", icon: "melee_mod" },
 };
 
 export const CARD_CATEGORIES = Object.keys(
@@ -91,6 +96,13 @@ export function isWeaponSubcategory(
   s: ItemSubcategory | null | undefined,
 ): s is "rifle" | "pistol" | "melee" {
   return s === "rifle" || s === "pistol" || s === "melee";
+}
+
+/** Weapon-customisation categories — install onto a weapon, never equipped themselves. */
+export function isModCategory(
+  c: CardCategory,
+): c is "firearm_mod" | "melee_mod" {
+  return c === "firearm_mod" || c === "melee_mod";
 }
 
 export const WEAPON_HANDEDNESS_LABELS: Record<WeaponHandedness, string> = {
@@ -182,6 +194,8 @@ export const CARD_TEXT_LIMITS = {
   damageAbs: 999,
   rangeAbs: 999,
   ammoCountAbs: 999,
+  modSlotsMax: 6,
+  modDeltaAbs: 999,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -225,6 +239,30 @@ export interface CardEffectFields {
 export function effectSummary(effect: CardEffectFields): string {
   const sign = effect.effectAmount >= 0 ? "+" : "−";
   return `${sign}${Math.abs(effect.effectAmount)} ${targetLabel(effect.effectTarget)}`;
+}
+
+/** A mod card's structured weapon deltas (firearm_mod/melee_mod only). */
+export interface ModDeltaFields {
+  modDamageDelta: number | null;
+  modRangeDelta: number | null;
+  modAddedDamageType: WeaponDamageType | null;
+}
+
+/** e.g. ["+2 DMG", "−15M Range", "+Electric"] for a mod card's face/rows. */
+export function modDeltaSummary(card: ModDeltaFields): string[] {
+  const lines: string[] = [];
+  if (card.modDamageDelta) {
+    const sign = card.modDamageDelta >= 0 ? "+" : "−";
+    lines.push(`${sign}${Math.abs(card.modDamageDelta)} DMG`);
+  }
+  if (card.modRangeDelta) {
+    const sign = card.modRangeDelta >= 0 ? "+" : "−";
+    lines.push(`${sign}${Math.abs(card.modRangeDelta)}M Range`);
+  }
+  if (card.modAddedDamageType) {
+    lines.push(`+${WEAPON_DAMAGE_TYPE_LABELS[card.modAddedDamageType]}`);
+  }
+  return lines;
 }
 
 /**

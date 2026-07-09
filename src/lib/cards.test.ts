@@ -9,6 +9,8 @@ import {
   cardAccent,
   isHexColor,
   isWeaponSubcategory,
+  isModCategory,
+  modDeltaSummary,
   CARD_CATEGORY_META,
   ITEM_SUBCATEGORY_META,
   type CardEffectFields,
@@ -259,5 +261,71 @@ describe("isWeaponSubcategory", () => {
   it("rejects null/undefined", () => {
     expect(isWeaponSubcategory(null)).toBe(false);
     expect(isWeaponSubcategory(undefined)).toBe(false);
+  });
+});
+
+describe("isModCategory", () => {
+  it("accepts firearm_mod and melee_mod", () => {
+    expect(isModCategory("firearm_mod")).toBe(true);
+    expect(isModCategory("melee_mod")).toBe(true);
+  });
+
+  it("rejects the ability/item/six colored categories", () => {
+    expect(isModCategory("item")).toBe(false);
+    expect(isModCategory("ability")).toBe(false);
+    expect(isModCategory("mod")).toBe(false);
+    expect(isModCategory("combat")).toBe(false);
+  });
+});
+
+describe("modDeltaSummary", () => {
+  it("formats a positive damage delta", () => {
+    expect(
+      modDeltaSummary({
+        modDamageDelta: 2,
+        modRangeDelta: null,
+        modAddedDamageType: null,
+      }),
+    ).toEqual(["+2 DMG"]);
+  });
+
+  it("formats a negative range delta", () => {
+    expect(
+      modDeltaSummary({
+        modDamageDelta: null,
+        modRangeDelta: -15,
+        modAddedDamageType: null,
+      }),
+    ).toEqual(["−15M Range"]);
+  });
+
+  it("formats an added damage type", () => {
+    expect(
+      modDeltaSummary({
+        modDamageDelta: null,
+        modRangeDelta: null,
+        modAddedDamageType: "electric",
+      }),
+    ).toEqual(["+Electric"]);
+  });
+
+  it("combines all three in order", () => {
+    expect(
+      modDeltaSummary({
+        modDamageDelta: -2,
+        modRangeDelta: 15,
+        modAddedDamageType: "electric",
+      }),
+    ).toEqual(["−2 DMG", "+15M Range", "+Electric"]);
+  });
+
+  it("returns an empty array with no deltas set", () => {
+    expect(
+      modDeltaSummary({
+        modDamageDelta: null,
+        modRangeDelta: null,
+        modAddedDamageType: null,
+      }),
+    ).toEqual([]);
   });
 });
