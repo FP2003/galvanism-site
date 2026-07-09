@@ -22,6 +22,7 @@ import {
   WEAPON_DAMAGE_TYPES,
   WEAPON_DAMAGE_TYPE_LABELS,
   isWeaponSubcategory,
+  isModCategory,
   targetsFor,
   TRIGGER_LABELS,
   type CardActivation,
@@ -30,6 +31,7 @@ import {
   type CardTrigger,
   type ItemSubcategory,
   type WeaponHandedness,
+  type WeaponDamageType,
 } from "@/lib/cards";
 import { createCard, updateCard, type FormState } from "@/app/admin/card-actions";
 import type { CardWithEffects } from "@/lib/schema";
@@ -141,10 +143,15 @@ export function CardForm({
   // than a structured effect, so switching into "item" starts from a blank
   // effect list instead of the usual pre-seeded row — and switching back out
   // restores it, but only if the DM hasn't already started filling it in.
+  // Mod cards (firearm_mod/melee_mod) never carry mechanical effects at all —
+  // they use the weapon-delta fieldset instead — so the same blank-on-in,
+  // restore-on-out rule applies to them.
   function handleCategoryChange(next: CardCategory) {
-    if (next === "item" && category !== "item") {
+    const leavingBlankable = category === "item" || isModCategory(category);
+    const enteringBlankable = next === "item" || isModCategory(next);
+    if (enteringBlankable && !leavingBlankable) {
       setEffects([]);
-    } else if (next !== "item" && category === "item" && effects.length === 0) {
+    } else if (!enteringBlankable && leavingBlankable && effects.length === 0) {
       setEffects([defaultEffectRow()]);
     }
     setCategory(next);
@@ -357,6 +364,80 @@ export function CardForm({
                   />
                 )}
               </Field>
+              <Field
+                label="Mod slots"
+                hint="How many Firearm/Melee Mods can be installed on this weapon."
+              >
+                {(id) => (
+                  <TextInput
+                    id={id}
+                    name="modSlots"
+                    type="number"
+                    min={0}
+                    max={CARD_TEXT_LIMITS.modSlotsMax}
+                    inputMode="numeric"
+                    defaultValue={card?.modSlots ?? ""}
+                    placeholder="2"
+                  />
+                )}
+              </Field>
+            </div>
+          </fieldset>
+        )}
+
+        {isModCategory(category) && (
+          <fieldset className="flex flex-col gap-4">
+            <legend className="mb-1 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
+              Mod deltas
+            </legend>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field label="Damage delta" hint="Signed whole number, e.g. +2 or −2.">
+                {(id) => (
+                  <TextInput
+                    id={id}
+                    name="modDamageDelta"
+                    type="number"
+                    max={CARD_TEXT_LIMITS.modDeltaAbs}
+                    min={-CARD_TEXT_LIMITS.modDeltaAbs}
+                    inputMode="numeric"
+                    defaultValue={card?.modDamageDelta ?? ""}
+                    placeholder="+2"
+                  />
+                )}
+              </Field>
+              <Field label="Range delta" hint="Meters, signed whole number.">
+                {(id) => (
+                  <TextInput
+                    id={id}
+                    name="modRangeDelta"
+                    type="number"
+                    max={CARD_TEXT_LIMITS.modDeltaAbs}
+                    min={-CARD_TEXT_LIMITS.modDeltaAbs}
+                    inputMode="numeric"
+                    defaultValue={card?.modRangeDelta ?? ""}
+                    placeholder="+15"
+                  />
+                )}
+              </Field>
+              <Field
+                label="Added damage type"
+                hint="Appends onto the host weapon's existing damage type."
+              >
+                {(id) => (
+                  <Select
+                    id={id}
+                    name="modAddedDamageType"
+                    defaultValue={card?.modAddedDamageType ?? ""}
+                  >
+                    <option value="">None</option>
+                    {WEAPON_DAMAGE_TYPES.map((d) => (
+                      <option key={d} value={d}>
+                        {WEAPON_DAMAGE_TYPE_LABELS[d as WeaponDamageType]}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
             </div>
           </fieldset>
         )}
@@ -381,35 +462,37 @@ export function CardForm({
             )}
           </Field>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <span className={fieldLabelClass}>Mechanical effects</span>
-              <button
-                type="button"
-                onClick={addEffect}
-                disabled={effects.length >= CARD_TEXT_LIMITS.effectsMax}
-                className="flex items-center gap-1 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:text-case-file-white disabled:opacity-40"
-              >
-                <Plus size={13} aria-hidden="true" /> Add effect
-              </button>
+          {!isModCategory(category) && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <span className={fieldLabelClass}>Mechanical effects</span>
+                <button
+                  type="button"
+                  onClick={addEffect}
+                  disabled={effects.length >= CARD_TEXT_LIMITS.effectsMax}
+                  className="flex items-center gap-1 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:text-case-file-white disabled:opacity-40"
+                >
+                  <Plus size={13} aria-hidden="true" /> Add effect
+                </button>
+              </div>
+
+              {effects.length === 0 && (
+                <p className="text-xs text-muted-ink">
+                  No mechanical effects — this card is descriptive only.
+                </p>
+              )}
+
+              {effects.map((row, i) => (
+                <EffectRowFields
+                  key={i}
+                  row={row}
+                  index={i}
+                  onChange={(patch) => updateEffect(i, patch)}
+                  onRemove={() => removeEffect(i)}
+                />
+              ))}
             </div>
-
-            {effects.length === 0 && (
-              <p className="text-xs text-muted-ink">
-                No mechanical effects — this card is descriptive only.
-              </p>
-            )}
-
-            {effects.map((row, i) => (
-              <EffectRowFields
-                key={i}
-                row={row}
-                index={i}
-                onChange={(patch) => updateEffect(i, patch)}
-                onRemove={() => removeEffect(i)}
-              />
-            ))}
-          </div>
+          )}
 
           <input type="hidden" name="effects" value={JSON.stringify(effects)} />
         </fieldset>

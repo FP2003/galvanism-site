@@ -13,9 +13,11 @@ import {
   Target,
   Radar,
   Layers,
+  Focus,
+  Anvil,
   type LucideIcon,
 } from "lucide-react";
-import type { CardWithEffects } from "@/lib/schema";
+import type { Card, CardWithEffects } from "@/lib/schema";
 import { Markdown } from "@/components/ui/markdown";
 import {
   CARD_CATEGORY_META,
@@ -24,10 +26,13 @@ import {
   cardAccent,
   effectSummary,
   isWeaponSubcategory,
+  isModCategory,
+  modDeltaSummary,
   toRoman,
   TRIGGER_LABELS,
 } from "@/lib/cards";
 import type { ItemSubcategory } from "@/lib/cards";
+import { computeWeaponProfile, type InstalledModFields } from "@/lib/weapons";
 
 /*
  * GameCard — web recreation of the physical card designs (info/card_design/).
@@ -45,6 +50,8 @@ const ICONS: Record<string, LucideIcon> = {
   tech: Cpu,
   ability: Sparkles,
   item: Package,
+  firearm_mod: Focus,
+  melee_mod: Anvil,
 };
 
 // Item cards additionally key off subcategory for a more specific icon.
@@ -62,18 +69,40 @@ const CARD_CLIP =
   "polygon(7% 0, 100% 0, 100% 93%, 93% 100%, 0 100%, 0 7%)";
 const BODY_CLIP = "polygon(6% 0, 100% 0, 100% 100%, 0 100%, 0 6%)";
 
+// The mod info a weapon card needs to render its Installed Mods box — the
+// delta fields (WeaponStatGrid's effective-stat math) plus a title (the box
+// names each mod, unlike the stat grid which only needs the numbers).
+type ModCardFields = Pick<
+  Card,
+  "title" | "modDamageDelta" | "modRangeDelta" | "modAddedDamageType"
+>;
+
+// Tints `hex` toward transparent — used to derive the Installed Mods box's
+// background from the card's own accent so it reads as "this weapon's mods"
+// rather than a generic panel, without needing a second color per category.
+function tint(hex: string, alpha: number): string {
+  return `color-mix(in srgb, ${hex} ${Math.round(alpha * 100)}%, transparent)`;
+}
+
 export function GameCard({
   card,
   menu,
+  mods = [],
 }: {
   card: CardWithEffects;
   /** Optional corner control (e.g. the admin library's action menu). Rendered
    *  in-flow next to the title, not overlaid, so it can never cover it. */
   menu?: React.ReactNode;
+  /** Mods installed on this weapon (weapon customisation). When given, the
+   *  stat grid shows effective damage/range/type and an Installed Mods box
+   *  appears at the bottom of the body listing each one. Ignored for
+   *  non-weapon cards. */
+  mods?: ModCardFields[];
 }) {
   const meta = CARD_CATEGORY_META[card.category];
   const accent = cardAccent(card.category, card.colorOverride, card.subcategory);
   const isItemWithSubcategory = card.category === "item" && card.subcategory;
+  const isMod = isModCategory(card.category);
   const Icon = isItemWithSubcategory
     ? SUBCATEGORY_ICONS[card.subcategory!]
     : ICONS[meta.icon] ?? Sparkles;
@@ -117,6 +146,11 @@ export function GameCard({
             {ITEM_SUBCATEGORY_META[card.subcategory!].label}
           </span>
         )}
+        {isMod && (
+          <span className="bg-void-navy px-2 py-0.5 text-[0.5625rem] font-semibold uppercase tracking-[0.14em] text-signal-cyan">
+            {meta.label}
+          </span>
+        )}
       </div>
 
       {/* Body */}
@@ -125,7 +159,17 @@ export function GameCard({
         style={{ clipPath: BODY_CLIP }}
       >
         <div className="flex h-full flex-col gap-2 overflow-y-auto">
-          {isWeapon && <WeaponStatGrid card={card} />}
+          {isWeapon && <WeaponStatGrid card={card} mods={mods} />}
+
+          {isMod &&
+            modDeltaSummary(card).map((line) => (
+              <p
+                key={line}
+                className="font-[family-name:var(--font-jetbrains)] text-sm font-semibold text-signal-cyan"
+              >
+                {line}
+              </p>
+            ))}
 
           {card.description && (
             <Markdown className="text-pretty font-[family-name:var(--font-inter)] text-xs leading-relaxed text-muted-ink">
@@ -153,6 +197,15 @@ export function GameCard({
               {card.descriptiveText}
             </Markdown>
           )}
+
+          {isWeapon && mods.length > 0 && (
+            <InstalledModsBox
+              mods={mods}
+              modSlots={card.modSlots}
+              accent={accent}
+              className="mt-auto"
+            />
+          )}
         </div>
       </div>
 
@@ -161,6 +214,59 @@ export function GameCard({
         {toRoman(card.level)}
       </span>
     </article>
+  );
+}
+
+// Installed mods (weapon customisation), boxed in a single scrollable row at
+// the bottom of the card — a fixed one-line footprint regardless of how many
+// mods are installed, so a heavily-modded weapon's card never grows taller
+// than an unmodded one and distorts the surrounding grid. Tinted with the
+// card's own accent (via `tint`) rather than a fixed color so it reads as
+// "this weapon's mods" without adding a third color per category.
+function InstalledModsBox({
+  mods,
+  modSlots,
+  accent,
+  className = "",
+}: {
+  mods: ModCardFields[];
+  modSlots: number | null;
+  accent: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex flex-col gap-1 ${className}`}>
+      <span className="text-[0.5625rem] font-semibold uppercase tracking-[0.14em] text-muted-ink">
+        Mods{modSlots ? ` ${mods.length}/${modSlots}` : ""}
+      </span>
+      <div
+        className="grid auto-cols-fr grid-flow-col gap-px overflow-x-auto"
+        style={{ backgroundColor: tint(accent, 0.4) }}
+      >
+        {mods.map((mod, i) => {
+          const deltas = modDeltaSummary(mod);
+          return (
+            <div
+              key={`${mod.title}-${i}`}
+              className="flex min-w-[4.5rem] flex-col items-center justify-center gap-0.5 px-1.5 py-2 text-center"
+              style={{ backgroundColor: tint(accent, 0.14) }}
+            >
+              <span className="line-clamp-2 text-[0.5625rem] font-semibold uppercase leading-tight tracking-[0.04em] text-case-file-white">
+                {mod.title}
+              </span>
+              {deltas.map((line) => (
+                <span
+                  key={line}
+                  className="font-[family-name:var(--font-jetbrains)] text-[0.5625rem] font-semibold leading-none text-signal-cyan"
+                >
+                  {line}
+                </span>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -176,16 +282,47 @@ interface WeaponStatCell {
   value: string | number;
   label?: string;
   tone?: "cyan" | "red";
+  /** e.g. "(+2)" — a mod-driven delta shown next to the effective value. */
+  delta?: string;
 }
 
-function WeaponStatGrid({ card }: { card: CardWithEffects }) {
+// e.g. 2 -> "(+2)", -15 -> "(−15)".
+function formatDelta(n: number): string {
+  return n >= 0 ? `(+${n})` : `(−${Math.abs(n)})`;
+}
+
+function WeaponStatGrid({
+  card,
+  mods = [],
+}: {
+  card: CardWithEffects;
+  mods?: InstalledModFields[];
+}) {
+  const profile = computeWeaponProfile(
+    { damage: card.damage, range: card.range, damageType: card.damageType },
+    mods,
+  );
+  const damageTypeLabel = profile.damageTypes
+    .map((t) => WEAPON_DAMAGE_TYPE_LABELS[t])
+    .join(" + ");
+
   const cells: (WeaponStatCell | null)[] = [
-    { key: "dmg", value: card.damage ?? "—", label: "Dmg", tone: "red" },
-    card.damageType
-      ? { key: "type", value: WEAPON_DAMAGE_TYPE_LABELS[card.damageType], label: "Type" }
-      : null,
-    card.range != null
-      ? { key: "range", icon: Radar, value: `${card.range}M`, label: "Range" }
+    {
+      key: "dmg",
+      value: profile.damage,
+      label: "Dmg",
+      tone: "red",
+      delta: profile.damageDelta !== 0 ? formatDelta(profile.damageDelta) : undefined,
+    },
+    damageTypeLabel ? { key: "type", value: damageTypeLabel, label: "Type" } : null,
+    profile.range != null
+      ? {
+          key: "range",
+          icon: Radar,
+          value: `${profile.range}M`,
+          label: "Range",
+          delta: profile.rangeDelta !== 0 ? formatDelta(profile.rangeDelta) : undefined,
+        }
       : null,
     card.ammoCount != null
       ? { key: "rnds", icon: Layers, value: card.ammoCount, label: "Rnds" }
@@ -203,6 +340,7 @@ function WeaponStatGrid({ card }: { card: CardWithEffects }) {
           value={cell.value}
           label={cell.label}
           tone={cell.tone}
+          delta={cell.delta}
           className={
             i === visibleCells.length - 1 && visibleCells.length % 2 === 1
               ? "col-span-2"
@@ -223,12 +361,15 @@ function WeaponStat({
   value,
   label,
   tone = "cyan",
+  delta,
   className = "",
 }: {
   icon?: LucideIcon;
   value: string | number;
   label?: string;
   tone?: "cyan" | "red";
+  /** e.g. "(+2)" — a mod-driven delta shown next to the effective value. */
+  delta?: string;
   className?: string;
 }) {
   return (
@@ -243,12 +384,19 @@ function WeaponStat({
           aria-hidden="true"
         />
       )}
-      <span
-        className={`font-[family-name:var(--font-jetbrains)] text-base font-bold leading-none ${
-          tone === "red" ? "text-stamp-red" : "text-case-file-white"
-        }`}
-      >
-        {value}
+      <span className="flex items-baseline gap-1">
+        <span
+          className={`font-[family-name:var(--font-jetbrains)] text-base font-bold leading-none ${
+            tone === "red" ? "text-stamp-red" : "text-case-file-white"
+          }`}
+        >
+          {value}
+        </span>
+        {delta && (
+          <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] font-semibold leading-none text-signal-cyan">
+            {delta}
+          </span>
+        )}
       </span>
       {label && (
         <span className="text-[0.5rem] font-semibold uppercase tracking-[0.12em] text-muted-ink">

@@ -19,6 +19,7 @@ import {
   WEAPON_DAMAGE_TYPES,
   isHexColor,
   isWeaponSubcategory,
+  isModCategory,
   validateMechanicalEffect,
   type CardCategory,
   type CardActivation,
@@ -29,7 +30,7 @@ import {
   type WeaponHandedness,
   type WeaponDamageType,
 } from "@/lib/cards";
-import { validateWeaponFields } from "@/lib/weapons";
+import { validateWeaponFields, validateModFields } from "@/lib/weapons";
 import { parseSignedInt, type Result } from "@/lib/ledger";
 
 /*
@@ -161,6 +162,7 @@ export async function createCard(
   let damage: number | null = null;
   let range: number | null = null;
   let ammoCount: number | null = null;
+  let modSlots: number | null = null;
 
   if (categoryRaw === "item") {
     const subRaw = textField(formData, "subcategory") as ItemSubcategory;
@@ -180,6 +182,7 @@ export async function createCard(
       damage = optionalIntField(formData, "damage");
       range = optionalIntField(formData, "range");
       ammoCount = optionalIntField(formData, "ammoCount");
+      modSlots = optionalIntField(formData, "modSlots");
     }
 
     const weaponCheck = validateWeaponFields({
@@ -189,17 +192,46 @@ export async function createCard(
       damage,
       range,
       ammoCount,
+      modSlots,
     });
     if (!weaponCheck.ok) return { error: weaponCheck.error };
   }
 
+  // Mod fields (weapon customisation) — only ever read from formData when
+  // category is firearm_mod/melee_mod. optionalIntField's plain Number()
+  // parse handles the signed deltas fine; validateModFields checks
+  // integer-ness/non-zero/range.
+  let modDamageDelta: number | null = null;
+  let modRangeDelta: number | null = null;
+  let modAddedDamageType: WeaponDamageType | null = null;
+
+  if (isModCategory(categoryRaw)) {
+    if (effects.length > 0) {
+      return { error: "Mod cards use weapon deltas, not character effects." };
+    }
+    modDamageDelta = optionalIntField(formData, "modDamageDelta");
+    modRangeDelta = optionalIntField(formData, "modRangeDelta");
+    const addedTypeRaw = textField(formData, "modAddedDamageType") as WeaponDamageType;
+    modAddedDamageType = WEAPON_DAMAGE_TYPES.includes(addedTypeRaw) ? addedTypeRaw : null;
+  }
+
+  const modCheck = validateModFields({
+    category: categoryRaw,
+    modDamageDelta,
+    modRangeDelta,
+    modAddedDamageType,
+    descriptiveText,
+  });
+  if (!modCheck.ok) return { error: modCheck.error };
+
   // Weapons carry their own mechanical stat line (damage/range/ammo/handedness)
-  // on the card face, so unlike other cards they don't need an effect or
-  // descriptive blurb to not read as blank.
+  // on the card face, and mods are validated by validateModFields above, so
+  // neither needs an effect or descriptive blurb to not read as blank.
   if (
     effects.length === 0 &&
     !descriptiveText &&
-    !isWeaponSubcategory(subcategory)
+    !isWeaponSubcategory(subcategory) &&
+    !isModCategory(categoryRaw)
   ) {
     return { error: "Add at least one effect or some descriptive text." };
   }
@@ -218,6 +250,10 @@ export async function createCard(
     damage,
     range,
     ammoCount,
+    modSlots,
+    modDamageDelta,
+    modRangeDelta,
+    modAddedDamageType,
     createdByUserId: admin.id,
   };
 
@@ -315,6 +351,7 @@ export async function updateCard(
   let damage: number | null = null;
   let range: number | null = null;
   let ammoCount: number | null = null;
+  let modSlots: number | null = null;
 
   if (categoryRaw === "item") {
     const subRaw = textField(formData, "subcategory") as ItemSubcategory;
@@ -334,6 +371,7 @@ export async function updateCard(
       damage = optionalIntField(formData, "damage");
       range = optionalIntField(formData, "range");
       ammoCount = optionalIntField(formData, "ammoCount");
+      modSlots = optionalIntField(formData, "modSlots");
     }
 
     const weaponCheck = validateWeaponFields({
@@ -343,14 +381,39 @@ export async function updateCard(
       damage,
       range,
       ammoCount,
+      modSlots,
     });
     if (!weaponCheck.ok) return { error: weaponCheck.error };
   }
 
+  let modDamageDelta: number | null = null;
+  let modRangeDelta: number | null = null;
+  let modAddedDamageType: WeaponDamageType | null = null;
+
+  if (isModCategory(categoryRaw)) {
+    if (effects.length > 0) {
+      return { error: "Mod cards use weapon deltas, not character effects." };
+    }
+    modDamageDelta = optionalIntField(formData, "modDamageDelta");
+    modRangeDelta = optionalIntField(formData, "modRangeDelta");
+    const addedTypeRaw = textField(formData, "modAddedDamageType") as WeaponDamageType;
+    modAddedDamageType = WEAPON_DAMAGE_TYPES.includes(addedTypeRaw) ? addedTypeRaw : null;
+  }
+
+  const modCheck = validateModFields({
+    category: categoryRaw,
+    modDamageDelta,
+    modRangeDelta,
+    modAddedDamageType,
+    descriptiveText,
+  });
+  if (!modCheck.ok) return { error: modCheck.error };
+
   if (
     effects.length === 0 &&
     !descriptiveText &&
-    !isWeaponSubcategory(subcategory)
+    !isWeaponSubcategory(subcategory) &&
+    !isModCategory(categoryRaw)
   ) {
     return { error: "Add at least one effect or some descriptive text." };
   }
@@ -369,6 +432,10 @@ export async function updateCard(
     damage,
     range,
     ammoCount,
+    modSlots,
+    modDamageDelta,
+    modRangeDelta,
+    modAddedDamageType,
     updatedAt: new Date(),
   };
 
@@ -487,4 +554,31 @@ export async function unassignCard(
     revalidatePath(`/roster/${ref.slug}`);
   }
   return { ok: true, message: "Card removed from inventory." };
+}
+
+// Admin-only detach: returns an installed mod to its owner's uninstalled
+// inventory (weapon customisation is permanent for players — they can
+// install but never remove; only the DM can undo it at the table).
+export async function detachMod(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireAdmin();
+  const assignmentId = textField(formData, "assignmentId");
+  if (!assignmentId) return { error: "Missing assignment reference." };
+
+  const db = getDb();
+  const [row] = await db
+    .update(characterCards)
+    .set({ installedOnCharacterCardId: null })
+    .where(eq(characterCards.id, assignmentId))
+    .returning({ characterId: characterCards.characterId });
+  if (!row) return { error: "Assignment not found." };
+
+  const ref = await characterRefs(row.characterId);
+  if (ref) {
+    revalidatePath(`/admin/players/${ref.playerId}`);
+    revalidatePath(`/roster/${ref.slug}`);
+  }
+  return { ok: true, message: "Mod detached and returned to inventory." };
 }

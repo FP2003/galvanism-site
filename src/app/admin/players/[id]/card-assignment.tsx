@@ -8,14 +8,16 @@ import { Select, FormMessage } from "@/components/ui/form";
 import { EquipToggleButton } from "@/components/cards/equip-toggle";
 import {
   effectSummary,
+  modDeltaSummary,
   CARD_CATEGORY_META,
   WEAPON_DAMAGE_TYPE_LABELS,
 } from "@/lib/cards";
 import type { Card } from "@/lib/schema";
-import { partitionByWeapon, type OwnedCard } from "@/lib/card-data";
+import { partitionByWeapon, groupInstalledMods, type OwnedCard } from "@/lib/card-data";
 import {
   assignCard,
   unassignCard,
+  detachMod,
   type FormState,
 } from "@/app/admin/card-actions";
 import { setCardEquipped, setWeaponSlot, type SheetState } from "@/app/roster/actions";
@@ -81,11 +83,22 @@ export function CardAssignment({
 
       {owned.length > 0 &&
         (() => {
-          const { weapons, rest } = partitionByWeapon(owned);
+          const { weapons, mods, rest } = partitionByWeapon(owned);
+          const { byHost } = groupInstalledMods(mods);
+          const hostTitle = (assignmentId: string) =>
+            weapons.find((w) => w.assignmentId === assignmentId)?.card.title ?? "—";
           return (
             <ul className="flex flex-col divide-y divide-elevated-ledger border-y border-elevated-ledger">
               {weapons.map((o) => (
-                <WeaponRow key={o.assignmentId} characterId={characterId} owned={o} />
+                <WeaponRow
+                  key={o.assignmentId}
+                  characterId={characterId}
+                  owned={o}
+                  installedModCount={byHost.get(o.assignmentId)?.length ?? 0}
+                />
+              ))}
+              {mods.map((o) => (
+                <ModRow key={o.assignmentId} owned={o} hostTitle={hostTitle} />
               ))}
               {rest.map((o) => (
                 <OwnedRow key={o.assignmentId} characterId={characterId} owned={o} />
@@ -103,9 +116,11 @@ export function CardAssignment({
 function WeaponRow({
   characterId,
   owned,
+  installedModCount,
 }: {
   characterId: string;
   owned: OwnedCard;
+  installedModCount: number;
 }) {
   const [, slotAction] = useActionState<SheetState, FormData>(setWeaponSlot, {});
   const [, removeAction] = useActionState<FormState, FormData>(unassignCard, {});
@@ -130,6 +145,7 @@ function WeaponRow({
           {card.damageType && ` · ${WEAPON_DAMAGE_TYPE_LABELS[card.damageType]}`}
           {card.range != null && ` · ${card.range}M`}
           {card.handedness === "two_handed" ? " · 2H" : " · 1H"}
+          {card.modSlots ? ` · Mods ${installedModCount}/${card.modSlots}` : ""}
         </p>
       </div>
 
@@ -162,6 +178,72 @@ function WeaponRow({
         </IconButton>
       </form>
     </li>
+  );
+}
+
+// A firearm_mod/melee_mod row. Mods have no equip toggle — installation
+// (permanent for players) is their only "active" state, and only an admin can
+// undo it. `hostTitle` resolves installedOnAssignmentId to the host weapon's
+// title for display.
+function ModRow({
+  owned,
+  hostTitle,
+}: {
+  owned: OwnedCard;
+  hostTitle: (assignmentId: string) => string;
+}) {
+  const [, detachAction] = useActionState<FormState, FormData>(detachMod, {});
+  const [, removeAction] = useActionState<FormState, FormData>(unassignCard, {});
+  const { card } = owned;
+  const deltas = modDeltaSummary(card);
+
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
+          {card.title}
+        </p>
+        <p className="truncate font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+          {CARD_CATEGORY_META[card.category].label}
+          {deltas.length > 0 ? ` · ${deltas.join(" · ")}` : ""}
+        </p>
+      </div>
+
+      {owned.installedOnAssignmentId ? (
+        <form action={detachAction} className="flex items-center gap-2">
+          <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+          <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan">
+            On {hostTitle(owned.installedOnAssignmentId)}
+          </span>
+          <DetachButton />
+        </form>
+      ) : (
+        <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
+          Uninstalled
+        </span>
+      )}
+
+      <form action={removeAction}>
+        <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+        <IconButton label={`Remove ${card.title}`} tone="danger">
+          <X size={14} aria-hidden="true" />
+        </IconButton>
+      </form>
+    </li>
+  );
+}
+
+function DetachButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="border border-elevated-ledger px-2 py-1.5 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-ink transition-colors hover:border-stamp-red hover:text-stamp-red disabled:opacity-60 pointer-coarse:min-h-11"
+    >
+      {pending ? "…" : "Detach"}
+    </button>
   );
 }
 
