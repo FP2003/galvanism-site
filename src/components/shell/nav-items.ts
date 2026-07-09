@@ -5,6 +5,7 @@ import {
   Factory,
   Vote,
   BookUser,
+  IdCard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -27,3 +28,36 @@ export const navItems: NavItem[] = [
   { label: "Ballots", icon: Vote, href: "/ballots" },
   { label: "Registry", icon: BookUser, phase: "Phase 8" },
 ];
+
+// Players get a "My Case File" shortcut to their own operator sheet, slotted in
+// right after Command. It's viewer-specific (depends on the signed-in player's
+// character slug), so the shell computes the href server-side and passes it in;
+// admins and not-yet-enlisted players pass null and see the base nav unchanged.
+export function buildNavItems(myCaseFileHref: string | null): NavItem[] {
+  if (!myCaseFileHref) return navItems;
+  const [command, ...rest] = navItems;
+  return [
+    command,
+    { label: "My Case File", icon: IdCard, href: myCaseFileHref },
+    ...rest,
+  ];
+}
+
+// Shared active-state rule for the sidebar and mobile nav. The "My Case File"
+// href lives under /roster/, so Roster's prefix match would otherwise also light
+// up on the viewer's own sheet — this keeps exactly one item active there.
+export function isNavActive(
+  item: NavItem,
+  pathname: string,
+  myCaseFileHref: string | null,
+): boolean {
+  if (!item.href) return false;
+  if (item.href === "/") return pathname === "/";
+  if (item.href === "/roster") {
+    return pathname.startsWith("/roster") && pathname !== myCaseFileHref;
+  }
+  if (myCaseFileHref && item.href === myCaseFileHref) {
+    return pathname === myCaseFileHref;
+  }
+  return pathname.startsWith(item.href);
+}

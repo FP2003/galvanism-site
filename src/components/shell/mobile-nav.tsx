@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navItems } from "./nav-items";
+import { buildNavItems, isNavActive } from "./nav-items";
 
 // Mobile nav (<md): a horizontally scrollable row under the top bar. Disabled
 // (phase-gated) items are omitted here to keep the row scannable on small screens.
-export function MobileNav() {
+export function MobileNav({ myCaseFileHref }: { myCaseFileHref: string | null }) {
   const pathname = usePathname();
-  const live = navItems.filter((i) => i.href);
+  const live = buildNavItems(myCaseFileHref).filter((i) => i.href);
 
   return (
     <nav
@@ -18,8 +18,7 @@ export function MobileNav() {
       {live.map((item) => {
         const Icon = item.icon;
         const href = item.href!;
-        const active =
-          href === "/" ? pathname === "/" : pathname.startsWith(href);
+        const active = isNavActive(item, pathname, myCaseFileHref);
         return (
           <Link
             key={item.label}

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { navItems } from "./nav-items";
+import { buildNavItems, isNavActive } from "./nav-items";
 
 // Desktop rail (md+). Icon-only at md, icon+label at lg. Active item is a full
 // tonal fill + cyan text — never a colored side-stripe (DESIGN.md §5 / Don'ts).
-export function Sidebar() {
+export function Sidebar({ myCaseFileHref }: { myCaseFileHref: string | null }) {
   const pathname = usePathname();
+  const items = buildNavItems(myCaseFileHref);
 
   return (
     <nav
@@ -15,13 +16,9 @@ export function Sidebar() {
       className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] shrink-0 flex-col justify-between border-r border-ledger-teal bg-void-navy md:flex md:w-16 lg:w-56"
     >
       <ul className="flex flex-col gap-0.5 p-2">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
-          const active =
-            item.href &&
-            (item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href));
+          const active = isNavActive(item, pathname, myCaseFileHref);
 
           if (!item.href) {
             return (
