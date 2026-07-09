@@ -2,7 +2,7 @@ import { LogIn } from "lucide-react";
 import { BrandMark } from "@/components/brand-mark";
 import { ButtonLink } from "@/components/ui/button";
 import { CommandDashboard } from "@/components/command-dashboard";
-import { operators, missions, facilityProcesses } from "@/lib/mock-data";
+import { operators, missions, facilityProcesses, openBallots } from "@/lib/mock-data";
 
 // Public, unauthenticated tour of the Ops Terminal using sample fixtures. Linked
 // from the sign-in page. No sidebar/case-file links here — those are auth-gated,
@@ -43,6 +43,7 @@ export default function PreviewPage() {
           operators={operators}
           missions={missions}
           facilityProcesses={facilityProcesses}
+          ballots={openBallots}
           linkOperators={false}
         />
       </main>

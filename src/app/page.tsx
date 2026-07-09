@@ -7,21 +7,27 @@ import { requireUser } from "@/lib/auth";
 import { getRosterViews, getViewerCharacterState } from "@/lib/characters";
 import { getMissionsForDashboard } from "@/lib/mission-data";
 import { getUnresolvedOngoingEntries } from "@/lib/facility-data";
+import { getBallotsForDashboard } from "@/lib/ballot-data";
+import { tallyVotes } from "@/lib/ballots";
 
-// Ops Terminal command overview (authenticated). Personnel, missions, and
-// facility processes are live data; the ballot panel remains mock pending its
-// own phase. Players without an approved character get an enlistment prompt
-// above the dashboard.
+// Ops Terminal command overview (authenticated). Personnel, missions,
+// facility processes, and the open-ballot panel are all live data. Players
+// without an approved character get an enlistment prompt above the dashboard.
 export default async function CommandPage() {
   const user = await requireUser();
-  const [operators, missions, facilityProcesses, viewer] = await Promise.all([
+  const [operators, missions, facilityProcesses, ballotRows, viewer] = await Promise.all([
     getRosterViews(),
     getMissionsForDashboard(),
     getUnresolvedOngoingEntries(),
+    getBallotsForDashboard(),
     user.role === "admin"
       ? Promise.resolve(null)
       : getViewerCharacterState(user.id),
   ]);
+  const ballots = ballotRows.map((b) => {
+    const { totalVotes, results } = tallyVotes(b.options, b.votes);
+    return { id: b.id, title: b.title, opsDeadline: b.opsDeadline, totalVotes, results };
+  });
 
   return (
     <AppShell>
@@ -78,7 +84,12 @@ export default async function CommandPage() {
         </div>
       )}
 
-      <CommandDashboard operators={operators} missions={missions} facilityProcesses={facilityProcesses} />
+      <CommandDashboard
+        operators={operators}
+        missions={missions}
+        facilityProcesses={facilityProcesses}
+        ballots={ballots}
+      />
     </AppShell>
   );
 }

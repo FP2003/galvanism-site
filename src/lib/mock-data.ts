@@ -166,23 +166,31 @@ export const facilityProcesses: FacilityProcess[] = [
   { facility: "Medical Center", label: "Trauma Bay Restock: 4 days" },
 ];
 
+// The subset of a ballot the dashboard renders, already tallied — matches
+// DashboardBallot (components/command-dashboard.tsx) so this fixture and a
+// live query+tallyVotes satisfy the same shape without a mapping step, same
+// convention as the `missions` fixtures above.
 export interface Ballot {
-  code: string;
+  id: string;
   title: string;
-  closes: string;
-  options: { label: string; votes: number }[];
+  opsDeadline: number | null;
+  totalVotes: number;
+  results: { optionId: string; label: string; votes: number; pct: number }[];
 }
 
-export const openBallot: Ballot = {
-  code: "BAL-0021",
-  title: "Next shared upgrade for the station",
-  closes: "Closes end of next session",
-  options: [
-    { label: "Barracks — 4th bunk", votes: 2 },
-    { label: "Upgrade Center — tier II bench", votes: 1 },
-    { label: "Armory — heavy weapons locker", votes: 0 },
-  ],
-};
+export const openBallots: Ballot[] = [
+  {
+    id: "BAL-0021",
+    title: "Next shared upgrade for the station",
+    opsDeadline: 3,
+    totalVotes: 3,
+    results: [
+      { optionId: "opt-1", label: "Barracks — 4th bunk", votes: 2, pct: 67 },
+      { optionId: "opt-2", label: "Upgrade Center — tier II bench", votes: 1, pct: 33 },
+      { optionId: "opt-3", label: "Armory — heavy weapons locker", votes: 0, pct: 0 },
+    ],
+  },
+];
 
 export const regiment = {
   designation: "REGIMENT FOXTROT",

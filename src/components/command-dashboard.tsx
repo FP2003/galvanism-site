@@ -3,7 +3,9 @@ import { ChevronRight, MapPin } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
 import { StatusLabel } from "@/components/ui/status-dot";
-import { openBallot, regiment, type MissionStatus } from "@/lib/mock-data";
+import { BallotTally } from "@/components/ballot-tally";
+import { regiment, type MissionStatus } from "@/lib/mock-data";
+import type { BallotOptionTally } from "@/lib/ballots";
 import { statusTone, statusWord, type CharacterStatus } from "@/lib/status";
 
 // The subset of a character the dashboard renders. Satisfied by both the live
@@ -48,28 +50,41 @@ export interface DashboardFacilityProcess {
   label: string;
 }
 
+// The subset of a ballot the dashboard renders — already tallied, matching
+// lib/ballots.ts's tallyVotes output, so a live query+tally and the mock
+// fixture (lib/mock-data.ts) satisfy this shape without a mapping step, same
+// convention as DashboardMission.
+export interface DashboardBallot {
+  id: string;
+  title: string;
+  opsDeadline: number | null;
+  totalVotes: number;
+  results: BallotOptionTally[];
+}
+
 /*
  * The Ops Terminal overview. Presentational — the caller supplies `operators`
  * (live roster on the authenticated `/`, mock fixtures on the public `/preview`),
- * `missions` (live non-terminal missions, or the same mock fixtures), and
- * `facilityProcesses` (live unresolved Ongoing entries, or mock fixtures).
- * The ballot is still mock pending its own phase. When `linkOperators` is
- * false (preview mode), operator rows are static so they don't lead into
- * auth-gated case files.
+ * `missions` (live non-terminal missions, or the same mock fixtures),
+ * `facilityProcesses` (live unresolved Ongoing entries, or mock fixtures),
+ * and `ballots` (live open ballots, soonest-to-close first, or mock
+ * fixtures). When `linkOperators` is false (preview mode), operator rows are
+ * static so they don't lead into auth-gated case files.
  */
 export function CommandDashboard({
   operators,
   missions,
   facilityProcesses,
+  ballots,
   linkOperators = true,
 }: {
   operators: DashboardOperator[];
   missions: DashboardMission[];
   facilityProcesses: DashboardFacilityProcess[];
+  ballots: DashboardBallot[];
   linkOperators?: boolean;
 }) {
   const activeCount = operators.filter((o) => o.status === "active").length;
-  const totalVotes = openBallot.options.reduce((n, o) => n + o.votes, 0);
 
   return (
     <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8">
@@ -267,43 +282,41 @@ export function CommandDashboard({
             title="Open Ballot"
             className="h-full"
             meta={
-              <StatusLabel tone="live" pulse>
-                Voting Open
-              </StatusLabel>
+              ballots.length > 0 && (
+                <StatusLabel tone="live" pulse>
+                  Voting Open
+                </StatusLabel>
+              )
             }
           >
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="font-[family-name:var(--font-chakra)] text-sm font-semibold text-case-file-white">
-                {openBallot.title}
+            {ballots.length === 0 ? (
+              <p className="py-8 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
+                No open ballots.
               </p>
-              <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
-                {openBallot.code}
-              </span>
-            </div>
-            <ul className="mt-4 flex flex-col gap-3">
-              {openBallot.options.map((opt) => (
-                <li key={opt.label}>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="truncate text-case-file-white">
-                      {opt.label}
-                    </span>
-                    <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
-                      {opt.votes} / {totalVotes}
-                    </span>
-                  </div>
-                  <Meter
-                    value={opt.votes}
-                    max={totalVotes || 1}
-                    label={`${opt.label}: ${opt.votes} of ${totalVotes} votes`}
-                    tone="steel"
-                    className="mt-1.5"
-                  />
-                </li>
-              ))}
-            </ul>
-            <p className="mt-4 border-t border-elevated-ledger pt-3 text-xs text-muted-ink">
-              {openBallot.closes}
-            </p>
+            ) : (
+              <>
+                <p className="font-[family-name:var(--font-chakra)] text-sm font-semibold text-case-file-white">
+                  {ballots[0].title}
+                </p>
+                <div className="mt-4">
+                  <BallotTally totalVotes={ballots[0].totalVotes} results={ballots[0].results} />
+                </div>
+                <p className="mt-4 border-t border-elevated-ledger pt-3 text-xs text-muted-ink">
+                  {ballots[0].opsDeadline != null
+                    ? `Closes in ${ballots[0].opsDeadline} op${ballots[0].opsDeadline === 1 ? "" : "s"}`
+                    : "No deadline — closed manually"}
+                </p>
+                {ballots.length > 1 && (
+                  <Link
+                    href="/ballots"
+                    className="mt-2 flex items-center gap-1 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:text-live-cyan"
+                  >
+                    +{ballots.length - 1} more ballot{ballots.length - 1 === 1 ? "" : "s"} open
+                    <ChevronRight size={13} aria-hidden="true" />
+                  </Link>
+                )}
+              </>
+            )}
           </Panel>
         </div>
 
