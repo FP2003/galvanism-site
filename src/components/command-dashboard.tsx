@@ -4,12 +4,12 @@ import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
 import { StatusLabel } from "@/components/ui/status-dot";
 import { BallotTally } from "@/components/ballot-tally";
-import { regiment, type MissionStatus } from "@/lib/mock-data";
+import { regiment } from "@/lib/mock-data";
 import type { BallotOptionTally } from "@/lib/ballots";
 import { statusTone, statusWord, type CharacterStatus } from "@/lib/status";
 
-// The subset of a character the dashboard renders. Satisfied by both the live
-// CharacterView (authenticated `/`) and the mock fixtures (public `/preview`).
+// The subset of a character the dashboard renders, satisfied by the live
+// CharacterView.
 export interface DashboardOperator {
   callsign: string;
   slug: string;
@@ -36,7 +36,7 @@ export interface DashboardMission {
   risk: "low" | "moderate" | "high" | "severe";
   payoutCredits: number;
   payoutXp: number;
-  status: MissionStatus;
+  status: "available" | "active" | "complete" | "failed";
   urgent: boolean;
   urgentDeadline: number | null;
 }
@@ -64,25 +64,20 @@ export interface DashboardBallot {
 
 /*
  * The Ops Terminal overview. Presentational — the caller supplies `operators`
- * (live roster on the authenticated `/`, mock fixtures on the public `/preview`),
- * `missions` (live non-terminal missions, or the same mock fixtures),
- * `facilityProcesses` (live unresolved Ongoing entries, or mock fixtures),
- * and `ballots` (live open ballots, soonest-to-close first, or mock
- * fixtures). When `linkOperators` is false (preview mode), operator rows are
- * static so they don't lead into auth-gated case files.
+ * (live roster), `missions` (live non-terminal missions), `facilityProcesses`
+ * (live unresolved Ongoing entries), and `ballots` (live open ballots,
+ * soonest-to-close first).
  */
 export function CommandDashboard({
   operators,
   missions,
   facilityProcesses,
   ballots,
-  linkOperators = true,
 }: {
   operators: DashboardOperator[];
   missions: DashboardMission[];
   facilityProcesses: DashboardFacilityProcess[];
   ballots: DashboardBallot[];
-  linkOperators?: boolean;
 }) {
   const activeCount = operators.filter((o) => o.status === "active").length;
 
@@ -169,31 +164,23 @@ export function CommandDashboard({
                         {statusWord[op.status]}
                       </StatusLabel>
                     </div>
-                    {linkOperators && (
-                      <span className="flex shrink-0 items-center font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
-                        <ChevronRight
-                          size={16}
-                          className="text-steel-blue transition-colors group-hover:text-signal-cyan"
-                          aria-hidden="true"
-                        />
-                      </span>
-                    )}
+                    <span className="flex shrink-0 items-center font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
+                      <ChevronRight
+                        size={16}
+                        className="text-steel-blue transition-colors group-hover:text-signal-cyan"
+                        aria-hidden="true"
+                      />
+                    </span>
                   </>
                 );
                 return (
                   <li key={op.slug}>
-                    {linkOperators ? (
-                      <Link
-                        href={`/roster/${op.slug}`}
-                        className="group flex items-center gap-4 border-b border-elevated-ledger px-5 py-3.5 transition-colors duration-150 last:border-b-0 hover:bg-elevated-ledger"
-                      >
-                        {rowInner}
-                      </Link>
-                    ) : (
-                      <div className="flex items-center gap-4 border-b border-elevated-ledger px-5 py-3.5 last:border-b-0">
-                        {rowInner}
-                      </div>
-                    )}
+                    <Link
+                      href={`/roster/${op.slug}`}
+                      className="group flex items-center gap-4 border-b border-elevated-ledger px-5 py-3.5 transition-colors duration-150 last:border-b-0 hover:bg-elevated-ledger"
+                    >
+                      {rowInner}
+                    </Link>
                   </li>
                 );
               })}

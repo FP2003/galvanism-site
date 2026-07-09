@@ -1,7 +1,5 @@
-import { Eye } from "lucide-react";
 import { SignIn } from "@clerk/nextjs";
 import { BrandMark } from "@/components/brand-mark";
-import { ButtonLink } from "@/components/ui/button";
 
 // Login gate. Accounts are admin-provisioned, so this is sign-in only — no
 // public sign-up. Clerk widget themed to the F.C.B. palette (info/website_idea.md).
@@ -44,16 +42,6 @@ export default function SignInPage() {
           },
         }}
       />
-
-      <div className="flex flex-col items-center gap-2">
-        <ButtonLink href="/preview" variant="secondary">
-          <Eye size={15} />
-          Preview with sample data
-        </ButtonLink>
-        <p className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
-          No login required · sample records only
-        </p>
-      </div>
     </main>
   );
 }

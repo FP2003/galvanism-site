@@ -34,7 +34,7 @@ export async function getMission(missionId: string) {
 }
 
 /** Non-terminal missions, urgent-first, for CommandDashboard's "Active
- *  Operations" panel (both the authenticated `/` and the mock `/preview`). */
+ *  Operations" panel. */
 export async function getMissionsForDashboard(limit = 5) {
   const db = getDb();
   return db.query.missions.findMany({
