@@ -24,6 +24,6 @@ export const navItems: NavItem[] = [
   { label: "Roster", icon: Users, href: "/roster" },
   { label: "Missions", icon: Crosshair, href: "/missions" },
   { label: "Facilities", icon: Factory, href: "/facilities" },
-  { label: "Ballots", icon: Vote, phase: "Phase 7" },
+  { label: "Ballots", icon: Vote, href: "/ballots" },
   { label: "Registry", icon: BookUser, phase: "Phase 8" },
 ];

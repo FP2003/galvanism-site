@@ -308,7 +308,7 @@ export function CommandDashboard({
         </div>
 
         <div className="lg:col-span-4">
-          <Panel title="Station Readout" className="h-full">
+          <Panel title="Station Info" className="h-full">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
               <ReadoutRow label="Designation" value={regiment.designation} />
               <ReadoutRow label="Sector" value={regiment.sector} />
