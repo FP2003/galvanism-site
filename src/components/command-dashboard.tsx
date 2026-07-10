@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight, MapPin } from "lucide-react";
 import { Panel } from "@/components/ui/panel";
+import { AsciiLogo } from "@/components/ui/ascii-logo";
 import { Meter } from "@/components/ui/meter";
 import { StatusLabel } from "@/components/ui/status-dot";
 import { BallotTally } from "@/components/ballot-tally";
@@ -107,6 +108,8 @@ export function CommandDashboard({
           <Readout label="Sector" value="S.F." suffix="ZONE 4" />
         </div>
       </div>
+
+      <AsciiLogo />
 
       {/* Row A: Personnel + Active Operations */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">

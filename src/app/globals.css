@@ -53,6 +53,15 @@
   }
 }
 
+@keyframes ascii-spin {
+  from {
+    transform: rotateY(0deg);
+  }
+  to {
+    transform: rotateY(360deg);
+  }
+}
+
 :root {
   color-scheme: dark;
 }
