@@ -5,6 +5,7 @@
  * here behind tests (lib/ledger.test.ts) and the server actions only
  * orchestrate I/O.
  */
+import { METERS_PER_EP } from "./game-rules";
 
 export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
@@ -105,6 +106,32 @@ export function clampResource(value: number, max: number): number {
   if (!Number.isFinite(value)) return 0;
   const m = Math.max(0, Math.floor(max));
   return Math.max(0, Math.min(m, Math.floor(value)));
+}
+
+/** Effective movement in meters: a free base plus METERS_PER_EP per Energy
+ *  point currently committed to it. Computed, never stored on its own. */
+export function movementMeters(base: number, epSpent: number): number {
+  const b = Math.max(0, Math.floor(base));
+  const spent = Math.max(0, Math.floor(epSpent));
+  return b + METERS_PER_EP * spent;
+}
+
+/**
+ * Clamps how much Energy is committed to movement so it never exceeds what's
+ * actually available: `energyCurrent + spent` must not exceed `energyMax`.
+ * Also floors at 0. Used both by the player's live resource tracker and the
+ * admin sheet, same "server clamps, client re-baselines" convention as
+ * {@link clampResource}.
+ */
+export function clampMovementSpend(
+  spent: number,
+  energyCurrent: number,
+  energyMax: number,
+): number {
+  const s = Math.max(0, Math.floor(Number.isFinite(spent) ? spent : 0));
+  const current = Math.max(0, Math.floor(Number.isFinite(energyCurrent) ? energyCurrent : 0));
+  const max = Math.max(0, Math.floor(energyMax));
+  return Math.max(0, Math.min(s, max - current));
 }
 
 /**

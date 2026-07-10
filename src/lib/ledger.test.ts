@@ -3,7 +3,9 @@ import {
   applyCreditsDelta,
   applyXpGrant,
   applyXpSpend,
+  clampMovementSpend,
   clampResource,
+  movementMeters,
   parseSignedInt,
   validateAttributeAllocation,
   MAX_CREDITS,
@@ -111,6 +113,42 @@ describe("clampResource", () => {
 
   it("treats non-finite input as zero", () => {
     expect(clampResource(NaN, 20)).toBe(0);
+  });
+});
+
+describe("movementMeters", () => {
+  it("returns the base with no EP spent", () => {
+    expect(movementMeters(6, 0)).toBe(6);
+  });
+
+  it("adds 2m per EP spent", () => {
+    expect(movementMeters(6, 3)).toBe(12);
+  });
+
+  it("floors fractional inputs", () => {
+    expect(movementMeters(6.9, 1.9)).toBe(6 + 2 * 1);
+  });
+});
+
+describe("clampMovementSpend", () => {
+  it("passes through a spend that leaves room in the pool", () => {
+    expect(clampMovementSpend(3, 2, 8)).toBe(3); // 2 + 3 = 5 <= 8
+  });
+
+  it("clamps down when current + spent would exceed max", () => {
+    expect(clampMovementSpend(5, 5, 8)).toBe(3); // 8 - 5 = 3
+  });
+
+  it("clamps to zero when current already fills the max", () => {
+    expect(clampMovementSpend(4, 8, 8)).toBe(0);
+  });
+
+  it("floors negative spend to zero", () => {
+    expect(clampMovementSpend(-2, 0, 8)).toBe(0);
+  });
+
+  it("treats non-finite spend as zero", () => {
+    expect(clampMovementSpend(NaN, 0, 8)).toBe(0);
   });
 });
 

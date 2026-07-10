@@ -176,6 +176,13 @@
       "when": 1783719442004,
       "tag": "0024_left_terrax",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1783723407221,
+      "tag": "0025_bumpy_prism",
+      "breakpoints": true
     }
   ]
 }

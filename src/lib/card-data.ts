@@ -18,7 +18,7 @@ import {
   isModCategory,
 } from "./cards";
 import type { WeaponSlotName } from "./cards";
-import { clampResource } from "./ledger";
+import { clampResource, movementMeters } from "./ledger";
 
 /*
  * Card read model (Phase 3). DB access + the character loadout projection. The
@@ -219,6 +219,11 @@ export interface Loadout {
     ammo: { current: number; max: number };
   };
   resourceDeltas: { hpMax: number; energyMax: number; ammoMax: number };
+  // Effective movement = movementBase + METERS_PER_EP * movementEpSpent. `max`
+  // is the ceiling if every bit of currently-available (card-adjusted) Energy
+  // were committed to movement — movementBase + METERS_PER_EP * (epSpent +
+  // energy.current) — so it shrinks live as Energy is spent on other actions.
+  movement: { current: number; max: number };
   activeModifiers: ActiveModifier[]; // the mechanical "ledger" of equipped buffs
   descriptiveEffects: DescriptiveEffect[]; // feat-like text from equipped cards
 }
@@ -278,6 +283,11 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     },
   };
 
+  const movement = {
+    current: movementMeters(view.movementBase, view.movementEpSpent),
+    max: movementMeters(view.movementBase, view.movementEpSpent + resources.energy.current),
+  };
+
   const activeModifiers: ActiveModifier[] = equipped.flatMap((o) =>
     o.card.effects.filter(isPersistentEffect).map((e) => ({
       cardTitle: o.card.title,
@@ -323,6 +333,7 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     statDeltas,
     resources,
     resourceDeltas,
+    movement,
     activeModifiers,
     descriptiveEffects,
   };

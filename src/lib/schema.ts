@@ -203,6 +203,14 @@ export const characters = pgTable(
     energyRegen: integer("energy_regen").notNull().default(3),
     ammoCurrent: integer("ammo_current").notNull().default(0),
     ammoMax: integer("ammo_max").notNull().default(0),
+    // Effective movement = movementBase + METERS_PER_EP * movementEpSpent
+    // (lib/game-rules.ts, lib/ledger.ts movementMeters) — computed, never
+    // stored as its own final number. movementBase is the DM-set free-
+    // movement floor (per-character, like hpMax); movementEpSpent is how
+    // much Energy is currently committed to extra movement, distinct from
+    // Energy spent on other actions (which just lowers energyCurrent).
+    movementBase: integer("movement_base").notNull().default(6),
+    movementEpSpent: integer("movement_ep_spent").notNull().default(0),
 
     statTech: integer("stat_tech").notNull().default(0),
     statPrecision: integer("stat_precision").notNull().default(0),

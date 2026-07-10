@@ -33,6 +33,8 @@ export interface CharacterView {
   energy: { current: number; max: number };
   energyRegen: number;
   ammo: { current: number; max: number };
+  movementBase: number;
+  movementEpSpent: number;
   stats: Record<StatKey, number>;
   credits: number;
   bio: string | null;
@@ -59,6 +61,8 @@ export function toCharacterView(
     energy: { current: c.energyCurrent, max: c.energyMax },
     energyRegen: c.energyRegen,
     ammo: { current: c.ammoCurrent, max: c.ammoMax },
+    movementBase: c.movementBase,
+    movementEpSpent: c.movementEpSpent,
     stats: {
       tech: c.statTech,
       precision: c.statPrecision,

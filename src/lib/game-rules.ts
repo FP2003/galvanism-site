@@ -9,6 +9,13 @@ export const BASE_HP = 12;
 export const BASE_ENERGY = 8;
 export const BASE_ENERGY_REGEN = 3; // display-only stat, no mechanical logic yet
 
+// Movement: every character gets BASE_MOVEMENT_METERS of free movement, plus
+// METERS_PER_EP for every Energy point committed to it (lib/ledger.ts
+// movementMeters). movementBase is the per-character DM-set floor (defaults
+// to this constant on creation); this constant is not itself stored anywhere.
+export const BASE_MOVEMENT_METERS = 6;
+export const METERS_PER_EP = 2;
+
 // Immunity is a fixed 100% resist at creation; mod cards reduce it later (Phase 3),
 // so it sits outside the point-buy.
 export const IMMUNITY_BASE = 100;
