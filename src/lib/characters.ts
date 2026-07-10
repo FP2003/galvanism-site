@@ -9,7 +9,7 @@ import {
 } from "./schema";
 import type { CharacterStatus, StatKey } from "./status";
 import { accumulateModifiers, applyModifiers } from "./cards";
-import { clampResource } from "./ledger";
+import { clampResource, resilienceHpBonus } from "./ledger";
 
 /*
  * Character read model (Phase 2). Flattens the DB `characters` row (plus the
@@ -107,12 +107,19 @@ async function withEffectiveResources(
 
   return views.map((view) => {
     const effects = effectsByCharacter.get(view.id);
-    if (!effects || effects.length === 0) return view;
+    // Resilience's +1 HP/point rule applies even with no cards equipped.
+    const hpMaxBase = view.hp.max + resilienceHpBonus(view.stats.resilience);
+    if (!effects || effects.length === 0) {
+      return {
+        ...view,
+        hp: { current: clampResource(view.hp.current, hpMaxBase), max: hpMaxBase },
+      };
+    }
 
     const mods = accumulateModifiers(effects);
     const { effective } = applyModifiers(
       {
-        hpMax: view.hp.max,
+        hpMax: hpMaxBase,
         energyMax: view.energy.max,
         ammoMax: view.ammo.max,
       },

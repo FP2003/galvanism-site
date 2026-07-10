@@ -18,7 +18,7 @@ import {
   isModCategory,
 } from "./cards";
 import type { WeaponSlotName } from "./cards";
-import { clampResource, movementMeters } from "./ledger";
+import { agilityMovementBonus, clampResource, movementMeters, resilienceHpBonus } from "./ledger";
 
 /*
  * Card read model (Phase 3). DB access + the character loadout projection. The
@@ -245,7 +245,9 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     statImmunity: view.stats.immunity,
     statResilience: view.stats.resilience,
     statAgility: view.stats.agility,
-    hpMax: view.hp.max,
+    // Resilience's +1 HP/point rule is folded into the base here, ahead of
+    // card resource_modifier deltas — same order as game-rules docs it.
+    hpMax: view.hp.max + resilienceHpBonus(view.stats.resilience),
     energyMax: view.energy.max,
     ammoMax: view.ammo.max,
   };
@@ -283,9 +285,12 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     },
   };
 
+  // Agility's +1 movement per 2 points rule is folded into the base before
+  // Energy-committed movement is computed.
+  const movementBase = view.movementBase + agilityMovementBonus(view.stats.agility);
   const movement = {
-    current: movementMeters(view.movementBase, view.movementEpSpent),
-    max: movementMeters(view.movementBase, view.movementEpSpent + resources.energy.current),
+    current: movementMeters(movementBase, view.movementEpSpent),
+    max: movementMeters(movementBase, view.movementEpSpent + resources.energy.current),
   };
 
   const activeModifiers: ActiveModifier[] = equipped.flatMap((o) =>

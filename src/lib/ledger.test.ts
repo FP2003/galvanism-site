@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  agilityMovementBonus,
   applyCreditsDelta,
   applyXpGrant,
   applyXpSpend,
@@ -7,6 +8,7 @@ import {
   clampResource,
   movementMeters,
   parseSignedInt,
+  resilienceHpBonus,
   validateAttributeAllocation,
   MAX_CREDITS,
   MAX_XP,
@@ -113,6 +115,42 @@ describe("clampResource", () => {
 
   it("treats non-finite input as zero", () => {
     expect(clampResource(NaN, 20)).toBe(0);
+  });
+});
+
+describe("resilienceHpBonus", () => {
+  it("adds 1 HP per Resilience point", () => {
+    expect(resilienceHpBonus(3)).toBe(3);
+  });
+
+  it("returns 0 for no Resilience", () => {
+    expect(resilienceHpBonus(0)).toBe(0);
+  });
+
+  it("floors negative Resilience to 0", () => {
+    expect(resilienceHpBonus(-2)).toBe(0);
+  });
+
+  it("floors fractional Resilience", () => {
+    expect(resilienceHpBonus(3.9)).toBe(3);
+  });
+});
+
+describe("agilityMovementBonus", () => {
+  it("adds 1 movement per 2 Agility points", () => {
+    expect(agilityMovementBonus(4)).toBe(2);
+  });
+
+  it("floors an odd Agility down", () => {
+    expect(agilityMovementBonus(5)).toBe(2);
+  });
+
+  it("returns 0 for less than 2 Agility", () => {
+    expect(agilityMovementBonus(1)).toBe(0);
+  });
+
+  it("floors negative Agility to 0", () => {
+    expect(agilityMovementBonus(-4)).toBe(0);
   });
 });
 

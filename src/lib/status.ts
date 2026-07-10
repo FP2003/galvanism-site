@@ -56,7 +56,7 @@ export const combatStats = [
 export const passiveStats = [
   { key: "immunity", label: "Immunity", note: "Resist mod-card rebuke", suffix: "%" },
   { key: "resilience", label: "Resilience", note: "Condition resist / +HP" },
-  { key: "agility", label: "Agility", note: "Melee DEF rolls" },
+  { key: "agility", label: "Agility", note: "Melee DEF rolls / +Movement" },
 ] as const;
 
 export type StatKey =

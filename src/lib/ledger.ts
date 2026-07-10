@@ -108,6 +108,20 @@ export function clampResource(value: number, max: number): number {
   return Math.max(0, Math.min(m, Math.floor(value)));
 }
 
+/** +1 max HP per point of Resilience (info/galvanism_prep.md's "Bonus HP"
+ *  rule). Computed, never stored on its own — folded into hpMax wherever the
+ *  effective max is assembled, same convention as the card resource_modifier
+ *  deltas it sits alongside. */
+export function resilienceHpBonus(resilience: number): number {
+  return Math.max(0, Math.floor(resilience));
+}
+
+/** +1 base movement per 2 points of Agility. Computed, never stored on its
+ *  own — folded into movementBase before it feeds {@link movementMeters}. */
+export function agilityMovementBonus(agility: number): number {
+  return Math.floor(Math.max(0, Math.floor(agility)) / 2);
+}
+
 /** Effective movement in meters: a free base plus METERS_PER_EP per Energy
  *  point currently committed to it. Computed, never stored on its own. */
 export function movementMeters(base: number, epSpent: number): number {
