@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { Plus, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, TextInput, Textarea, Select, FormMessage } from "@/components/ui/form";
+import { RegistryLinkPicker } from "@/components/registry/registry-link-picker";
 import { createMission, updateMission, type FormState } from "@/app/admin/mission-actions";
 import { TEXT_LIMITS } from "@/lib/game-rules";
 import type { Mission } from "@/lib/schema";
@@ -36,6 +37,7 @@ export function MissionForm({
     {},
   );
   const formRef = useRef<HTMLFormElement>(null);
+  const briefingRef = useRef<HTMLTextAreaElement>(null);
   const [urgent, setUrgent] = useState(mission?.urgent ?? false);
 
   useEffect(() => {
@@ -146,6 +148,7 @@ export function MissionForm({
         {(id) => (
           <Textarea
             id={id}
+            ref={briefingRef}
             name="briefing"
             rows={6}
             maxLength={TEXT_LIMITS.missionBriefing}
@@ -154,6 +157,9 @@ export function MissionForm({
           />
         )}
       </Field>
+      <div>
+        <RegistryLinkPicker textareaRef={briefingRef} />
+      </div>
 
       <FormMessage state={state} />
       <div>

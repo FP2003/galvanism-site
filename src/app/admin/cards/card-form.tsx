@@ -12,6 +12,7 @@ import {
   FormMessage,
   fieldLabelClass,
 } from "@/components/ui/form";
+import { RegistryLinkPicker } from "@/components/registry/registry-link-picker";
 import {
   CARD_CATEGORIES,
   CARD_CATEGORY_META,
@@ -107,6 +108,8 @@ export function CardForm({
   );
   const [resetKey, setResetKey] = useState(0);
   const titleRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const descriptiveTextRef = useRef<HTMLTextAreaElement>(null);
 
   // On a successful create, the dialog hosting this form stays open (so the
   // DM can author the next card without reopening it) — reset in place
@@ -280,6 +283,7 @@ export function CardForm({
             {(id) => (
               <Textarea
                 id={id}
+                ref={descriptionRef}
                 name="description"
                 rows={3}
                 maxLength={CARD_TEXT_LIMITS.description}
@@ -288,6 +292,9 @@ export function CardForm({
               />
             )}
           </Field>
+          <div>
+            <RegistryLinkPicker textareaRef={descriptionRef} />
+          </div>
         </fieldset>
 
         {category === "item" && isWeaponSubcategory(subcategory) && (
@@ -453,6 +460,7 @@ export function CardForm({
             {(id) => (
               <Textarea
                 id={id}
+                ref={descriptiveTextRef}
                 name="descriptiveText"
                 rows={3}
                 maxLength={CARD_TEXT_LIMITS.descriptiveText}
@@ -461,6 +469,9 @@ export function CardForm({
               />
             )}
           </Field>
+          <div>
+            <RegistryLinkPicker textareaRef={descriptiveTextRef} />
+          </div>
 
           {!isModCategory(category) && (
             <div className="flex flex-col gap-3">

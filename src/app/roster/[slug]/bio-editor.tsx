@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Pencil, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea, FormMessage } from "@/components/ui/form";
 import { Markdown } from "@/components/ui/markdown";
+import { RegistryLinkPicker } from "@/components/registry/registry-link-picker";
 import { updateBio, type SheetState } from "@/app/roster/actions";
 
 /*
@@ -26,6 +27,7 @@ export function BioEditor({
   const [state, setState] = useState<SheetState>({});
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
+  const bioRef = useRef<HTMLTextAreaElement>(null);
 
   function action(formData: FormData) {
     startTransition(async () => {
@@ -46,6 +48,7 @@ export function BioEditor({
       <form action={action} className="flex flex-col gap-3">
         <input type="hidden" name="characterId" value={characterId} />
         <Textarea
+          ref={bioRef}
           name="bio"
           rows={7}
           defaultValue={bio ?? ""}
@@ -54,6 +57,9 @@ export function BioEditor({
         <p className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
           Supports Markdown — **bold**, *italic*, and &apos;- &apos; for bullet lists.
         </p>
+        <div>
+          <RegistryLinkPicker textareaRef={bioRef} />
+        </div>
         <FormMessage state={state} />
         <div className="flex items-center gap-2">
           <Button type="submit" disabled={pending}>
