@@ -33,6 +33,7 @@ import {
 } from "@/lib/cards";
 import type { ItemSubcategory } from "@/lib/cards";
 import { computeWeaponProfile, type InstalledModFields } from "@/lib/weapons";
+import { ScrollableBody } from "@/components/cards/scrollable-body";
 
 /*
  * GameCard — web recreation of the physical card designs (info/card_design/).
@@ -158,7 +159,7 @@ export function GameCard({
         className="relative flex-1 overflow-hidden bg-void-navy p-3"
         style={{ clipPath: BODY_CLIP }}
       >
-        <div className="flex h-full flex-col gap-2 overflow-y-auto">
+        <ScrollableBody>
           {isWeapon && <WeaponStatGrid card={card} mods={mods} />}
 
           {isMod &&
@@ -206,7 +207,7 @@ export function GameCard({
               className="mt-auto"
             />
           )}
-        </div>
+        </ScrollableBody>
       </div>
 
       {/* Level pip */}
