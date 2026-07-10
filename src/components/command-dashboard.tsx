@@ -253,7 +253,7 @@ export function CommandDashboard({
                         Ongoing
                       </StatusLabel>
                       <p className="mt-1 truncate text-sm text-case-file-white">
-                        <span className="text-muted-ink">{p.facility} —</span>{" "}
+                        <span className="text-muted-ink">{p.facility}:</span>{" "}
                         {p.label}
                       </p>
                     </div>
@@ -291,7 +291,7 @@ export function CommandDashboard({
                 <p className="mt-4 border-t border-elevated-ledger pt-3 text-xs text-muted-ink">
                   {ballots[0].opsDeadline != null
                     ? `Closes in ${ballots[0].opsDeadline} op${ballots[0].opsDeadline === 1 ? "" : "s"}`
-                    : "No deadline — closed manually"}
+                    : "No deadline, closed manually"}
                 </p>
                 {ballots.length > 1 && (
                   <Link

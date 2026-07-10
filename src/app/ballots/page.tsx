@@ -34,7 +34,7 @@ export default async function BallotsPage() {
                 No character on file
               </p>
               <p className="max-w-sm text-pretty text-sm text-muted-ink">
-                Submit an enlistment application first — approved operators can vote here.
+                Submit an enlistment application first. Approved operators can vote here.
               </p>
               <ButtonLink href="/apply">
                 <IdCard size={15} /> Enlist now
@@ -90,7 +90,7 @@ function Header() {
         Ballots
       </h1>
       <p className="mt-2 max-w-prose text-sm text-muted-ink">
-        Vote on what the regiment upgrades next — change your pick anytime while a ballot&rsquo;s open.
+        Vote on what the regiment upgrades next. Change your pick anytime while a ballot&rsquo;s open.
       </p>
     </div>
   );

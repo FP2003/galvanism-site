@@ -21,7 +21,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const facility = await getFacility(id);
-  return { title: facility ? `${facility.name} — Facilities` : "Facility" };
+  return { title: facility ? `${facility.name} · Facilities` : "Facility" };
 }
 
 // Player-facing facility detail (Phase 6, absorbing Phase 4's /requisitions
@@ -52,7 +52,7 @@ export default async function FacilityDetailPage({
                 No character on file
               </p>
               <p className="max-w-sm text-pretty text-sm text-muted-ink">
-                Submit an enlistment application first — approved operators can spend credits here.
+                Submit an enlistment application first. Approved operators can spend credits here.
               </p>
               <ButtonLink href="/apply">
                 <IdCard size={15} /> Enlist now
@@ -97,7 +97,7 @@ export default async function FacilityDetailPage({
               {!facility.isOpen
                 ? "Closed."
                 : isAdmin
-                  ? "Read-only preview of what operators see here — admins hold no character to spend credits against."
+                  ? "Read-only preview of what operators see here. Admins hold no character to spend credits against."
                   : `Spend ${character!.callsign}’s credits here.`}
               {facility.description ? ` ${facility.description}` : ""}
             </p>

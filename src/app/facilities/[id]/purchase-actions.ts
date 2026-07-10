@@ -86,7 +86,7 @@ export async function purchaseListing(
         .where(eq(players.id, player.id)),
       db.insert(creditLedger).values({
         playerId: player.id,
-        description: `Requisition — ${listing.card.title} (${listing.facility.name})`,
+        description: `Requisition: ${listing.card.title} (${listing.facility.name})`,
         delta: -listing.card.priceCredits,
         balanceAfter: result.value,
         createdByUserId: user.id,
@@ -181,7 +181,7 @@ export async function purchaseXpOffering(
     revalidatePath(`/facilities/${offering.facilityId}`);
     revalidatePath("/roster");
     revalidatePath(`/roster/${character.slug}`);
-    return { ok: true, message: `${offering.name} — spent ${offering.cost} XP.` };
+    return { ok: true, message: `${offering.name}: spent ${offering.cost} XP.` };
   }
 
   const result = applyPurchase(player.credits, offering.cost);
@@ -216,7 +216,7 @@ export async function purchaseXpOffering(
   revalidatePath(`/facilities/${offering.facilityId}`);
   revalidatePath("/roster");
   revalidatePath(`/roster/${character.slug}`);
-  return { ok: true, message: `${offering.name} — spent ${offering.cost} Cr.` };
+  return { ok: true, message: `${offering.name}: spent ${offering.cost} Cr.` };
 }
 
 // Unlocks a facility perk (Phase 6 Step 3): debits Credits and records a

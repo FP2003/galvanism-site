@@ -72,7 +72,7 @@ function illegalSlotMessage(weapon: WeaponCardFields, slot: WeaponSlotName): str
     return "Only melee and pistol weapons can be equipped in the Tertiary slot.";
   }
   if (slot === "secondary" && weapon.handedness === "two_handed") {
-    return "Two-handed weapons can't be equipped in the Secondary slot — only Primary.";
+    return "Two-handed weapons can't be equipped in the Secondary slot (only Primary).";
   }
   return "This weapon can't be equipped in that slot.";
 }

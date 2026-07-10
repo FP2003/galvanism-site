@@ -100,7 +100,7 @@ export async function submitApplication(
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("duplicate") || msg.includes("unique")) {
       return {
-        error: `Callsign "${callsign}" is already taken — pick another.`,
+        error: `Callsign "${callsign}" is already taken. Pick another.`,
       };
     }
     return { error: `Could not submit application: ${msg}` };

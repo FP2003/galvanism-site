@@ -30,7 +30,7 @@ export default async function MissionsPage() {
                 No character on file
               </p>
               <p className="max-w-sm text-pretty text-sm text-muted-ink">
-                Submit an enlistment application first — approved operators can claim ops here.
+                Submit an enlistment application first. Approved operators can claim ops here.
               </p>
               <ButtonLink href="/apply">
                 <IdCard size={15} /> Enlist now
@@ -67,7 +67,7 @@ function Header() {
         Missions
       </h1>
       <p className="mt-2 max-w-prose text-sm text-muted-ink">
-        Mark interest in an op — the DM confirms who&rsquo;s actually assigned.
+        Mark interest in an op. The DM confirms who&rsquo;s actually assigned.
       </p>
     </div>
   );

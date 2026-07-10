@@ -29,7 +29,7 @@ export function BallotVoteForm({
   if (closed) {
     return (
       <p className="font-[family-name:var(--font-inter)] text-sm text-muted-ink">
-        This ballot is closed — voting has ended.
+        This ballot is closed. Voting has ended.
       </p>
     );
   }

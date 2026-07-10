@@ -88,7 +88,7 @@ export function TopBar({ user }: { user: User | null }) {
 
         <div className="flex items-center gap-2.5 border border-ledger-teal py-1.5 pl-3 pr-1.5">
           <span className="sr-only sm:hidden">
-            {displayName} — {clearance} clearance
+            {displayName}, {clearance} clearance
           </span>
           <span className="hidden flex-col text-right leading-none sm:flex">
             <span className="font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-case-file-white">

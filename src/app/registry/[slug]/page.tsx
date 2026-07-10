@@ -18,7 +18,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const entry = await getPublicRegistryEntryBySlug(slug);
-  return { title: entry ? `${entry.name} — Registry` : "Registry" };
+  return { title: entry ? `${entry.name} · Registry` : "Registry" };
 }
 
 // Player-facing registry entry detail (Phase 8). getPublicRegistryEntryBySlug

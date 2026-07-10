@@ -88,7 +88,7 @@ export function ApplicationForm() {
         </div>
         <Field
           label="Backstory"
-          hint="Supports Markdown — **bold**, *italic*, and '- ' for bullet lists."
+          hint="Supports Markdown: **bold**, *italic*, and '- ' for bullet lists."
         >
           {(id) => (
             <Textarea

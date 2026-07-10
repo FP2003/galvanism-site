@@ -34,7 +34,7 @@ export async function generateMetadata({
   const detail = await getCharacterBySlug(slug);
   return {
     title: detail
-      ? `OPR. ${detail.view.callsign} — Personnel File`
+      ? `OPR. ${detail.view.callsign} · Personnel File`
       : "Personnel File",
   };
 }

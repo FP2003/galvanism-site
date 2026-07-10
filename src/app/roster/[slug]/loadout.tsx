@@ -72,7 +72,7 @@ export function Loadout({
         cards={equipped}
         characterId={characterId}
         canEdit={canEdit}
-        emptyNote={canEdit ? "Nothing equipped — equip a card below." : "Nothing equipped."}
+        emptyNote={canEdit ? "Nothing equipped. Equip a card below." : "Nothing equipped."}
       />
       {canEdit && inventory.length > 0 && (
         <CardGroup

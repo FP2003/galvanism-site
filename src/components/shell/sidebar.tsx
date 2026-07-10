@@ -25,8 +25,8 @@ export function Sidebar({ myCaseFileHref }: { myCaseFileHref: string | null }) {
               <li key={item.label}>
                 <span
                   className="flex cursor-not-allowed items-center gap-3 px-3 py-2.5 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink/70"
-                  title={`${item.label} — ${item.phase}`}
-                  aria-label={`${item.label} — ${item.phase}`}
+                  title={`${item.label} · ${item.phase}`}
+                  aria-label={`${item.label} · ${item.phase}`}
                   aria-disabled="true"
                 >
                   <Icon size={18} className="shrink-0" aria-hidden="true" />

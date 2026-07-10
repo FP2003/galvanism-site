@@ -55,7 +55,7 @@ export function BioEditor({
           placeholder="Background, notable operations, disposition…"
         />
         <p className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
-          Supports Markdown — **bold**, *italic*, and &apos;- &apos; for bullet lists.
+          Supports Markdown: **bold**, *italic*, and &apos;- &apos; for bullet lists.
         </p>
         <div>
           <RegistryLinkPicker textareaRef={bioRef} />

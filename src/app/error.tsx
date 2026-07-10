@@ -34,7 +34,7 @@ export default function Error({
       </h1>
       <p className="mt-3 max-w-md text-pretty text-sm text-muted-ink">
         The terminal couldn&apos;t complete that request. Check your connection
-        and try again — nothing on your sheet was changed.
+        and try again. Nothing on your sheet was changed.
       </p>
       <button
         type="button"

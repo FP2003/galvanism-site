@@ -32,7 +32,7 @@ const jetBrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: {
     default: "Galvanism",
-    template: "%s — Galvanism",
+    template: "%s · Galvanism",
   },
   description:
     "Frontier Custodian Brigade command interface. Regiment Foxtrot operations, personnel, and facilities.",
