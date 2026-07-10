@@ -57,6 +57,15 @@ export const MAX_MISSION_ATTACHMENTS = 8;
 export const MAX_ATTACHMENT_BYTES = 3.5 * 1024 * 1024;
 export const ATTACHMENT_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const;
 
+// Character mini portrait — GIF only (spinning HeroForge render), not the
+// broader image set mission attachments accept. Uploaded directly
+// browser-to-Blob (see app/api/portrait-upload/route.ts), not through a
+// server action, so this cap is NOT bound by Vercel's 4.5MB serverless
+// request-body ceiling the way MAX_ATTACHMENT_BYTES is. With ~9 rosters this
+// season, the larger cap costs nothing meaningful in storage.
+export const MAX_PORTRAIT_BYTES = 20 * 1024 * 1024;
+export const PORTRAIT_MIME_TYPES = ["image/gif"] as const;
+
 // A ballot's option list is bounded like mission attachments — a fixed
 // admin-authored slate, not an open-ended list.
 export const MAX_BALLOT_OPTIONS = 8;

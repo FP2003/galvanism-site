@@ -212,6 +212,9 @@ export const characters = pgTable(
     statAgility: integer("stat_agility").notNull().default(0),
 
     bio: text("bio"),
+    // Spinning HeroForge mini GIF shown on the case file + roster, stored in
+    // Vercel Blob — a single portrait per character, not a gallery.
+    portraitUrl: text("portrait_url"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

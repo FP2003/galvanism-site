@@ -169,6 +169,13 @@
       "when": 1783701410554,
       "tag": "0023_regular_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783719442004,
+      "tag": "0024_left_terrax",
+      "breakpoints": true
     }
   ]
 }

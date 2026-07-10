@@ -36,6 +36,7 @@ export interface CharacterView {
   stats: Record<StatKey, number>;
   credits: number;
   bio: string | null;
+  portraitUrl: string | null;
 }
 
 export function toCharacterView(
@@ -68,6 +69,7 @@ export function toCharacterView(
     },
     credits: player.credits,
     bio: c.bio,
+    portraitUrl: c.portraitUrl,
   };
 }
 
