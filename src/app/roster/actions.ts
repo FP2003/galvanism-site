@@ -6,7 +6,7 @@ import { del } from "@vercel/blob";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { characters, characterCards } from "@/lib/schema";
-import { clampResource } from "@/lib/ledger";
+import { clampMovementSpend, clampResource } from "@/lib/ledger";
 import { effectiveResourceMaxes } from "@/lib/card-data";
 import { TEXT_LIMITS } from "@/lib/game-rules";
 import { isWeaponSubcategory, isModCategory, type WeaponSlotName } from "@/lib/cards";
@@ -94,13 +94,24 @@ export async function updateResources(
   // clamp against, just a floor of 0.
   const energyRegen = Math.max(0, read("energyRegen", c.energyRegen));
 
+  const energyCurrent = clampResource(read("energyCurrent", c.energyCurrent), max.energyMax);
+  // Movement's EP commitment must never leave energyCurrent + movementEpSpent
+  // over the effective Energy max — e.g. if the player (or the movement
+  // stepper) pushed energyCurrent down after movementEpSpent was set.
+  const movementEpSpent = clampMovementSpend(
+    read("movementEpSpent", c.movementEpSpent),
+    energyCurrent,
+    max.energyMax,
+  );
+
   await auth.db
     .update(characters)
     .set({
       hpCurrent: clampResource(read("hpCurrent", c.hpCurrent), max.hpMax),
-      energyCurrent: clampResource(read("energyCurrent", c.energyCurrent), max.energyMax),
+      energyCurrent,
       ammoCurrent: clampResource(read("ammoCurrent", c.ammoCurrent), max.ammoMax),
       energyRegen,
+      movementEpSpent,
       updatedAt: new Date(),
     })
     .where(eq(characters.id, characterId));

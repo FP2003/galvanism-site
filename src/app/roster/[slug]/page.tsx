@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, Shield, Zap, Crosshair, Activity, Clock, Sparkles } from "lucide-react";
+import { ArrowLeft, Shield, Zap, Crosshair, Activity, Clock, Sparkles, Footprints } from "lucide-react";
 import { eq, desc } from "drizzle-orm";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
@@ -187,6 +187,8 @@ export default async function CaseFilePage({
                   energy={loadout.resources.energy}
                   ammo={loadout.resources.ammo}
                   energyRegen={op.energyRegen}
+                  movementBase={op.movementBase}
+                  movementEpSpent={op.movementEpSpent}
                 />
               ) : (
                 <div className="flex flex-col gap-4">
@@ -212,6 +214,13 @@ export default async function CaseFilePage({
                     label="Ammo"
                     value={loadout.resources.ammo}
                     tone="steel"
+                  />
+                  <ResourceRow
+                    icon={<Footprints size={14} aria-hidden="true" />}
+                    label="Movement"
+                    value={loadout.movement}
+                    tone="steel"
+                    unit="m"
                   />
                   <div className="flex items-center justify-between border-t border-elevated-ledger pt-3">
                     <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
@@ -348,11 +357,13 @@ function ResourceRow({
   label,
   value,
   tone,
+  unit = "",
 }: {
   icon: React.ReactNode;
   label: string;
   value: { current: number; max: number };
   tone: "live" | "critical" | "steel";
+  unit?: string;
 }) {
   return (
     <div>
@@ -363,7 +374,8 @@ function ResourceRow({
         </span>
         <span className="font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white">
           {value.current}
-          <span className="text-muted-ink">/{value.max}</span>
+          {unit}
+          <span className="text-muted-ink">/{value.max}{unit}</span>
         </span>
       </div>
       <Meter value={value.current} max={value.max} tone={tone} label={`${label} ${value.current}/${value.max}`} />
