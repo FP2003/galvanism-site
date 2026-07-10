@@ -16,6 +16,7 @@ import {
   BASE_HP,
   BASE_ENERGY,
   BASE_ENERGY_REGEN,
+  BASE_MOVEMENT_METERS,
   IMMUNITY_BASE,
   TEXT_LIMITS,
 } from "@/lib/game-rules";
@@ -170,6 +171,16 @@ export function CharacterForm({
             label="Energy Regen"
             name="energyRegen"
             defaultValue={character?.energyRegen ?? BASE_ENERGY_REGEN}
+          />
+          <NumberField
+            label="Movement Base (m)"
+            name="movementBase"
+            defaultValue={character?.movementBase ?? BASE_MOVEMENT_METERS}
+          />
+          <NumberField
+            label="EP Committed to Movement"
+            name="movementEpSpent"
+            defaultValue={character?.movementEpSpent ?? 0}
           />
         </div>
       </Section>

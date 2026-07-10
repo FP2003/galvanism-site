@@ -10,10 +10,11 @@ import { users, players, characters, creditLedger, xpLedger, facilities } from "
 import { restockFacility } from "@/lib/facility-data";
 import { slugifyCallsign } from "@/lib/characters";
 import { CHARACTER_STATUSES, type CharacterStatus } from "@/lib/status";
-import { TEXT_LIMITS } from "@/lib/game-rules";
+import { BASE_MOVEMENT_METERS, TEXT_LIMITS } from "@/lib/game-rules";
 import {
   applyCreditsDelta,
   applyXpGrant,
+  clampMovementSpend,
   clampResource,
   parseSignedInt,
 } from "@/lib/ledger";
@@ -124,6 +125,7 @@ function parseCharacterFields(formData: FormData):
   const hpMax = intField(formData, "hpMax");
   const energyMax = intField(formData, "energyMax");
   const ammoMax = intField(formData, "ammoMax");
+  const energyCurrent = clampResource(intField(formData, "energyCurrent"), energyMax);
 
   const values: typeof characters.$inferInsert = {
     // playerId + slug are set by the caller (create) or left untouched (update).
@@ -137,10 +139,16 @@ function parseCharacterFields(formData: FormData):
     hpMax,
     hpCurrent: clampResource(intField(formData, "hpCurrent"), hpMax),
     energyMax,
-    energyCurrent: clampResource(intField(formData, "energyCurrent"), energyMax),
+    energyCurrent,
     energyRegen: intField(formData, "energyRegen", 3),
     ammoMax,
     ammoCurrent: clampResource(intField(formData, "ammoCurrent"), ammoMax),
+    movementBase: intField(formData, "movementBase", BASE_MOVEMENT_METERS),
+    movementEpSpent: clampMovementSpend(
+      intField(formData, "movementEpSpent"),
+      energyCurrent,
+      energyMax,
+    ),
     statTech: intField(formData, "statTech"),
     statPrecision: intField(formData, "statPrecision"),
     statStrength: intField(formData, "statStrength"),
