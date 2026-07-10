@@ -274,10 +274,6 @@ export default async function CaseFilePage({
               <BioEditor characterId={op.id} bio={op.bio} canEdit={canEdit} />
             </Panel>
 
-            <Panel title="History" bodyClassName="p-0">
-              <HistoryTable rows={history} />
-            </Panel>
-
             {(loadout.activeModifiers.length > 0 ||
               loadout.descriptiveEffects.length > 0) && (
               <Panel
@@ -339,6 +335,10 @@ export default async function CaseFilePage({
                 owned={loadout.owned}
                 canEdit={canEdit}
               />
+            </Panel>
+
+            <Panel title="History" bodyClassName="p-0">
+              <HistoryTable rows={history} />
             </Panel>
           </div>
         </div>
