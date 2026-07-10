@@ -8,7 +8,7 @@ import { getMissions } from "@/lib/mission-data";
 import { NewMissionDialog } from "./new-mission-dialog";
 import { MissionList } from "./mission-list";
 
-export const metadata: Metadata = { title: "Missions — Personnel Command" };
+export const metadata: Metadata = { title: "Missions · Personnel Command" };
 
 // Admin mission list (info/roadmap.md Phase 5). Each row links to the
 // mission's detail page for assignment management and completion.

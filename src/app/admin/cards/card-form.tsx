@@ -261,7 +261,7 @@ export function CardForm({
             </Field>
             <Field
               label="Price (Cr)"
-              hint="Optional — required before this card can be listed at a facility. Never shown to players outside the facility view."
+              hint="Optional, required before this card can be listed at a facility. Never shown to players outside the facility view."
             >
               {(id) => (
                 <TextInput
@@ -278,7 +278,7 @@ export function CardForm({
           </div>
           <Field
             label="Description"
-            hint="Card-face body copy (flavor / rules text). Supports Markdown — **bold**, *italic*, and '- ' for bullet lists."
+            hint="Card-face body copy (flavor / rules text). Supports Markdown: **bold**, *italic*, and '- ' for bullet lists."
           >
             {(id) => (
               <Textarea
@@ -356,7 +356,7 @@ export function CardForm({
               </Field>
               <Field
                 label="Ammo count"
-                hint="Optional — descriptive only, not wired to the Ammo resource."
+                hint="Optional, descriptive only, not wired to the Ammo resource."
               >
                 {(id) => (
                   <TextInput
@@ -455,7 +455,7 @@ export function CardForm({
           </legend>
           <Field
             label="Descriptive text"
-            hint="Optional feat-like flavor text, shown alongside any mechanical effects below. Supports Markdown — **bold**, *italic*, and '- ' for bullet lists."
+            hint="Optional feat-like flavor text, shown alongside any mechanical effects below. Supports Markdown: **bold**, *italic*, and '- ' for bullet lists."
           >
             {(id) => (
               <Textarea
@@ -489,7 +489,7 @@ export function CardForm({
 
               {effects.length === 0 && (
                 <p className="text-xs text-muted-ink">
-                  No mechanical effects — this card is descriptive only.
+                  No mechanical effects. This card is descriptive only.
                 </p>
               )}
 

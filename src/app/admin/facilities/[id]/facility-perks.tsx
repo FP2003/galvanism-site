@@ -27,7 +27,7 @@ export function FacilityPerks({
   return (
     <div className="flex flex-col gap-4">
       <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
-        Purely descriptive — purchasing debits Credits and records the unlock;
+        Purely descriptive, purchasing debits Credits and records the unlock;
         you honor the effect at the table. A perk with a Min Level above this
         facility&apos;s current level ({facilityLevel}) stays hidden from
         players until the facility is leveled up to match.
@@ -56,7 +56,7 @@ export function FacilityPerks({
         <Textarea
           name="description"
           aria-label="Description"
-          placeholder="Description — the effect you'll honor at the table"
+          placeholder="Description: the effect you'll honor at the table"
           rows={2}
           maxLength={400}
         />

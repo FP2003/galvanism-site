@@ -31,8 +31,8 @@ export function FacilityOngoing({
   return (
     <div className="flex flex-col gap-4">
       <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
-        Free-text status line, e.g. &ldquo;Ammo Resupply: 2 days&rdquo; — no
-        automatic countdown, resolve it by hand when it&apos;s done.
+        Free-text status line, e.g. &ldquo;Ammo Resupply: 2 days&rdquo; (no
+        automatic countdown, resolve it by hand when it&apos;s done).
       </p>
       {entries.length === 0 ? (
         <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">

@@ -13,7 +13,7 @@ import { tallyVotes } from "@/lib/ballots";
 import { BallotForm } from "../ballot-form";
 import { CloseBallotForm } from "./close-ballot-form";
 
-export const metadata: Metadata = { title: "Ballot — Personnel Command" };
+export const metadata: Metadata = { title: "Ballot · Personnel Command" };
 
 // Admin ballot detail (info/roadmap.md §Phase 7): description, live tally,
 // and the close control for one ballot. Closing is purely informational — it

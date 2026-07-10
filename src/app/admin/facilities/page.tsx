@@ -9,7 +9,7 @@ import { getFacilities } from "@/lib/facility-data";
 import { NewFacilityDialog } from "./new-facility-dialog";
 import { FacilityMenu } from "./facility-menu";
 
-export const metadata: Metadata = { title: "Facilities — Personnel Command" };
+export const metadata: Metadata = { title: "Facilities · Personnel Command" };
 
 // Admin facility list (info/roadmap.md Phase 6, absorbing Phase 4's shop
 // list). Each row links to the facility's detail page for listing + restock

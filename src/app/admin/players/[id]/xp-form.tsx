@@ -58,7 +58,7 @@ export function XpForm({
         </span>
       </div>
 
-      <Field label="Amount" hint="Whole numbers only — grants can't be reversed with a negative amount, post a reversing entry instead.">
+      <Field label="Amount" hint="Whole numbers only. Grants can't be reversed with a negative amount, post a reversing entry instead.">
         {(id) => (
           <TextInput
             id={id}
@@ -79,12 +79,12 @@ export function XpForm({
             required
             maxLength={TEXT_LIMITS.ledgerDescription}
             autoComplete="off"
-            placeholder="Operation payout — Sublevel sweep"
+            placeholder="Operation payout: Sublevel sweep"
           />
         )}
       </Field>
 
-      <Field label="Reference" hint="Optional — op or requisition code.">
+      <Field label="Reference" hint="Optional, op or requisition code.">
         {(id) => (
           <TextInput
             id={id}

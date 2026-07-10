@@ -80,7 +80,7 @@ export function RegistryEntryForm({
         </Field>
         <Field
           label="Visibility"
-          hint="Hidden entries never appear to players — not in the browse list, and not as a linkable page."
+          hint="Hidden entries never appear to players, not in the browse list, and not as a linkable page."
         >
           {(id) => (
             <Select id={id} name="visibility" defaultValue={entry?.visibility ?? "public"}>
@@ -112,7 +112,7 @@ export function RegistryEntryForm({
             rows={5}
             maxLength={TEXT_LIMITS.registryGmNotes}
             defaultValue={entry?.gmNotes ?? ""}
-            placeholder="Secrets, stat blocks, plot hooks — admin eyes only."
+            placeholder="Secrets, stat blocks, plot hooks (admin eyes only)."
           />
         )}
       </Field>

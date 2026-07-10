@@ -43,7 +43,7 @@ export function FacilityListingManagement({
           </option>
           {eligibleCards.map((c) => (
             <option key={c.id} value={c.id}>
-              {CARD_CATEGORY_META[c.category].label} · {c.title} — {c.priceCredits} Cr
+              {CARD_CATEGORY_META[c.category].label} · {c.title}: {c.priceCredits} Cr
             </option>
           ))}
         </Select>

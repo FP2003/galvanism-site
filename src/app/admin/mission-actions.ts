@@ -183,7 +183,7 @@ export async function uploadMissionAttachment(_prev: FormState, formData: FormDa
     return { error: "Only PNG, JPEG, WebP, or GIF images are allowed." };
   }
   if (file.size > MAX_ATTACHMENT_BYTES) {
-    return { error: `Photo is too large — max ${MAX_ATTACHMENT_BYTES / (1024 * 1024)}MB.` };
+    return { error: `Photo is too large: max ${MAX_ATTACHMENT_BYTES / (1024 * 1024)}MB.` };
   }
 
   // Strip path separators and other unsafe characters from the original
@@ -199,7 +199,7 @@ export async function uploadMissionAttachment(_prev: FormState, formData: FormDa
     });
   } catch (err) {
     console.error("Blob upload failed:", err);
-    return { error: "Upload failed — check your connection and try again." };
+    return { error: "Upload failed. Check your connection and try again." };
   }
   await db.insert(missionAttachments).values({ missionId, url: blob.url });
 
@@ -410,7 +410,7 @@ export async function completeMission(_prev: FormState, formData: FormData): Pro
         .map((r) =>
           db.insert(creditLedger).values({
             playerId: r.character.player.id,
-            description: `Mission payout — ${mission.title}`,
+            description: `Mission payout: ${mission.title}`,
             delta: perOperatorCredits,
             balanceAfter: r.creditBalance!,
             refCode: mission.id,
@@ -429,7 +429,7 @@ export async function completeMission(_prev: FormState, formData: FormData): Pro
         .map((r) =>
           db.insert(xpLedger).values({
             characterId: r.character.id,
-            description: `Mission payout — ${mission.title}`,
+            description: `Mission payout: ${mission.title}`,
             delta: perOperatorXp,
             totalXpAfter: r.xp!.totalXp,
             currencyXpAfter: r.xp!.currencyXp,

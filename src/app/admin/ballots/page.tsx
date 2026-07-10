@@ -9,7 +9,7 @@ import { getBallots } from "@/lib/ballot-data";
 import { NewBallotDialog } from "./new-ballot-dialog";
 import { BallotMenu } from "./ballot-menu";
 
-export const metadata: Metadata = { title: "Ballots — Personnel Command" };
+export const metadata: Metadata = { title: "Ballots · Personnel Command" };
 
 // Admin ballot list (info/roadmap.md §Phase 7). Each row links to the
 // ballot's detail page for the live tally and close/delete controls.

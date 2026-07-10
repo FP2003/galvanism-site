@@ -303,7 +303,7 @@ export async function adjustCredits(
   revalidatePath("/roster");
   return {
     ok: true,
-    message: `${parsedDelta.value >= 0 ? "+" : ""}${parsedDelta.value} Cr — new balance ${result.value}.`,
+    message: `${parsedDelta.value >= 0 ? "+" : ""}${parsedDelta.value} Cr: new balance ${result.value}.`,
   };
 }
 
@@ -363,7 +363,7 @@ export async function grantXp(
   revalidatePath(`/roster/${character.slug}`);
   return {
     ok: true,
-    message: `+${Math.floor(amountRaw)} XP — Total ${result.value.totalXp}, Currency ${result.value.currencyXp}.`,
+    message: `+${Math.floor(amountRaw)} XP: Total ${result.value.totalXp}, Currency ${result.value.currencyXp}.`,
   };
 }
 

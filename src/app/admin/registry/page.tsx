@@ -8,7 +8,7 @@ import { getRegistryEntries } from "@/lib/registry-data";
 import { NewRegistryEntryDialog } from "./new-registry-entry-dialog";
 import { RegistryList } from "./registry-list";
 
-export const metadata: Metadata = { title: "Registry — Personnel Command" };
+export const metadata: Metadata = { title: "Registry · Personnel Command" };
 
 // Admin registry list (info/roadmap.md Phase 8). A DM-authored lore
 // glossary — NPCs, locations, factions, items, events — that other

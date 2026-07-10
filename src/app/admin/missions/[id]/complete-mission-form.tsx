@@ -44,7 +44,7 @@ export function CompleteMissionForm({
       <input type="hidden" name="missionId" value={missionId} />
       <p className="font-[family-name:var(--font-inter)] text-sm text-muted-ink">
         Splits {payoutCredits} Cr and {payoutXp} XP across {assignedCount} assigned operator
-        {assignedCount === 1 ? "" : "s"} — {perOperatorCredits} Cr
+        {assignedCount === 1 ? "" : "s"}: {perOperatorCredits} Cr
         {remainderCredits > 0 ? ` (${remainderCredits} Cr remainder dropped)` : ""} and {perOperatorXp} XP
         {remainderXp > 0 ? ` (${remainderXp} XP remainder dropped)` : ""} each.
       </p>

@@ -70,7 +70,7 @@ export function MissionPayoutForm({
         </div>
       )}
 
-      <Field label="Credits" hint="Optional — negative for a debit. Leave blank to skip.">
+      <Field label="Credits" hint="Optional, negative for a debit. Leave blank to skip.">
         {(id) => (
           <TextInput
             id={id}
@@ -86,7 +86,7 @@ export function MissionPayoutForm({
         label="XP"
         hint={
           characterId
-            ? "Optional — whole numbers only, always a grant. Leave blank to skip."
+            ? "Optional, whole numbers only, always a grant. Leave blank to skip."
             : "This operator has no character yet, so XP can't be granted."
         }
       >
@@ -110,12 +110,12 @@ export function MissionPayoutForm({
             required
             maxLength={TEXT_LIMITS.ledgerDescription}
             autoComplete="off"
-            placeholder="Operation payout — Sublevel sweep"
+            placeholder="Operation payout: Sublevel sweep"
           />
         )}
       </Field>
 
-      <Field label="Reference" hint="Optional — op or requisition code.">
+      <Field label="Reference" hint="Optional, op or requisition code.">
         {(id) => (
           <TextInput
             id={id}

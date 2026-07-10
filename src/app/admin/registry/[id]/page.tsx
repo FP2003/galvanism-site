@@ -13,7 +13,7 @@ import { getRegistryEntry } from "@/lib/registry-data";
 import { REGISTRY_TYPE_META } from "@/lib/registry";
 import { RegistryEntryForm } from "../registry-entry-form";
 
-export const metadata: Metadata = { title: "Registry Entry — Personnel Command" };
+export const metadata: Metadata = { title: "Registry Entry · Personnel Command" };
 
 // Admin registry entry detail (Phase 8): full row incl. GM Notes, which
 // never appears on the player-facing /registry/[slug] route (see

@@ -88,7 +88,7 @@ export function MissionForm({
             </Select>
           )}
         </Field>
-        <Field label="Payout (Credits)" hint="Total credit pot — split evenly across assigned operators on completion.">
+        <Field label="Payout (Credits)" hint="Total credit pot, split evenly across assigned operators on completion.">
           {(id) => (
             <TextInput
               id={id}
@@ -101,7 +101,7 @@ export function MissionForm({
             />
           )}
         </Field>
-        <Field label="Payout (XP)" hint="Total XP pot — split evenly across assigned operators' characters.">
+        <Field label="Payout (XP)" hint="Total XP pot, split evenly across assigned operators' characters.">
           {(id) => (
             <TextInput
               id={id}
@@ -144,7 +144,7 @@ export function MissionForm({
         )}
       </div>
 
-      <Field label="Briefing" hint="Supports Markdown — **bold**, *italic*, and '- ' for bullet lists.">
+      <Field label="Briefing" hint="Supports Markdown: **bold**, *italic*, and '- ' for bullet lists.">
         {(id) => (
           <Textarea
             id={id}

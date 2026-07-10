@@ -188,7 +188,7 @@ export function CharacterForm({
       <Section title="Service Record">
         <Field
           label="Biography"
-          hint="Supports Markdown — **bold**, *italic*, and '- ' for bullet lists."
+          hint="Supports Markdown: **bold**, *italic*, and '- ' for bullet lists."
         >
           {(id) => (
             <Textarea

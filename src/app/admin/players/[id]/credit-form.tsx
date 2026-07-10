@@ -73,12 +73,12 @@ export function CreditForm({
             required
             maxLength={TEXT_LIMITS.ledgerDescription}
             autoComplete="off"
-            placeholder="Operation payout — Sublevel sweep"
+            placeholder="Operation payout: Sublevel sweep"
           />
         )}
       </Field>
 
-      <Field label="Reference" hint="Optional — op or requisition code.">
+      <Field label="Reference" hint="Optional, op or requisition code.">
         {(id) => (
           <TextInput
             id={id}

@@ -16,7 +16,7 @@ import { MissionAssignment } from "./mission-assignment";
 import { CompleteMissionForm } from "./complete-mission-form";
 import { AttachmentUploadForm } from "./attachment-upload-form";
 
-export const metadata: Metadata = { title: "Mission — Personnel Command" };
+export const metadata: Metadata = { title: "Mission · Personnel Command" };
 
 // Admin mission detail (Phase 5): briefing, operator assignment, and the
 // urgent-deadline / completion controls for one mission.

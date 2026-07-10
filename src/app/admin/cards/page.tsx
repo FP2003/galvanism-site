@@ -12,7 +12,7 @@ import {
 import { CardLibrary, type CardLibraryItem } from "./card-library";
 import { NewCardDialog } from "./new-card-dialog";
 
-export const metadata: Metadata = { title: "Card Library — Personnel Command" };
+export const metadata: Metadata = { title: "Card Library · Personnel Command" };
 
 // Admin card library (info/roadmap.md Phase 3). Authors card definitions and
 // browses the deck. Cards can be assigned to an operator right from the grid,

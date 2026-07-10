@@ -190,7 +190,7 @@ export async function addListing(_prev: FormState, formData: FormData): Promise<
   if (!facility) return { error: "Facility not found." };
   if (!card) return { error: "Card not found." };
   if (card.priceCredits == null) {
-    return { error: "This card has no price set — set one in the Card Library first." };
+    return { error: "This card has no price set. Set one in the Card Library first." };
   }
   if (!isCardLevelUnlocked(card.level, facility.level)) {
     return { error: "This card's level is above what this facility has unlocked." };
@@ -244,7 +244,7 @@ export async function addRestockRule(_prev: FormState, formData: FormData): Prom
   });
   if (!facility) return { error: "Facility not found." };
   if (!isCardLevelUnlocked(level, facility.level)) {
-    return { error: `This facility is only level ${facility.level} — it can't roll level ${level} cards yet.` };
+    return { error: `This facility is only level ${facility.level}. It can't roll level ${level} cards yet.` };
   }
 
   const values: NewFacilityRestockRule = { facilityId, category: categoryRaw, level, weight };

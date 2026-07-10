@@ -15,7 +15,7 @@ import { FacilityXpOfferings } from "./facility-xp-offerings";
 import { FacilityPerks } from "./facility-perks";
 import { FacilityOngoing } from "./facility-ongoing";
 
-export const metadata: Metadata = { title: "Facility — Personnel Command" };
+export const metadata: Metadata = { title: "Facility · Personnel Command" };
 
 // Admin facility detail (Phase 6, absorbing Phase 4's shop detail): level,
 // listings, restock rules, and the rotation status/manual-restock control
