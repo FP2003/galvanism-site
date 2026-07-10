@@ -110,7 +110,7 @@ export function GameCard({
 
   return (
     <article
-      className="relative flex aspect-[7/10] w-full flex-col gap-2 p-2.5 pb-7 font-[family-name:var(--font-chakra)] text-case-file-white"
+      className="relative flex aspect-[7/10] w-full flex-col gap-2 overflow-hidden p-2.5 pb-7 font-[family-name:var(--font-chakra)] text-case-file-white"
       style={{ backgroundColor: accent, clipPath: CARD_CLIP }}
     >
       {/* Header: hex icon badge + title. items-start keeps the icon, title,
@@ -374,26 +374,26 @@ function WeaponStat({
 }) {
   return (
     <div
-      className={`flex flex-col items-center justify-center gap-0.5 bg-void-navy px-1 py-2.5 text-center ${className}`}
+      className={`flex flex-col items-center justify-center gap-0.5 bg-void-navy px-1 py-2 text-center ${className}`}
     >
       {Icon && (
         <Icon
-          size={14}
+          size={12}
           strokeWidth={2}
           className={tone === "red" ? "text-stamp-red" : "text-signal-cyan"}
           aria-hidden="true"
         />
       )}
-      <span className="flex items-baseline gap-1">
+      <span className="flex flex-col items-center gap-0.5">
         <span
-          className={`font-[family-name:var(--font-jetbrains)] text-base font-bold leading-none ${
+          className={`text-balance break-words font-[family-name:var(--font-jetbrains)] text-sm font-bold leading-tight ${
             tone === "red" ? "text-stamp-red" : "text-case-file-white"
           }`}
         >
           {value}
         </span>
         {delta && (
-          <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] font-semibold leading-none text-signal-cyan">
+          <span className="font-[family-name:var(--font-jetbrains)] text-[0.5625rem] font-semibold leading-none text-signal-cyan">
             {delta}
           </span>
         )}
