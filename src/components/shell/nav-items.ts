@@ -26,7 +26,7 @@ export const navItems: NavItem[] = [
   { label: "Missions", icon: Crosshair, href: "/missions" },
   { label: "Facilities", icon: Factory, href: "/facilities" },
   { label: "Ballots", icon: Vote, href: "/ballots" },
-  { label: "Registry", icon: BookUser, phase: "Phase 8" },
+  { label: "Registry", icon: BookUser, href: "/registry" },
 ];
 
 // Players get a "My Case File" shortcut to their own operator sheet, slotted in
