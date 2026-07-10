@@ -14,6 +14,7 @@ import { HistoryTable, type HistoryRow } from "@/components/ledger/history-table
 import { getCharacterBySlug } from "@/lib/characters";
 import { getCharacterCards, computeLoadout } from "@/lib/card-data";
 import { CARD_CATEGORY_META } from "@/lib/cards";
+import { agilityMovementBonus } from "@/lib/ledger";
 import { regiment } from "@/lib/mock-data";
 import {
   stampStyle,
@@ -187,7 +188,7 @@ export default async function CaseFilePage({
                   energy={loadout.resources.energy}
                   ammo={loadout.resources.ammo}
                   energyRegen={op.energyRegen}
-                  movementBase={op.movementBase}
+                  movementBase={op.movementBase + agilityMovementBonus(op.stats.agility)}
                   movementEpSpent={op.movementEpSpent}
                 />
               ) : (

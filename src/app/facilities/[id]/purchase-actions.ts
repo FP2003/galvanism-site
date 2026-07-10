@@ -17,7 +17,7 @@ import {
 } from "@/lib/schema";
 import { getViewerCharacterState } from "@/lib/characters";
 import { effectiveResourceMaxes } from "@/lib/card-data";
-import { applyXpSpend } from "@/lib/ledger";
+import { applyXpSpend, resilienceHpBonus } from "@/lib/ledger";
 import {
   applyPurchase,
   applyStatBump,
@@ -188,7 +188,7 @@ export async function purchaseXpOffering(
   if (!result.ok) return { error: result.error };
   const maxKey = RESOURCE_MAX_KEY[offering.targetKey];
   const maxes = await effectiveResourceMaxes(character.id, {
-    hpMax: character.hpMax,
+    hpMax: character.hpMax + resilienceHpBonus(character.statResilience),
     energyMax: character.energyMax,
     ammoMax: character.ammoMax,
   });
