@@ -1,6 +1,7 @@
 "use server";
 
 import { clerkClient } from "@clerk/nextjs/server";
+import { isClerkAPIResponseError } from "@clerk/backend/errors";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
@@ -622,11 +623,17 @@ export async function deletePlayerAccount(
     const client = await clerkClient();
     await client.users.deleteUser(player.userId);
   } catch (err) {
-    return {
-      error: `Could not remove the Clerk identity: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
-    };
+    // A 404 means the player already deleted their own Clerk identity (e.g. via
+    // account settings) before the DM used this button — nothing left to remove
+    // there, so fall through to clearing the DB records instead of blocking.
+    const alreadyGone = isClerkAPIResponseError(err) && err.status === 404;
+    if (!alreadyGone) {
+      return {
+        error: `Could not remove the Clerk identity: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      };
+    }
   }
 
   // Cascades to players → characters → credit_ledger via FK onDelete.
