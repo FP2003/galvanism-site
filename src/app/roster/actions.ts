@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { eq, and, ne, inArray, isNotNull, isNull } from "drizzle-orm";
+import { del } from "@vercel/blob";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { characters, characterCards } from "@/lib/schema";
@@ -106,6 +107,70 @@ export async function updateResources(
 
   revalidatePath(`/roster/${c.slug}`);
   return { ok: true, message: "Resources updated." };
+}
+
+// Case-file portrait: a single spinning HeroForge mini GIF per character, not
+// a gallery. The file itself is uploaded directly browser-to-Blob (see
+// app/api/portrait-upload/route.ts) since it can run well past Vercel's
+// 4.5MB serverless request-body ceiling — this action just persists the
+// resulting URL once the client-side upload has already completed, and
+// cleans up the previous blob it's replacing.
+export async function savePortraitUrl(
+  characterId: string,
+  url: string,
+): Promise<SheetState> {
+  const auth = await authorizeEdit(characterId);
+  if ("error" in auth) return { error: auth.error };
+  const { db, character } = auth;
+
+  if (!url.includes(".public.blob.vercel-storage.com")) {
+    return { error: "Invalid upload." };
+  }
+
+  const previousUrl = character.portraitUrl;
+  await db
+    .update(characters)
+    .set({ portraitUrl: url, updatedAt: new Date() })
+    .where(eq(characters.id, characterId));
+
+  if (previousUrl && previousUrl !== url) {
+    try {
+      await del(previousUrl);
+    } catch (err) {
+      console.error("Blob cleanup failed after portrait replace:", err);
+    }
+  }
+
+  revalidatePath(`/roster/${character.slug}`);
+  revalidatePath("/roster");
+  return { ok: true, message: "Portrait updated." };
+}
+
+export async function deletePortrait(
+  _prev: SheetState,
+  formData: FormData,
+): Promise<SheetState> {
+  const characterId = String(formData.get("characterId") ?? "");
+  const auth = await authorizeEdit(characterId);
+  if ("error" in auth) return { error: auth.error };
+  const { db, character } = auth;
+
+  if (!character.portraitUrl) return { error: "No portrait on file." };
+
+  await db
+    .update(characters)
+    .set({ portraitUrl: null, updatedAt: new Date() })
+    .where(eq(characters.id, characterId));
+
+  try {
+    await del(character.portraitUrl);
+  } catch (err) {
+    console.error("Blob cleanup failed after portrait deletion:", err);
+  }
+
+  revalidatePath(`/roster/${character.slug}`);
+  revalidatePath("/roster");
+  return { ok: true, message: "Portrait removed." };
 }
 
 // Equip / unequip a card the character owns (Phase 3). Owner or admin only. Only
