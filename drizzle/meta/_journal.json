@@ -162,6 +162,13 @@
       "when": 1783626374182,
       "tag": "0022_broken_quasimodo",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1783701410554,
+      "tag": "0023_regular_catseye",
+      "breakpoints": true
     }
   ]
 }

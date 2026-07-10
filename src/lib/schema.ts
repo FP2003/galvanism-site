@@ -935,6 +935,53 @@ export const ballotsRelations = relations(ballots, ({ many }) => ({
   votes: many(ballotVotes),
 }));
 
+// Phase 8 — Registry (info/roadmap.md §Phase 8). A DM-authored lore glossary
+// (NPCs, locations, factions, items, events) that other free-text fields
+// (mission briefings, character bios, card text) can link to. `visibility`
+// gates whether the entry is browsable/linkable by players at all;
+// `gmNotes` is a second, always-admin-only field on every entry regardless of
+// `visibility` — see lib/registry-data.ts for why the player-facing queries
+// are written as a separate, narrower function rather than one shared query
+// with component-level filtering (the pattern facilities/ballots use): those
+// rows have nothing actually secret on them, this one does.
+export const registryEntryType = pgEnum("registry_entry_type", [
+  "npc",
+  "location",
+  "faction",
+  "item",
+  "event",
+]);
+export const registryVisibility = pgEnum("registry_visibility", [
+  "public",
+  "hidden",
+]);
+
+export const registryEntries = pgTable(
+  "registry_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    slug: text("slug").notNull().unique(),
+    name: text("name").notNull(),
+    type: registryEntryType("type").notNull(),
+    visibility: registryVisibility("visibility").notNull().default("public"),
+    description: text("description"), // markdown, player-visible when public
+    gmNotes: text("gm_notes"), // markdown, admin-only, always
+    createdByUserId: text("created_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("registry_entries_type_idx").on(t.type),
+    index("registry_entries_visibility_idx").on(t.visibility),
+  ],
+);
+
 export const ballotOptionsRelations = relations(
   ballotOptions,
   ({ one, many }) => ({
@@ -998,3 +1045,5 @@ export type BallotOption = typeof ballotOptions.$inferSelect;
 export type NewBallotOption = typeof ballotOptions.$inferInsert;
 export type BallotVote = typeof ballotVotes.$inferSelect;
 export type NewBallotVote = typeof ballotVotes.$inferInsert;
+export type RegistryEntry = typeof registryEntries.$inferSelect;
+export type NewRegistryEntry = typeof registryEntries.$inferInsert;

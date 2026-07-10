@@ -45,6 +45,9 @@ export const TEXT_LIMITS = {
   ballotTitle: 80,
   ballotDescription: 2000,
   ballotOptionLabel: 60,
+  registryName: 64,
+  registryDescription: 4000,
+  registryGmNotes: 4000,
 } as const;
 
 // Mission briefing photo attachments — bounded gallery, not an open-ended
