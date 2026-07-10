@@ -5,6 +5,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
 import { StatusLabel } from "@/components/ui/status-dot";
+import { PortraitFrame } from "@/components/ui/portrait-frame";
 import { getRosterViews } from "@/lib/characters";
 import { statusTone, statusWord } from "@/lib/status";
 
@@ -51,9 +52,16 @@ export default async function RosterPage() {
                     href={`/roster/${op.slug}`}
                     className="group grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 border-b border-elevated-ledger px-5 py-4 transition-colors duration-150 last:border-b-0 hover:bg-elevated-ledger sm:grid-cols-[auto_minmax(0,1.4fr)_minmax(0,1fr)_auto_auto]"
                   >
-                    <span className="flex size-10 shrink-0 items-center justify-center bg-void-navy font-[family-name:var(--font-chakra)] text-sm font-bold text-signal-cyan">
-                      {op.callsign.slice(0, 2)}
-                    </span>
+                    <PortraitFrame
+                      size="size-10"
+                      portraitUrl={op.portraitUrl}
+                      imageSizes="40px"
+                      fallback={
+                        <span className="font-[family-name:var(--font-chakra)] text-sm font-bold text-signal-cyan">
+                          {op.callsign.slice(0, 2)}
+                        </span>
+                      }
+                    />
 
                     <div className="min-w-0">
                       <span className="block truncate font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-case-file-white">

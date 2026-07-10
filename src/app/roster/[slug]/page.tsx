@@ -24,6 +24,7 @@ import {
 import { BioEditor } from "./bio-editor";
 import { ResourceTracker } from "./resource-tracker";
 import { Loadout } from "./loadout";
+import { Portrait } from "./portrait";
 
 export async function generateMetadata({
   params,
@@ -135,17 +136,12 @@ export default async function CaseFilePage({
 
         {/* Identity band */}
         <div className="mt-3 flex flex-col gap-5 bg-ledger-teal p-5 sm:flex-row sm:items-center sm:p-6">
-          <div
-            className="flex size-24 shrink-0 items-center justify-center border-2 border-steel-blue bg-void-navy"
-            style={{
-              clipPath:
-                "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)",
-            }}
-          >
-            <span className="font-[family-name:var(--font-rajdhani)] text-3xl font-bold text-signal-cyan">
-              {op.callsign.slice(0, 2)}
-            </span>
-          </div>
+          <Portrait
+            characterId={op.id}
+            callsign={op.callsign}
+            portraitUrl={op.portraitUrl}
+            canEdit={canEdit}
+          />
 
           <div className="min-w-0 flex-1">
             <h1 className="font-[family-name:var(--font-rajdhani)] text-4xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white break-words">
