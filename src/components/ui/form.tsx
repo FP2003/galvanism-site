@@ -66,14 +66,12 @@ export const FileInput = forwardRef<
   );
 });
 
-export function Textarea(
-  props: React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
-    className?: string;
-  },
-) {
-  const { className = "", ...rest } = props;
-  return <textarea className={`${controlClass} ${className}`} {...rest} />;
-}
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { className?: string }
+>(function Textarea({ className = "", ...rest }, ref) {
+  return <textarea ref={ref} className={`${controlClass} ${className}`} {...rest} />;
+});
 
 export function Select(
   props: React.SelectHTMLAttributes<HTMLSelectElement> & {
