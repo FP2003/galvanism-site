@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ClipboardList, Clock, IdCard, ChevronRight } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { CommandDashboard } from "@/components/command-dashboard";
 import { ButtonLink } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
@@ -31,6 +32,7 @@ export default async function CommandPage() {
 
   return (
     <AppShell>
+      <AutoRefresh />
       {viewer?.kind === "none" && (
         <div className="mx-auto max-w-[1600px] px-4 pt-6 sm:px-6">
           <div className="flex flex-col gap-4 border border-signal-cyan/40 bg-signal-cyan/5 p-5 sm:flex-row sm:items-center sm:justify-between">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ChevronRight, Users } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { Panel } from "@/components/ui/panel";
 import { Meter } from "@/components/ui/meter";
 import { StatusLabel } from "@/components/ui/status-dot";
@@ -18,6 +19,7 @@ export default async function RosterPage() {
 
   return (
     <AppShell>
+      <AutoRefresh />
       <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8">
         <div className="mb-6 border-b border-ledger-teal pb-5">
           <h1 className="font-[family-name:var(--font-rajdhani)] text-3xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white sm:text-4xl">
@@ -73,8 +75,8 @@ export default async function RosterPage() {
                       </span>
                     </div>
 
-                    <div className="hidden min-w-0 sm:block">
-                      <div className="flex items-center gap-2">
+                    <div className="hidden min-w-0 sm:flex sm:items-center sm:gap-4">
+                      <div className="flex flex-1 items-center gap-2">
                         <Meter
                           value={op.hp.current}
                           max={op.hp.max}
@@ -86,8 +88,20 @@ export default async function RosterPage() {
                           }
                           className="max-w-28"
                         />
-                        <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
-                          {op.hp.current}/{op.hp.max}
+                        <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
+                          HP {op.hp.current}/{op.hp.max}
+                        </span>
+                      </div>
+                      <div className="flex flex-1 items-center gap-2">
+                        <Meter
+                          value={op.energy.current}
+                          max={op.energy.max}
+                          label={`Energy ${op.energy.current}/${op.energy.max}`}
+                          tone="steel"
+                          className="max-w-28"
+                        />
+                        <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
+                          EN {op.energy.current}/{op.energy.max}
                         </span>
                       </div>
                     </div>

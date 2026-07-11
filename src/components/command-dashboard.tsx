@@ -17,6 +17,7 @@ export interface DashboardOperator {
   rank: string | null;
   status: CharacterStatus;
   hp: { current: number; max: number };
+  energy: { current: number; max: number };
 }
 
 const riskLabel = {
@@ -142,21 +143,35 @@ export function CommandDashboard({
                           {[op.role, op.rank].filter(Boolean).join(" · ") || "—"}
                         </span>
                       </div>
-                      <div className="mt-1.5 flex items-center gap-2">
-                        <Meter
-                          value={op.hp.current}
-                          max={op.hp.max}
-                          label={`HP ${op.hp.current}/${op.hp.max}`}
-                          tone={
-                            op.hp.max > 0 && op.hp.current / op.hp.max <= 0.33
-                              ? "critical"
-                              : "live"
-                          }
-                          className="max-w-32"
-                        />
-                        <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
-                          HP {op.hp.current}/{op.hp.max}
-                        </span>
+                      <div className="mt-1.5 flex items-center gap-3">
+                        <div className="flex max-w-40 flex-1 items-center gap-2">
+                          <Meter
+                            value={op.hp.current}
+                            max={op.hp.max}
+                            label={`HP ${op.hp.current}/${op.hp.max}`}
+                            tone={
+                              op.hp.max > 0 && op.hp.current / op.hp.max <= 0.33
+                                ? "critical"
+                                : "live"
+                            }
+                            className="max-w-20"
+                          />
+                          <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
+                            HP {op.hp.current}/{op.hp.max}
+                          </span>
+                        </div>
+                        <div className="flex max-w-40 flex-1 items-center gap-2">
+                          <Meter
+                            value={op.energy.current}
+                            max={op.energy.max}
+                            label={`Energy ${op.energy.current}/${op.energy.max}`}
+                            tone="steel"
+                            className="max-w-20"
+                          />
+                          <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
+                            EN {op.energy.current}/{op.energy.max}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="hidden w-20 shrink-0 sm:block">
