@@ -46,6 +46,17 @@ async function authorizeEdit(characterId: string) {
   return { db, character };
 }
 
+// Mirrors admin/actions.ts's revalidateCharacter — HP/bio edited here are also
+// rendered by the roster list, dashboard, and admin service record, so all
+// five paths need to invalidate, not just the case file that was submitted.
+function revalidateCharacterPaths(slug: string, playerId: string) {
+  revalidatePath("/admin");
+  revalidatePath(`/admin/players/${playerId}`);
+  revalidatePath("/roster");
+  revalidatePath(`/roster/${slug}`);
+  revalidatePath("/");
+}
+
 export async function updateBio(
   _prev: SheetState,
   formData: FormData,
@@ -61,7 +72,7 @@ export async function updateBio(
     .set({ bio: bio || null, updatedAt: new Date() })
     .where(eq(characters.id, characterId));
 
-  revalidatePath(`/roster/${auth.character.slug}`);
+  revalidateCharacterPaths(auth.character.slug, auth.character.playerId);
   return { ok: true, message: "Service record saved." };
 }
 
@@ -116,7 +127,7 @@ export async function updateResources(
     })
     .where(eq(characters.id, characterId));
 
-  revalidatePath(`/roster/${c.slug}`);
+  revalidateCharacterPaths(c.slug, c.playerId);
   return { ok: true, message: "Resources updated." };
 }
 

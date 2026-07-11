@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { players, characters } from "@/lib/schema";
 import { slugifyCallsign } from "@/lib/characters";
-import { validateAttributeAllocation } from "@/lib/ledger";
+import { resilienceHpBonus, validateAttributeAllocation } from "@/lib/ledger";
 import {
   BASE_HP,
   BASE_ENERGY,
@@ -83,7 +83,10 @@ export async function submitApplication(
       status: "standby",
       approved: false,
       hpMax: BASE_HP,
-      hpCurrent: BASE_HP,
+      // A new character starts full against their chosen Resilience allocation,
+      // not the flat base — resilienceHpBonus is folded into hpMax everywhere
+      // it's read, so hpCurrent has to account for it here too.
+      hpCurrent: BASE_HP + resilienceHpBonus(resilience),
       energyMax: BASE_ENERGY,
       energyCurrent: BASE_ENERGY,
       energyRegen: BASE_ENERGY_REGEN,

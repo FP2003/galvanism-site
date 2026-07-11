@@ -18,7 +18,9 @@ import {
   clampMovementSpend,
   clampResource,
   parseSignedInt,
+  resilienceHpBonus,
 } from "@/lib/ledger";
+import { effectiveResourceMaxes } from "@/lib/card-data";
 
 export type CreatePlayerState = {
   ok?: boolean;
@@ -138,7 +140,10 @@ function parseCharacterFields(formData: FormData):
     role: textField(formData, "role", TEXT_LIMITS.role) || null,
     status,
     hpMax,
-    hpCurrent: clampResource(intField(formData, "hpCurrent"), hpMax),
+    // Raw, unclamped — the caller resolves the true effective max (Resilience
+    // bonus + equipped cards) and any Resilience-delta adjustment before
+    // clamping, since neither is known here.
+    hpCurrent: intField(formData, "hpCurrent"),
     energyMax,
     energyCurrent,
     energyRegen: intField(formData, "energyRegen", 3),
@@ -185,6 +190,12 @@ export async function createCharacter(
   const slug = slugifyCallsign(parsed.values.callsign);
   if (!slug) return { error: "Callsign must contain letters or numbers." };
 
+  // Brand-new sheet — no prior HP state and no cards yet, so start full
+  // against the chosen Resilience allocation rather than clamping whatever
+  // the form's Health fields happened to hold.
+  parsed.values.hpCurrent =
+    (parsed.values.hpMax ?? 0) + resilienceHpBonus(parsed.values.statResilience ?? 0);
+
   const db = getDb();
   try {
     // Admin-created sheets are approved on creation (no application review).
@@ -217,12 +228,36 @@ export async function updateCharacter(
   const slug = slugifyCallsign(parsed.values.callsign);
   if (!slug) return { error: "Callsign must contain letters or numbers." };
 
+  const db = getDb();
+  const existing = await db.query.characters.findFirst({
+    where: eq(characters.id, characterId),
+  });
+  if (!existing) return { error: "Character not found." };
+
+  // Resilience raises the effective max at every read site but is never
+  // stored — so a Resilience change here has to bump hpCurrent by the same
+  // delta (preserving existing damage) rather than leaving it frozen against
+  // a ceiling that just moved. effectiveResourceMaxes also folds in any
+  // equipped resource_modifier cards, same clamp the roster/case-file self-
+  // service action (roster/actions.ts) uses.
+  const newStatResilience = parsed.values.statResilience ?? 0;
+  const resilienceDelta =
+    resilienceHpBonus(newStatResilience) - resilienceHpBonus(existing.statResilience);
+  const effectiveMax = await effectiveResourceMaxes(characterId, {
+    hpMax: (parsed.values.hpMax ?? 0) + resilienceHpBonus(newStatResilience),
+    energyMax: parsed.values.energyMax ?? 0,
+    ammoMax: parsed.values.ammoMax ?? 0,
+  });
+  parsed.values.hpCurrent = clampResource(
+    (parsed.values.hpCurrent ?? 0) + resilienceDelta,
+    effectiveMax.hpMax,
+  );
+
   // Drop the create-only placeholders; keep the editable columns.
   const { playerId: _p, slug: _s, ...editable } = parsed.values;
   void _p;
   void _s;
 
-  const db = getDb();
   try {
     await db
       .update(characters)

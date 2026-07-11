@@ -21,6 +21,7 @@ import {
   TEXT_LIMITS,
 } from "@/lib/game-rules";
 import type { CharacterView } from "@/lib/characters";
+import { resilienceHpBonus } from "@/lib/ledger";
 import {
   createCharacter,
   updateCharacter,
@@ -150,6 +151,11 @@ export function CharacterForm({
             maxName="hpMax"
             current={character?.hp.current ?? BASE_HP}
             max={character?.hp.max ?? BASE_HP}
+            hint={
+              character && character.stats.resilience > 0
+                ? `Base — effective max is ${character.hp.max + resilienceHpBonus(character.stats.resilience)} with +${resilienceHpBonus(character.stats.resilience)} from Resilience`
+                : undefined
+            }
           />
           <ResourcePair
             label="Energy"
@@ -272,12 +278,14 @@ function ResourcePair({
   maxName,
   current,
   max,
+  hint,
 }: {
   label: string;
   currentName: string;
   maxName: string;
   current: number;
   max: number;
+  hint?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -305,6 +313,15 @@ function ResourcePair({
           defaultValue={max}
         />
       </div>
+      {/* This field stores the base value — Resilience/card bonuses are
+          computed on top of it everywhere else, never stored, so surface the
+          effective number here rather than substituting it into the input
+          (which would bake the bonus into the base on the next save). */}
+      {hint && (
+        <span className="font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
+          {hint}
+        </span>
+      )}
     </div>
   );
 }

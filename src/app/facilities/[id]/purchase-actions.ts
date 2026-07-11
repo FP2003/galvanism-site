@@ -17,7 +17,7 @@ import {
 } from "@/lib/schema";
 import { getViewerCharacterState } from "@/lib/characters";
 import { effectiveResourceMaxes } from "@/lib/card-data";
-import { applyXpSpend, resilienceHpBonus } from "@/lib/ledger";
+import { applyXpSpend, clampResource, resilienceHpBonus } from "@/lib/ledger";
 import {
   applyPurchase,
   applyStatBump,
@@ -162,10 +162,28 @@ export async function purchaseXpOffering(
     if (!spend.ok) return { error: spend.error };
     const newStat = applyStatBump(currentValue, offering.amount);
 
+    // Training up Resilience raises the effective max HP everywhere it's
+    // read but never touches the stored hpCurrent — bump it by the same
+    // delta here (preserving existing damage), same convention as the
+    // admin sheet edit (admin/actions.ts's updateCharacter).
+    const updates: Record<string, number> = {
+      currencyXp: spend.value,
+      [offering.targetKey]: newStat,
+    };
+    if (offering.targetKey === "statResilience") {
+      const hpDelta = resilienceHpBonus(newStat) - resilienceHpBonus(currentValue);
+      const maxes = await effectiveResourceMaxes(character.id, {
+        hpMax: character.hpMax + resilienceHpBonus(newStat),
+        energyMax: character.energyMax,
+        ammoMax: character.ammoMax,
+      });
+      updates.hpCurrent = clampResource(character.hpCurrent + hpDelta, maxes.hpMax);
+    }
+
     await db.batch([
       db
         .update(characters)
-        .set({ currencyXp: spend.value, [offering.targetKey]: newStat, updatedAt: new Date() })
+        .set({ ...updates, updatedAt: new Date() })
         .where(eq(characters.id, character.id)),
       db.insert(xpLedger).values({
         characterId: character.id,
@@ -181,6 +199,8 @@ export async function purchaseXpOffering(
     revalidatePath(`/facilities/${offering.facilityId}`);
     revalidatePath("/roster");
     revalidatePath(`/roster/${character.slug}`);
+    revalidatePath("/");
+    revalidatePath(`/admin/players/${player.id}`);
     return { ok: true, message: `${offering.name}: spent ${offering.cost} XP.` };
   }
 
@@ -216,6 +236,8 @@ export async function purchaseXpOffering(
   revalidatePath(`/facilities/${offering.facilityId}`);
   revalidatePath("/roster");
   revalidatePath(`/roster/${character.slug}`);
+  revalidatePath("/");
+  revalidatePath(`/admin/players/${player.id}`);
   return { ok: true, message: `${offering.name}: spent ${offering.cost} Cr.` };
 }
 
