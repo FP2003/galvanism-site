@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tickBallotDeadline, tallyVotes, leadingOptionIds } from "./ballots";
+import { tickBallotDeadline, tallyVotes, votersByOption, leadingOptionIds } from "./ballots";
 
 describe("tickBallotDeadline", () => {
   it("decrements a deadline that's still safely above zero", () => {
@@ -65,6 +65,29 @@ describe("tallyVotes", () => {
       votes: 0,
       pct: 0,
     });
+  });
+});
+
+describe("votersByOption", () => {
+  const options = [
+    { id: "a", label: "Option A" },
+    { id: "b", label: "Option B" },
+  ];
+
+  it("groups callsigns under the option they picked, alphabetized", () => {
+    const votes = [
+      { optionId: "a", callsign: "Ghost" },
+      { optionId: "a", callsign: "Ace" },
+      { optionId: "b", callsign: "Raze" },
+    ];
+    expect(votersByOption(options, votes)).toEqual({
+      a: ["Ace", "Ghost"],
+      b: ["Raze"],
+    });
+  });
+
+  it("keeps an unvoted option present as an empty list", () => {
+    expect(votersByOption(options, [])).toEqual({ a: [], b: [] });
   });
 });
 

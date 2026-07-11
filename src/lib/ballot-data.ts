@@ -22,14 +22,15 @@ export async function getBallots() {
 }
 
 /** One ballot with its options (sortOrder) and votes — the admin and player
- *  detail pages. */
+ *  detail pages. Each vote carries its character's callsign so the pages can
+ *  show who voted for what (lib/ballots.ts's votersByOption). */
 export async function getBallot(ballotId: string) {
   const db = getDb();
   return db.query.ballots.findFirst({
     where: eq(ballots.id, ballotId),
     with: {
       options: { orderBy: [asc(ballotOptions.sortOrder)] },
-      votes: true,
+      votes: { with: { character: { columns: { callsign: true } } } },
     },
   });
 }

@@ -9,9 +9,14 @@ import type { BallotOptionTally } from "@/lib/ballots";
 export function BallotTally({
   totalVotes,
   results,
+  voters,
 }: {
   totalVotes: number;
   results: BallotOptionTally[];
+  /** Callsigns of everyone who picked each option, keyed by optionId — omit
+   *  to render tallies without the voter breakdown (e.g. the dashboard's
+   *  compact preview). */
+  voters?: Record<string, string[]>;
 }) {
   return (
     <ul className="flex flex-col gap-3">
@@ -30,6 +35,11 @@ export function BallotTally({
             tone="steel"
             className="mt-1.5"
           />
+          {voters && voters[r.optionId]?.length > 0 && (
+            <p className="mt-1.5 truncate font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+              {voters[r.optionId].join(", ")}
+            </p>
+          )}
         </li>
       ))}
     </ul>

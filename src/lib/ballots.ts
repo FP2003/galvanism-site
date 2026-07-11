@@ -57,6 +57,24 @@ export function tallyVotes(
 }
 
 /**
+ * Groups voter callsigns by the option they picked, so the tally UI can show
+ * who voted for what alongside the counts from tallyVotes. Options with no
+ * votes still get an (empty) entry, mirroring tallyVotes's convention.
+ */
+export function votersByOption(
+  options: BallotOptionInput[],
+  votes: { optionId: string; callsign: string }[],
+): Record<string, string[]> {
+  const grouped: Record<string, string[]> = {};
+  for (const o of options) grouped[o.id] = [];
+  for (const v of votes) {
+    grouped[v.optionId]?.push(v.callsign);
+  }
+  for (const callsigns of Object.values(grouped)) callsigns.sort((a, b) => a.localeCompare(b));
+  return grouped;
+}
+
+/**
  * The option id(s) currently tied for the most votes. Empty when nobody's
  * voted yet — the "leading option" display should treat that as no leader,
  * not a tie among every option at zero.

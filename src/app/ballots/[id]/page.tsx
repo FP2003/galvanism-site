@@ -4,12 +4,13 @@ import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
+import { Markdown } from "@/components/ui/markdown";
 import { StatusLabel } from "@/components/ui/status-dot";
 import { BallotTally } from "@/components/ballot-tally";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
 import { getBallot } from "@/lib/ballot-data";
-import { tallyVotes } from "@/lib/ballots";
+import { tallyVotes, votersByOption } from "@/lib/ballots";
 import { BallotVoteForm } from "../ballot-vote-form";
 
 export const metadata: Metadata = { title: "Ballot" };
@@ -34,6 +35,10 @@ export default async function BallotDetailPage({
   const ownVote = character ? ballot.votes.find((v) => v.characterId === character.id) : undefined;
 
   const { totalVotes, results } = tallyVotes(ballot.options, ballot.votes);
+  const voters = votersByOption(
+    ballot.options,
+    ballot.votes.map((v) => ({ optionId: v.optionId, callsign: v.character.callsign })),
+  );
 
   return (
     <AppShell>
@@ -71,9 +76,9 @@ export default async function BallotDetailPage({
           <div className="flex flex-col gap-6">
             <Panel title="Description">
               {ballot.description ? (
-                <p className="max-w-prose whitespace-pre-wrap text-sm text-case-file-white">
+                <Markdown className="max-w-prose text-sm text-case-file-white">
                   {ballot.description}
-                </p>
+                </Markdown>
               ) : (
                 <p className="font-[family-name:var(--font-inter)] text-sm text-muted-ink">
                   No description written yet.
@@ -82,7 +87,7 @@ export default async function BallotDetailPage({
             </Panel>
 
             <Panel title="Live Tally">
-              <BallotTally totalVotes={totalVotes} results={results} />
+              <BallotTally totalVotes={totalVotes} results={results} voters={voters} />
             </Panel>
           </div>
 
