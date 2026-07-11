@@ -276,9 +276,7 @@ export default async function CaseFilePage({
 
           {/* Right column: biography + ledger */}
           <div className="flex flex-col gap-3 lg:col-span-2">
-            <Panel title="Service Record">
-              <BioEditor characterId={op.id} bio={op.bio} canEdit={canEdit} />
-            </Panel>
+            <BioEditor characterId={op.id} bio={op.bio} canEdit={canEdit} />
 
             {(loadout.activeModifiers.length > 0 ||
               loadout.descriptiveEffects.length > 0) && (
