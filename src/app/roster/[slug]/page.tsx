@@ -426,9 +426,14 @@ function StatRow({
         {modified && (
           <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
             {base}
-            {suffix}
-            <span className={delta > 0 ? "text-signal-cyan" : "text-stamp-red"}>
-              {" "}
+            {suffix}{" "}
+            <span
+              className={
+                delta > 0
+                  ? "text-signal-cyan"
+                  : "bg-stamp-red px-1 text-case-file-white"
+              }
+            >
               {delta > 0 ? "+" : "−"}
               {Math.abs(delta)}
             </span>
