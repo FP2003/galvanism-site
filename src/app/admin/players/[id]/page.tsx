@@ -20,7 +20,7 @@ import { CardAssignment } from "./card-assignment";
 import { PerkPurchases } from "./perk-purchases";
 import { DeleteAccount } from "./delete-account";
 import { MissionPayoutForm } from "./mission-payout-form";
-import { HistoryTable, type HistoryRow } from "@/components/ledger/history-table";
+import { HistoryPanel, type HistoryRow } from "@/components/ledger/history-table";
 import { ApplicationActions } from "../../application-actions";
 
 // Admin player-management console (info/roadmap.md Phase 2). Full CRUD for one
@@ -314,9 +314,7 @@ export default async function AdminPlayerPage({
         </div>
 
         {/* Full-width so the combined ledger doesn't need horizontal scroll */}
-        <Panel title="History" bodyClassName="p-0" className="mt-6">
-          <HistoryTable rows={history} />
-        </Panel>
+        <HistoryPanel rows={history} className="mt-6" />
       </div>
     </AppShell>
   );

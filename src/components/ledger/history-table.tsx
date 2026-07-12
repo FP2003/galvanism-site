@@ -1,4 +1,8 @@
-import { Coins, Sparkles } from "lucide-react";
+"use client";
+
+import { useId, useState } from "react";
+import { ChevronDown, ChevronUp, Coins, Sparkles } from "lucide-react";
+import { Panel } from "@/components/ui/panel";
 
 // Merged credit + XP ledger row, sorted by createdAt desc by the caller.
 // Keeping a single feed (rather than two tables) means the DM can see
@@ -17,6 +21,51 @@ const typeMeta = {
   credit: { label: "Credit", icon: Coins, className: "text-signal-cyan" },
   xp: { label: "XP", icon: Sparkles, className: "text-signal-cyan" },
 } as const;
+
+const COLLAPSED_ROWS = 5;
+
+export function HistoryPanel({
+  rows,
+  className = "",
+}: {
+  rows: HistoryRow[];
+  className?: string;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const tableId = useId();
+  const hasMore = rows.length > COLLAPSED_ROWS;
+  const visibleRows = collapsed ? rows.slice(0, COLLAPSED_ROWS) : rows;
+
+  return (
+    <Panel
+      title="History"
+      bodyClassName="p-0"
+      className={className}
+      meta={
+        hasMore && (
+          <button
+            type="button"
+            aria-expanded={!collapsed}
+            aria-controls={tableId}
+            onClick={() => setCollapsed((current) => !current)}
+            className="flex items-center gap-1 font-[family-name:var(--font-jetbrains)] text-[0.6875rem] uppercase tracking-[0.06em] text-signal-cyan hover:text-live-cyan"
+          >
+            {collapsed ? (
+              <ChevronDown size={13} aria-hidden="true" />
+            ) : (
+              <ChevronUp size={13} aria-hidden="true" />
+            )}
+            {collapsed ? "Show full history" : "Collapse"}
+          </button>
+        )
+      }
+    >
+      <div id={tableId}>
+        <HistoryTable rows={visibleRows} />
+      </div>
+    </Panel>
+  );
+}
 
 export function HistoryTable({ rows }: { rows: HistoryRow[] }) {
   if (rows.length === 0) {

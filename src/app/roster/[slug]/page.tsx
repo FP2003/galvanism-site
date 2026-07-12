@@ -10,7 +10,7 @@ import { Meter } from "@/components/ui/meter";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { creditLedger, xpLedger } from "@/lib/schema";
-import { HistoryTable, type HistoryRow } from "@/components/ledger/history-table";
+import { HistoryPanel, type HistoryRow } from "@/components/ledger/history-table";
 import { getCharacterBySlug } from "@/lib/characters";
 import { getCharacterCards, computeLoadout } from "@/lib/card-data";
 import { CARD_CATEGORY_META } from "@/lib/cards";
@@ -341,9 +341,7 @@ export default async function CaseFilePage({
               />
             </Panel>
 
-            <Panel title="History" bodyClassName="p-0">
-              <HistoryTable rows={history} />
-            </Panel>
+            <HistoryPanel rows={history} />
           </div>
         </div>
       </div>
