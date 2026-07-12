@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { FormMessage } from "@/components/ui/form";
 import { StatusLabel } from "@/components/ui/status-dot";
 import { markInterested, withdrawInterest, type FormState } from "./actions";
 
@@ -33,9 +34,9 @@ export function MissionInterestButton({
         <input type="hidden" name="assignmentId" value={assignmentId} />
         <SubmitButton variant="secondary" pendingLabel="Withdrawing…" label="Withdraw" />
         {withdrawState.error && (
-          <p role="alert" className="mt-1 text-[0.6875rem] text-stamp-red">
-            {withdrawState.error}
-          </p>
+          <div className="mt-1.5">
+            <FormMessage state={withdrawState} />
+          </div>
         )}
       </form>
     );
@@ -46,9 +47,9 @@ export function MissionInterestButton({
       <input type="hidden" name="missionId" value={missionId} />
       <SubmitButton pendingLabel="Marking…" label="Mark interested" />
       {interestedState.error && (
-        <p role="alert" className="mt-1 text-[0.6875rem] text-stamp-red">
-          {interestedState.error}
-        </p>
+        <div className="mt-1.5">
+          <FormMessage state={interestedState} />
+        </div>
       )}
     </form>
   );
