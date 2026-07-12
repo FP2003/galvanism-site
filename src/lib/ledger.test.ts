@@ -4,6 +4,7 @@ import {
   applyCreditsDelta,
   applyXpGrant,
   applyXpSpend,
+  adjustCurrentForMaxChange,
   clampMovementSpend,
   clampResource,
   movementMeters,
@@ -118,9 +119,27 @@ describe("clampResource", () => {
   });
 });
 
+describe("adjustCurrentForMaxChange", () => {
+  it("raises current HP by the same amount as max HP", () => {
+    expect(adjustCurrentForMaxChange(13, 13, 14)).toBe(14);
+  });
+
+  it("preserves existing damage when max HP increases", () => {
+    expect(adjustCurrentForMaxChange(9, 13, 14)).toBe(10);
+  });
+
+  it("lowers current HP when max HP decreases", () => {
+    expect(adjustCurrentForMaxChange(10, 14, 12)).toBe(8);
+  });
+
+  it("does not allow current HP below zero", () => {
+    expect(adjustCurrentForMaxChange(1, 14, 10)).toBe(0);
+  });
+});
+
 describe("resilienceHpBonus", () => {
-  it("adds 1 HP per Resilience point", () => {
-    expect(resilienceHpBonus(3)).toBe(3);
+  it("adds 2 HP per Resilience point", () => {
+    expect(resilienceHpBonus(3)).toBe(6);
   });
 
   it("returns 0 for no Resilience", () => {
@@ -132,7 +151,7 @@ describe("resilienceHpBonus", () => {
   });
 
   it("floors fractional Resilience", () => {
-    expect(resilienceHpBonus(3.9)).toBe(3);
+    expect(resilienceHpBonus(3.9)).toBe(6);
   });
 });
 

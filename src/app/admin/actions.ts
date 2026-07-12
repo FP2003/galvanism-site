@@ -13,6 +13,7 @@ import { slugifyCallsign } from "@/lib/characters";
 import { CHARACTER_STATUSES, type CharacterStatus } from "@/lib/status";
 import { BASE_MOVEMENT_METERS, TEXT_LIMITS } from "@/lib/game-rules";
 import {
+  adjustCurrentForMaxChange,
   applyCreditsDelta,
   applyXpGrant,
   clampMovementSpend,
@@ -234,23 +235,26 @@ export async function updateCharacter(
   });
   if (!existing) return { error: "Character not found." };
 
-  // Resilience raises the effective max at every read site but is never
-  // stored — so a Resilience change here has to bump hpCurrent by the same
-  // delta (preserving existing damage) rather than leaving it frozen against
-  // a ceiling that just moved. effectiveResourceMaxes also folds in any
-  // equipped resource_modifier cards, same clamp the roster/case-file self-
-  // service action (roster/actions.ts) uses.
+  // Preserve existing damage whenever the base max or Resilience changes:
+  // current HP moves by the same delta as the effective max. Card modifiers
+  // are included in both ceilings so they remain neutral during this edit.
   const newStatResilience = parsed.values.statResilience ?? 0;
-  const resilienceDelta =
-    resilienceHpBonus(newStatResilience) - resilienceHpBonus(existing.statResilience);
-  const effectiveMax = await effectiveResourceMaxes(characterId, {
-    hpMax: (parsed.values.hpMax ?? 0) + resilienceHpBonus(newStatResilience),
-    energyMax: parsed.values.energyMax ?? 0,
-    ammoMax: parsed.values.ammoMax ?? 0,
-  });
-  parsed.values.hpCurrent = clampResource(
-    (parsed.values.hpCurrent ?? 0) + resilienceDelta,
-    effectiveMax.hpMax,
+  const [previousEffectiveMax, nextEffectiveMax] = await Promise.all([
+    effectiveResourceMaxes(characterId, {
+      hpMax: existing.hpMax + resilienceHpBonus(existing.statResilience),
+      energyMax: existing.energyMax,
+      ammoMax: existing.ammoMax,
+    }),
+    effectiveResourceMaxes(characterId, {
+      hpMax: (parsed.values.hpMax ?? 0) + resilienceHpBonus(newStatResilience),
+      energyMax: parsed.values.energyMax ?? 0,
+      ammoMax: parsed.values.ammoMax ?? 0,
+    }),
+  ]);
+  parsed.values.hpCurrent = adjustCurrentForMaxChange(
+    parsed.values.hpCurrent ?? 0,
+    previousEffectiveMax.hpMax,
+    nextEffectiveMax.hpMax,
   );
 
   // Drop the create-only placeholders; keep the editable columns.

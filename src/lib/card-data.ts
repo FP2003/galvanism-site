@@ -245,7 +245,7 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     statImmunity: view.stats.immunity,
     statResilience: view.stats.resilience,
     statAgility: view.stats.agility,
-    // Resilience's +1 HP/point rule is folded into the base here, ahead of
+    // Resilience's +2 HP/point rule is folded into the base here, ahead of
     // card resource_modifier deltas — same order as game-rules docs it.
     hpMax: view.hp.max + resilienceHpBonus(view.stats.resilience),
     energyMax: view.energy.max,

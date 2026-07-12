@@ -107,7 +107,7 @@ async function withEffectiveResources(
 
   return views.map((view) => {
     const effects = effectsByCharacter.get(view.id);
-    // Resilience's +1 HP/point rule applies even with no cards equipped.
+    // Resilience's +2 HP/point rule applies even with no cards equipped.
     const hpMaxBase = view.hp.max + resilienceHpBonus(view.stats.resilience);
     if (!effects || effects.length === 0) {
       return {

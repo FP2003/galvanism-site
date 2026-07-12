@@ -108,12 +108,23 @@ export function clampResource(value: number, max: number): number {
   return Math.max(0, Math.min(m, Math.floor(value)));
 }
 
-/** +1 max HP per point of Resilience (info/galvanism_prep.md's "Bonus HP"
+/** Moves current HP by the same delta as max HP, preserving the amount of
+ * damage already taken. For example, 9/13 becomes 10/14, while 13/13 becomes
+ * 14/14. The result is clamped for max reductions. */
+export function adjustCurrentForMaxChange(
+  current: number,
+  previousMax: number,
+  nextMax: number,
+): number {
+  return clampResource(current + (nextMax - previousMax), nextMax);
+}
+
+/** +2 max HP per point of Resilience (info/galvanism_prep.md's "Bonus HP"
  *  rule). Computed, never stored on its own — folded into hpMax wherever the
  *  effective max is assembled, same convention as the card resource_modifier
  *  deltas it sits alongside. */
 export function resilienceHpBonus(resilience: number): number {
-  return Math.max(0, Math.floor(resilience));
+  return Math.max(0, Math.floor(resilience)) * 2;
 }
 
 /** +1 base movement per 2 points of Agility. Computed, never stored on its
