@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,37 @@ export function BallotVoteForm({
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(castVote, {});
   const [selected, setSelected] = useState<string | null>(currentOptionId);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function moveTo(index: number) {
+    const next = options[index];
+    if (!next) return;
+    setSelected(next.id);
+    optionRefs.current[index]?.focus();
+  }
+
+  function onOptionKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    switch (e.key) {
+      case "ArrowDown":
+      case "ArrowRight":
+        e.preventDefault();
+        moveTo((index + 1) % options.length);
+        break;
+      case "ArrowUp":
+      case "ArrowLeft":
+        e.preventDefault();
+        moveTo((index - 1 + options.length) % options.length);
+        break;
+      case "Home":
+        e.preventDefault();
+        moveTo(0);
+        break;
+      case "End":
+        e.preventDefault();
+        moveTo(options.length - 1);
+        break;
+    }
+  }
 
   if (closed) {
     return (
@@ -39,15 +70,21 @@ export function BallotVoteForm({
       <input type="hidden" name="ballotId" value={ballotId} />
       <input type="hidden" name="optionId" value={selected ?? ""} />
       <div role="radiogroup" aria-label="Ballot options" className="flex flex-col gap-2">
-        {options.map((option) => {
+        {options.map((option, index) => {
           const isSelected = selected === option.id;
+          const isTabbable = selected == null ? index === 0 : isSelected;
           return (
             <button
               key={option.id}
+              ref={(el) => {
+                optionRefs.current[index] = el;
+              }}
               type="button"
               role="radio"
               aria-checked={isSelected}
+              tabIndex={isTabbable ? 0 : -1}
               onClick={() => setSelected(option.id)}
+              onKeyDown={(e) => onOptionKeyDown(e, index)}
               className={`flex items-center justify-between gap-2 border px-3 py-2.5 text-left font-[family-name:var(--font-inter)] text-sm transition-colors pointer-coarse:min-h-11 ${
                 isSelected
                   ? "border-signal-cyan bg-signal-cyan/10 text-case-file-white"
