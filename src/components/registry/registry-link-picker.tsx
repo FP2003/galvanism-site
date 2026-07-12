@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type RefObject } from "react";
 import { Link2, Search, X } from "lucide-react";
 import { TextInput } from "@/components/ui/form";
 import { RegistryTypeIcon } from "./registry-type-icon";
@@ -27,11 +27,21 @@ export function RegistryLinkPicker({
   const [query, setQuery] = useState("");
   const [entries, setEntries] = useState<PickerEntry[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [align, setAlign] = useState<"left" | "right">("left");
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listboxId = useId();
+
+  const POPOVER_WIDTH = 288;
 
   function toggle() {
     const next = !open;
     setOpen(next);
+    if (next) {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      setAlign(rect && rect.left + POPOVER_WIDTH > window.innerWidth - 8 ? "right" : "left");
+    }
     if (next && entries === null && !loading) {
       setLoading(true);
       listPublicRegistryEntriesForPicker()
@@ -63,6 +73,33 @@ export function RegistryLinkPicker({
     return entries.filter((e) => e.name.toLowerCase().includes(q));
   }, [entries, query]);
 
+  // Clamp rather than reset-via-effect: `filtered` shrinks as the user types,
+  // so the previously active row may no longer exist.
+  const activeRow = Math.min(activeIndex, filtered.length - 1);
+
+  function onSearchChange(value: string) {
+    setQuery(value);
+    setActiveIndex(0);
+  }
+
+  function onSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (filtered.length === 0) return;
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setActiveIndex((activeRow + 1) % filtered.length);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setActiveIndex((activeRow - 1 + filtered.length) % filtered.length);
+        break;
+      case "Enter":
+        e.preventDefault();
+        insert(filtered[activeRow]);
+        break;
+    }
+  }
+
   function insert(entry: PickerEntry) {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -75,11 +112,13 @@ export function RegistryLinkPicker({
     textarea.setSelectionRange(cursor, cursor);
     setOpen(false);
     setQuery("");
+    setActiveIndex(0);
   }
 
   return (
     <div ref={rootRef} className="relative inline-block">
       <button
+        ref={triggerRef}
         type="button"
         onClick={toggle}
         aria-haspopup="listbox"
@@ -91,7 +130,11 @@ export function RegistryLinkPicker({
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 w-72 border border-steel-blue bg-elevated-ledger p-2">
+        <div
+          className={`absolute top-full z-20 mt-1 w-72 border border-steel-blue bg-elevated-ledger p-2 ${
+            align === "right" ? "right-0" : "left-0"
+          }`}
+        >
           <div className="relative mb-2">
             <Search
               size={13}
@@ -101,9 +144,16 @@ export function RegistryLinkPicker({
             <TextInput
               autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onKeyDown={onSearchKeyDown}
               placeholder="Search public entries…"
               aria-label="Search public registry entries"
+              role="combobox"
+              aria-expanded={open}
+              aria-controls={listboxId}
+              aria-activedescendant={
+                filtered[activeRow] ? `${listboxId}-${filtered[activeRow].slug}` : undefined
+              }
               className="py-1.5 pl-8 pr-7 text-xs"
             />
             <button
@@ -116,7 +166,7 @@ export function RegistryLinkPicker({
             </button>
           </div>
 
-          <ul role="listbox" className="flex max-h-56 flex-col gap-0.5 overflow-y-auto">
+          <ul id={listboxId} role="listbox" className="flex max-h-56 flex-col gap-0.5 overflow-y-auto">
             {loading && (
               <li className="px-2 py-1.5 font-[family-name:var(--font-inter)] text-xs text-muted-ink">
                 Loading…
@@ -127,20 +177,27 @@ export function RegistryLinkPicker({
                 No public entries match.
               </li>
             )}
-            {filtered.map((entry) => (
-              <li key={entry.slug}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={false}
-                  onClick={() => insert(entry)}
-                  className="flex w-full items-center gap-2 px-2 py-1.5 text-left font-[family-name:var(--font-inter)] text-xs text-case-file-white transition-colors hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan focus:outline-none pointer-coarse:min-h-11"
-                >
-                  <RegistryTypeIcon type={entry.type} size={13} className="shrink-0 text-steel-blue" />
-                  <span className="truncate">{entry.name}</span>
-                </button>
-              </li>
-            ))}
+            {filtered.map((entry, index) => {
+              const isActive = index === activeRow;
+              return (
+                <li key={entry.slug}>
+                  <button
+                    id={`${listboxId}-${entry.slug}`}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onClick={() => insert(entry)}
+                    className={`flex w-full items-center gap-2 px-2 py-1.5 text-left font-[family-name:var(--font-inter)] text-xs text-case-file-white transition-colors focus:outline-none pointer-coarse:min-h-11 ${
+                      isActive ? "bg-ledger-teal text-signal-cyan" : ""
+                    }`}
+                  >
+                    <RegistryTypeIcon type={entry.type} size={13} className="shrink-0 text-steel-blue" />
+                    <span className="truncate">{entry.name}</span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
