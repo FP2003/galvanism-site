@@ -4,7 +4,16 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { facilities, facilityPerks, type NewFacilityPerk } from "@/lib/schema";
+import {
+  facilities,
+  facilityPerks,
+  facilityPerkPurchases,
+  characters,
+  players,
+  creditLedger,
+  type NewFacilityPerk,
+} from "@/lib/schema";
+import { findRefundablePurchase } from "@/lib/facility-data";
 
 /*
  * Admin CRUD for a facility's descriptive-perk catalog (Phase 6 Step 3). Same
@@ -92,4 +101,64 @@ export async function deletePerk(_prev: FormState, formData: FormData): Promise<
   revalidatePath(`/admin/facilities/${row.facilityId}`);
   revalidatePath(`/facilities/${row.facilityId}`);
   return { ok: true, message: "Perk removed." };
+}
+
+// Undoes a character's perk unlock from the admin side (mirrors card-actions'
+// refundCardPurchase): credits back the original purchase's ledger amount
+// and deletes the ownership row. No self-refund time window — a DM can undo
+// a perk unlock at any point.
+export async function refundPerkPurchase(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const purchaseId = textField(formData, "purchaseId");
+  if (!purchaseId) return { error: "Missing perk purchase reference." };
+
+  const db = getDb();
+  const owned = await db.query.facilityPerkPurchases.findFirst({
+    where: eq(facilityPerkPurchases.id, purchaseId),
+    with: { perk: true },
+  });
+  if (!owned) return { error: "Perk purchase not found." };
+
+  const character = await db.query.characters.findFirst({
+    where: eq(characters.id, owned.characterId),
+    columns: { slug: true, playerId: true },
+  });
+  if (!character) return { error: "Character not found." };
+  const player = await db.query.players.findFirst({ where: eq(players.id, character.playerId) });
+  if (!player) return { error: "Player not found." };
+
+  const entry = await findRefundablePurchase(player.id, owned.perkId);
+  if (!entry) {
+    return { error: "No purchase record found for this perk — remove it via the catalog instead." };
+  }
+  const refundAmount = -entry.delta;
+
+  const [deleted] = await db
+    .delete(facilityPerkPurchases)
+    .where(eq(facilityPerkPurchases.id, purchaseId))
+    .returning({ id: facilityPerkPurchases.id });
+  if (!deleted) return { error: "Perk purchase not found." };
+
+  await db.batch([
+    db
+      .update(players)
+      .set({ credits: player.credits + refundAmount, updatedAt: new Date() })
+      .where(eq(players.id, player.id)),
+    db.insert(creditLedger).values({
+      playerId: player.id,
+      description: `Refund (admin): ${owned.perk.name}`,
+      delta: refundAmount,
+      balanceAfter: player.credits + refundAmount,
+      refCode: owned.perkId,
+      createdByUserId: admin.id,
+    }),
+  ]);
+
+  revalidatePath(`/admin/players/${character.playerId}`);
+  revalidatePath(`/roster/${character.slug}`);
+  revalidatePath("/facilities");
+  return { ok: true, message: `Refunded ${refundAmount} Cr and removed ${owned.perk.name}.` };
 }

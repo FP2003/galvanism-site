@@ -17,6 +17,7 @@ import {
 } from "@/lib/schema";
 import { getViewerCharacterState } from "@/lib/characters";
 import { effectiveResourceMaxes } from "@/lib/card-data";
+import { findRefundablePurchase } from "@/lib/facility-data";
 import { applyXpSpend, clampResource, resilienceHpBonus } from "@/lib/ledger";
 import {
   applyPurchase,
@@ -30,6 +31,13 @@ export type FormState = { ok?: boolean; error?: string; message?: string };
 function textField(formData: FormData, key: string): string {
   return String(formData.get(key) ?? "").trim();
 }
+
+// Self-serve refund grace period: the client UI only offers a Refund button
+// while the buyer hasn't navigated away from the facility page (its local
+// action state resets on unmount/reload), but that's a client-side courtesy,
+// not a security boundary — this window is the server-side backstop so the
+// same request can't be replayed long after the fact.
+const SELF_REFUND_WINDOW_MS = 15 * 60 * 1000;
 
 // Instant facility purchase (Phase 6, absorbing Phase 4's requisitions
 // purchase, no DM-approval step): debits the buyer's credits, appends a
@@ -89,6 +97,7 @@ export async function purchaseListing(
         description: `Requisition: ${listing.card.title} (${listing.facility.name})`,
         delta: -listing.card.priceCredits,
         balanceAfter: result.value,
+        refCode: listing.cardId,
         createdByUserId: user.id,
       }),
       db.insert(characterCards).values({
@@ -111,6 +120,74 @@ export async function purchaseListing(
     ok: true,
     message: `Purchased ${listing.card.title} for ${listing.card.priceCredits} Cr.`,
   };
+}
+
+// Undoes a card purchase (self-serve, within SELF_REFUND_WINDOW_MS of buying
+// it): deletes the ownership row and credits back exactly what the original
+// purchase's ledger row debited, found via findRefundablePurchase rather than
+// re-reading the listing's current price (which may have changed since).
+export async function refundListing(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requireUser();
+  const listingId = textField(formData, "listingId");
+  if (!listingId) return { error: "Missing listing reference." };
+
+  const db = getDb();
+  const listing = await db.query.facilityListings.findFirst({
+    where: eq(facilityListings.id, listingId),
+    with: { facility: true, card: true },
+  });
+  if (!listing) return { error: "Listing not found." };
+
+  const viewer = await getViewerCharacterState(user.id);
+  if (viewer.kind !== "approved") {
+    return { error: "You need an active character on file to refund a requisition." };
+  }
+  const { player, character } = viewer;
+
+  const owned = await db.query.characterCards.findFirst({
+    where: and(
+      eq(characterCards.characterId, character.id),
+      eq(characterCards.cardId, listing.cardId),
+    ),
+  });
+  if (!owned) return { error: "You don't own this item." };
+  if (Date.now() - owned.acquiredAt.getTime() > SELF_REFUND_WINDOW_MS) {
+    return { error: "Too much time has passed to refund this yourself — ask a DM to undo it." };
+  }
+
+  const entry = await findRefundablePurchase(player.id, listing.cardId);
+  if (!entry) return { error: "No refundable purchase found for this item." };
+  const refundAmount = -entry.delta;
+
+  const [deleted] = await db
+    .delete(characterCards)
+    .where(eq(characterCards.id, owned.id))
+    .returning({ id: characterCards.id });
+  if (!deleted) return { error: "This item was already refunded." };
+
+  await db.batch([
+    db
+      .update(players)
+      .set({ credits: player.credits + refundAmount, updatedAt: new Date() })
+      .where(eq(players.id, player.id)),
+    db.insert(creditLedger).values({
+      playerId: player.id,
+      description: `Refund: ${listing.card.title} (${listing.facility.name})`,
+      delta: refundAmount,
+      balanceAfter: player.credits + refundAmount,
+      refCode: listing.cardId,
+      createdByUserId: user.id,
+    }),
+  ]);
+
+  revalidatePath("/facilities");
+  revalidatePath(`/facilities/${listing.facilityId}`);
+  revalidatePath("/roster");
+  revalidatePath(`/roster/${character.slug}`);
+  return { ok: true, message: `Refunded ${refundAmount} Cr.` };
 }
 
 // A resource_refill offering's targetKey names the *Current column to update;
@@ -295,6 +372,7 @@ export async function purchasePerk(
         description: `${perk.name} (${perk.facility.name})`,
         delta: -perk.priceCredits,
         balanceAfter: result.value,
+        refCode: perk.id,
         createdByUserId: user.id,
       }),
       db.insert(facilityPerkPurchases).values({
@@ -313,4 +391,71 @@ export async function purchasePerk(
   revalidatePath("/roster");
   revalidatePath(`/roster/${character.slug}`);
   return { ok: true, message: `Unlocked ${perk.name} for ${perk.priceCredits} Cr.` };
+}
+
+// Undoes a perk unlock (self-serve, within SELF_REFUND_WINDOW_MS) — same
+// shape as refundListing, just against facility_perk_purchases instead of
+// character_cards.
+export async function refundPerk(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requireUser();
+  const perkId = textField(formData, "perkId");
+  if (!perkId) return { error: "Missing perk reference." };
+
+  const db = getDb();
+  const perk = await db.query.facilityPerks.findFirst({
+    where: eq(facilityPerks.id, perkId),
+    with: { facility: true },
+  });
+  if (!perk) return { error: "Perk not found." };
+
+  const viewer = await getViewerCharacterState(user.id);
+  if (viewer.kind !== "approved") {
+    return { error: "You need an active character on file to refund a perk." };
+  }
+  const { player, character } = viewer;
+
+  const owned = await db.query.facilityPerkPurchases.findFirst({
+    where: and(
+      eq(facilityPerkPurchases.perkId, perkId),
+      eq(facilityPerkPurchases.characterId, character.id),
+    ),
+  });
+  if (!owned) return { error: "You haven't unlocked this perk." };
+  if (Date.now() - owned.purchasedAt.getTime() > SELF_REFUND_WINDOW_MS) {
+    return { error: "Too much time has passed to refund this yourself — ask a DM to undo it." };
+  }
+
+  const entry = await findRefundablePurchase(player.id, perk.id);
+  if (!entry) return { error: "No refundable purchase found for this perk." };
+  const refundAmount = -entry.delta;
+
+  const [deleted] = await db
+    .delete(facilityPerkPurchases)
+    .where(eq(facilityPerkPurchases.id, owned.id))
+    .returning({ id: facilityPerkPurchases.id });
+  if (!deleted) return { error: "This perk was already refunded." };
+
+  await db.batch([
+    db
+      .update(players)
+      .set({ credits: player.credits + refundAmount, updatedAt: new Date() })
+      .where(eq(players.id, player.id)),
+    db.insert(creditLedger).values({
+      playerId: player.id,
+      description: `Refund: ${perk.name} (${perk.facility.name})`,
+      delta: refundAmount,
+      balanceAfter: player.credits + refundAmount,
+      refCode: perk.id,
+      createdByUserId: user.id,
+    }),
+  ]);
+
+  revalidatePath("/facilities");
+  revalidatePath(`/facilities/${perk.facilityId}`);
+  revalidatePath("/roster");
+  revalidatePath(`/roster/${character.slug}`);
+  return { ok: true, message: `Refunded ${refundAmount} Cr.` };
 }

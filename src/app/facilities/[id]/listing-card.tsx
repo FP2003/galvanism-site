@@ -2,10 +2,10 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { ShoppingCart, Check } from "lucide-react";
+import { ShoppingCart, Check, Undo2 } from "lucide-react";
 import { GameCard } from "@/components/cards/game-card";
 import { FormMessage } from "@/components/ui/form";
-import { purchaseListing, type FormState } from "./purchase-actions";
+import { purchaseListing, refundListing, type FormState } from "./purchase-actions";
 import type { CardWithEffects } from "@/lib/schema";
 
 // One facility listing (Phase 6, absorbing Phase 4's shop listing). Price +
@@ -28,7 +28,14 @@ export function ListingCard({
   canAfford: boolean;
   previewOnly?: boolean;
 }) {
-  const [state, formAction] = useActionState<FormState, FormData>(purchaseListing, {});
+  const [buyState, buyAction] = useActionState<FormState, FormData>(purchaseListing, {});
+  const [refundState, refundAction] = useActionState<FormState, FormData>(refundListing, {});
+  // Only true for the rest of this page load, right after a successful buy —
+  // useActionState's initial {} comes back the moment the component remounts
+  // (navigate away and back, or reload), so the Refund affordance can't
+  // reappear once you've left the page. The server action re-checks its own
+  // grace period too; this is just the matching client-side gate.
+  const justBought = buyState.ok === true;
 
   return (
     <div className="flex flex-col gap-2">
@@ -47,13 +54,21 @@ export function ListingCard({
         >
           Admin preview
         </button>
+      ) : alreadyOwned && justBought ? (
+        <>
+          <form action={refundAction}>
+            <input type="hidden" name="listingId" value={listingId} />
+            <RefundButton />
+          </form>
+          <FormMessage state={refundState} />
+        </>
       ) : (
         <>
-          <form action={formAction}>
+          <form action={buyAction}>
             <input type="hidden" name="listingId" value={listingId} />
             <BuyButton alreadyOwned={alreadyOwned} canAfford={canAfford} />
           </form>
-          <FormMessage state={state} />
+          <FormMessage state={buyState} />
         </>
       )}
     </div>
@@ -90,6 +105,21 @@ function BuyButton({
           {pending ? "Purchasing…" : !canAfford ? "Insufficient credits" : "Requisition"}
         </>
       )}
+    </button>
+  );
+}
+
+function RefundButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="flex w-full items-center justify-center gap-1.5 border border-signal-cyan px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:border-stamp-red hover:text-stamp-red disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:min-h-11"
+    >
+      <Undo2 size={13} aria-hidden="true" />
+      {pending ? "Refunding…" : "Refund"}
     </button>
   );
 }

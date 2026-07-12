@@ -9,9 +9,12 @@ import {
   cardEffects,
   characterCards,
   characters,
+  players,
+  creditLedger,
   type NewCard,
   type NewCardEffect,
 } from "@/lib/schema";
+import { findRefundablePurchase } from "@/lib/facility-data";
 import {
   CARD_CATEGORIES,
   CARD_TEXT_LIMITS,
@@ -554,6 +557,64 @@ export async function unassignCard(
     revalidatePath(`/roster/${ref.slug}`);
   }
   return { ok: true, message: "Card removed from inventory." };
+}
+
+// Undoes a facility purchase from the admin side: same shape as
+// unassignCard, but also credits the player back the price of the original
+// requisition (found via findRefundablePurchase) instead of just deleting
+// the card for free. No self-refund time window here — a DM can undo a
+// purchase at any point.
+export async function refundCardPurchase(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const admin = await requireAdmin();
+  const assignmentId = textField(formData, "assignmentId");
+  if (!assignmentId) return { error: "Missing assignment reference." };
+
+  const db = getDb();
+  const owned = await db.query.characterCards.findFirst({
+    where: eq(characterCards.id, assignmentId),
+    with: { card: true },
+  });
+  if (!owned) return { error: "Assignment not found." };
+
+  const ref = await characterRefs(owned.characterId);
+  if (!ref) return { error: "Character not found." };
+  const player = await db.query.players.findFirst({ where: eq(players.id, ref.playerId) });
+  if (!player) return { error: "Player not found." };
+
+  const entry = await findRefundablePurchase(player.id, owned.cardId);
+  if (!entry) {
+    return { error: "No purchase record found for this card — use Remove instead." };
+  }
+  const refundAmount = -entry.delta;
+
+  const [deleted] = await db
+    .delete(characterCards)
+    .where(eq(characterCards.id, assignmentId))
+    .returning({ id: characterCards.id });
+  if (!deleted) return { error: "Assignment not found." };
+
+  await db.batch([
+    db
+      .update(players)
+      .set({ credits: player.credits + refundAmount, updatedAt: new Date() })
+      .where(eq(players.id, player.id)),
+    db.insert(creditLedger).values({
+      playerId: player.id,
+      description: `Refund (admin): ${owned.card.title}`,
+      delta: refundAmount,
+      balanceAfter: player.credits + refundAmount,
+      refCode: owned.cardId,
+      createdByUserId: admin.id,
+    }),
+  ]);
+
+  revalidatePath(`/admin/players/${ref.playerId}`);
+  revalidatePath(`/roster/${ref.slug}`);
+  revalidatePath("/facilities");
+  return { ok: true, message: `Refunded ${refundAmount} Cr and removed ${owned.card.title}.` };
 }
 
 // Admin-only detach: returns an installed mod to its owner's uninstalled

@@ -8,6 +8,7 @@ import {
   facilityPerks,
   facilityPerkPurchases,
   facilityOngoingEntries,
+  creditLedger,
   cards,
   cardEffects,
   type NewFacilityListing,
@@ -74,6 +75,60 @@ export async function getOwnedPerkIds(characterId: string): Promise<Set<string>>
     columns: { perkId: true },
   });
   return new Set(rows.map((r) => r.perkId));
+}
+
+/** A character's unlocked perks with the perk + facility joined in — feeds
+ *  the admin player page's perk panel (mirrors getCharacterCards' role for
+ *  card inventory). */
+export async function getCharacterPerkPurchases(characterId: string) {
+  const db = getDb();
+  return db.query.facilityPerkPurchases.findMany({
+    where: eq(facilityPerkPurchases.characterId, characterId),
+    with: { perk: { with: { facility: true } } },
+    orderBy: [desc(facilityPerkPurchases.purchasedAt)],
+  });
+}
+
+/** Every refCode for this player whose most recent credit_ledger row is still
+ *  negative — i.e. every card/perk purchase not yet refunded. Powers the
+ *  admin player page's per-row Refund buttons; findRefundablePurchase does
+ *  the same check for one refCode at a time. */
+export async function getRefundableRefCodes(playerId: string): Promise<Set<string>> {
+  const db = getDb();
+  const rows = await db.query.creditLedger.findMany({
+    where: and(eq(creditLedger.playerId, playerId), isNotNull(creditLedger.refCode)),
+    orderBy: [desc(creditLedger.createdAt)],
+    columns: { refCode: true, delta: true },
+  });
+  const seen = new Set<string>();
+  const refundable = new Set<string>();
+  for (const row of rows) {
+    const code = row.refCode!;
+    if (seen.has(code)) continue; // a later row for this refCode already settled it
+    seen.add(code);
+    if (row.delta < 0) refundable.add(code);
+  }
+  return refundable;
+}
+
+/**
+ * The most recent credit_ledger row tagged `refCode` for this player, if it's
+ * still an unrefunded purchase (delta < 0). purchaseListing/purchasePerk tag
+ * their debit row's refCode with the purchased card/perk id, and a refund
+ * posts its own row with that same refCode — so the latest matching row's
+ * sign tells the whole story (positive = already refunded) without a
+ * separate status column. Relies on the app's 1:1 player↔character
+ * relationship: a refCode is only ever purchased by one character, so scoping
+ * by playerId can't cross wires between characters.
+ */
+export async function findRefundablePurchase(playerId: string, refCode: string) {
+  const db = getDb();
+  const [latest] = await db.query.creditLedger.findMany({
+    where: and(eq(creditLedger.playerId, playerId), eq(creditLedger.refCode, refCode)),
+    orderBy: [desc(creditLedger.createdAt)],
+    limit: 1,
+  });
+  return latest && latest.delta < 0 ? latest : null;
 }
 
 /** Unresolved ongoing entries across every facility, newest first, joined to

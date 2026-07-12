@@ -2,9 +2,9 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Sparkles, Check } from "lucide-react";
+import { Sparkles, Check, Undo2 } from "lucide-react";
 import { FormMessage } from "@/components/ui/form";
-import { purchasePerk, type FormState } from "./purchase-actions";
+import { purchasePerk, refundPerk, type FormState } from "./purchase-actions";
 import type { FacilityPerk } from "@/lib/schema";
 
 // One descriptive-perk row (Phase 6 Step 3) — a permanent per-character
@@ -23,8 +23,11 @@ export function PerkRow({
   owned: boolean;
   previewOnly?: boolean;
 }) {
-  const [state, formAction] = useActionState<FormState, FormData>(purchasePerk, {});
+  const [buyState, buyAction] = useActionState<FormState, FormData>(purchasePerk, {});
+  const [refundState, refundAction] = useActionState<FormState, FormData>(refundPerk, {});
   const canAfford = credits >= perk.priceCredits;
+  // See ListingCard's justBought for why this resets on navigation/reload.
+  const justBought = buyState.ok === true;
 
   return (
     <li className="flex flex-col gap-2 border border-elevated-ledger p-3">
@@ -53,16 +56,39 @@ export function PerkRow({
         >
           Admin preview
         </button>
+      ) : owned && justBought ? (
+        <>
+          <form action={refundAction}>
+            <input type="hidden" name="perkId" value={perk.id} />
+            <RefundButton />
+          </form>
+          <FormMessage state={refundState} />
+        </>
       ) : (
         <>
-          <form action={formAction}>
+          <form action={buyAction}>
             <input type="hidden" name="perkId" value={perk.id} />
             <UnlockButton owned={owned} canAfford={canAfford} />
           </form>
-          <FormMessage state={state} />
+          <FormMessage state={buyState} />
         </>
       )}
     </li>
+  );
+}
+
+function RefundButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="flex w-full items-center justify-center gap-1.5 border border-signal-cyan px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:border-stamp-red hover:text-stamp-red disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:min-h-11"
+    >
+      <Undo2 size={13} aria-hidden="true" />
+      {pending ? "Refunding…" : "Refund"}
+    </button>
   );
 }
 

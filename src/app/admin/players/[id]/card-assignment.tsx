@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, FormMessage } from "@/components/ui/form";
 import { EquipToggleButton } from "@/components/cards/equip-toggle";
@@ -17,6 +17,7 @@ import { partitionByWeapon, groupInstalledMods, type OwnedCard } from "@/lib/car
 import {
   assignCard,
   unassignCard,
+  refundCardPurchase,
   detachMod,
   type FormState,
 } from "@/app/admin/card-actions";
@@ -33,10 +34,12 @@ export function CardAssignment({
   characterId,
   library,
   owned,
+  refundableCardIds,
 }: {
   characterId: string;
   library: Card[];
   owned: OwnedCard[];
+  refundableCardIds: Set<string>;
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(
     assignCard,
@@ -95,13 +98,24 @@ export function CardAssignment({
                   characterId={characterId}
                   owned={o}
                   installedModCount={byHost.get(o.assignmentId)?.length ?? 0}
+                  refundable={refundableCardIds.has(o.card.id)}
                 />
               ))}
               {mods.map((o) => (
-                <ModRow key={o.assignmentId} owned={o} hostTitle={hostTitle} />
+                <ModRow
+                  key={o.assignmentId}
+                  owned={o}
+                  hostTitle={hostTitle}
+                  refundable={refundableCardIds.has(o.card.id)}
+                />
               ))}
               {rest.map((o) => (
-                <OwnedRow key={o.assignmentId} characterId={characterId} owned={o} />
+                <OwnedRow
+                  key={o.assignmentId}
+                  characterId={characterId}
+                  owned={o}
+                  refundable={refundableCardIds.has(o.card.id)}
+                />
               ))}
             </ul>
           );
@@ -117,10 +131,12 @@ function WeaponRow({
   characterId,
   owned,
   installedModCount,
+  refundable,
 }: {
   characterId: string;
   owned: OwnedCard;
   installedModCount: number;
+  refundable: boolean;
 }) {
   const [, slotAction] = useActionState<SheetState, FormData>(setWeaponSlot, {});
   const [, removeAction] = useActionState<FormState, FormData>(unassignCard, {});
@@ -173,6 +189,8 @@ function WeaponRow({
         )}
       </div>
 
+      {refundable && <RefundIconButton assignmentId={owned.assignmentId} title={card.title} />}
+
       <form action={removeAction}>
         <input type="hidden" name="assignmentId" value={owned.assignmentId} />
         <IconButton label={`Remove ${card.title}`} tone="danger">
@@ -190,9 +208,11 @@ function WeaponRow({
 function ModRow({
   owned,
   hostTitle,
+  refundable,
 }: {
   owned: OwnedCard;
   hostTitle: (assignmentId: string) => string;
+  refundable: boolean;
 }) {
   const [, detachAction] = useActionState<FormState, FormData>(detachMod, {});
   const [, removeAction] = useActionState<FormState, FormData>(unassignCard, {});
@@ -227,6 +247,8 @@ function ModRow({
           </span>
         )}
       </div>
+
+      {refundable && <RefundIconButton assignmentId={owned.assignmentId} title={card.title} />}
 
       <form action={removeAction}>
         <input type="hidden" name="assignmentId" value={owned.assignmentId} />
@@ -303,9 +325,11 @@ function AssignButton({ disabled }: { disabled: boolean }) {
 function OwnedRow({
   characterId,
   owned,
+  refundable,
 }: {
   characterId: string;
   owned: OwnedCard;
+  refundable: boolean;
 }) {
   const [, equipAction] = useActionState<SheetState, FormData>(
     setCardEquipped,
@@ -345,6 +369,8 @@ function OwnedRow({
         <EquipToggleButton equipped={owned.equipped} />
       </form>
 
+      {refundable && <RefundIconButton assignmentId={owned.assignmentId} title={card.title} />}
+
       <form action={removeAction}>
         <input type="hidden" name="assignmentId" value={owned.assignmentId} />
         <IconButton label={`Remove ${card.title}`} tone="danger">
@@ -355,13 +381,29 @@ function OwnedRow({
   );
 }
 
+// Only rendered when a matching unrefunded facility purchase exists
+// (refundableCardIds, computed server-side from the credit ledger) — a card
+// an admin assigned for free has no purchase to reverse, so it only ever
+// gets the plain Remove button above.
+function RefundIconButton({ assignmentId, title }: { assignmentId: string; title: string }) {
+  const [, refundAction] = useActionState<FormState, FormData>(refundCardPurchase, {});
+  return (
+    <form action={refundAction}>
+      <input type="hidden" name="assignmentId" value={assignmentId} />
+      <IconButton label={`Refund ${title}`}>
+        <Undo2 size={14} aria-hidden="true" />
+      </IconButton>
+    </form>
+  );
+}
+
 function IconButton({
   label,
-  tone,
+  tone = "refund",
   children,
 }: {
   label: string;
-  tone: "danger";
+  tone?: "danger" | "refund";
   children: React.ReactNode;
 }) {
   const { pending } = useFormStatus();
@@ -373,7 +415,7 @@ function IconButton({
       className={`flex size-8 shrink-0 items-center justify-center border transition-colors disabled:opacity-60 pointer-coarse:size-11 ${
         tone === "danger"
           ? "border-elevated-ledger text-muted-ink hover:border-stamp-red hover:text-stamp-red"
-          : ""
+          : "border-elevated-ledger text-muted-ink hover:border-signal-cyan hover:text-signal-cyan"
       }`}
     >
       {children}

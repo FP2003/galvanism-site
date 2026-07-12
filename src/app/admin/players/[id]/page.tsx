@@ -11,11 +11,13 @@ import { eq, desc } from "drizzle-orm";
 import { players, creditLedger, xpLedger } from "@/lib/schema";
 import { toCharacterView } from "@/lib/characters";
 import { getCardLibrary, getCharacterCards } from "@/lib/card-data";
+import { getRefundableRefCodes, getCharacterPerkPurchases } from "@/lib/facility-data";
 import { PlayerForm } from "./player-form";
 import { CreditForm } from "./credit-form";
 import { XpForm } from "./xp-form";
 import { CharacterForm } from "./character-form";
 import { CardAssignment } from "./card-assignment";
+import { PerkPurchases } from "./perk-purchases";
 import { DeleteAccount } from "./delete-account";
 import { MissionPayoutForm } from "./mission-payout-form";
 import { HistoryTable, type HistoryRow } from "@/components/ledger/history-table";
@@ -57,12 +59,16 @@ export default async function AdminPlayerPage({
     : [];
 
   // Card inventory + the shared library, only when there's a character to hold them.
-  const [cardLibrary, ownedCards] = player.character
+  const [cardLibrary, ownedCards, perkPurchases] = player.character
     ? await Promise.all([
         getCardLibrary(),
         getCharacterCards(player.character.id),
+        getCharacterPerkPurchases(player.character.id),
       ])
-    : [[], []];
+    : [[], [], []];
+  // Cards/perks with an unrefunded facility purchase (vs. admin-assigned for
+  // free) — feeds the Refund buttons in CardAssignment/PerkPurchases below.
+  const refundableRefCodes = await getRefundableRefCodes(player.id);
   const displayName = player.name || player.user?.displayName || player.user?.email || "Operator";
 
   // Merge credit + XP into one chronological feed instead of two separate
@@ -178,7 +184,21 @@ export default async function AdminPlayerPage({
                 characterId={characterView.id}
                 library={cardLibrary}
                 owned={ownedCards}
+                refundableCardIds={refundableRefCodes}
               />
+            </Panel>
+          )}
+
+          {characterView && (
+            <Panel
+              title="Facility Perks"
+              meta={
+                <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
+                  {perkPurchases.length} unlocked
+                </span>
+              }
+            >
+              <PerkPurchases purchases={perkPurchases} />
             </Panel>
           )}
           </div>
