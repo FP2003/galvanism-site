@@ -15,8 +15,8 @@ export function TopBar({ user }: { user: User | null }) {
   const clearance = isAdmin ? "COMMAND" : "OPERATOR";
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-ledger-teal bg-void-navy px-3 sm:px-4">
-      <Link href="/" className="flex items-center gap-3">
+    <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-ledger-teal bg-void-navy px-3 sm:px-4">
+      <Link href="/" className="flex shrink-0 items-center gap-3">
         <BrandMark size={30} className="text-signal-cyan" />
         <span className="flex flex-col leading-none">
           <span className="font-[family-name:var(--font-rajdhani)] text-lg font-bold uppercase tracking-[0.04em] text-case-file-white">
@@ -28,17 +28,17 @@ export function TopBar({ user }: { user: User | null }) {
         </span>
       </Link>
 
-      <div className="flex items-center gap-3 sm:gap-5">
-        <span className="hidden font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.1em] text-muted-ink lg:inline">
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-3 sm:gap-5">
+        <span className="hidden shrink-0 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.1em] text-muted-ink lg:inline">
           {regiment.designation} · {regiment.sector}
         </span>
 
         {isAdmin && (
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
             <Link
               href="/admin/cards"
               aria-label="Card library"
-              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
+              className="flex shrink-0 items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
             >
               <Layers size={14} aria-hidden="true" />
               <span className="hidden sm:inline">Card library</span>
@@ -46,7 +46,7 @@ export function TopBar({ user }: { user: User | null }) {
             <Link
               href="/admin/facilities"
               aria-label="Facilities"
-              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
+              className="flex shrink-0 items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
             >
               <Factory size={14} aria-hidden="true" />
               <span className="hidden sm:inline">Facilities</span>
@@ -54,7 +54,7 @@ export function TopBar({ user }: { user: User | null }) {
             <Link
               href="/admin/missions"
               aria-label="Missions"
-              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
+              className="flex shrink-0 items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
             >
               <Crosshair size={14} aria-hidden="true" />
               <span className="hidden sm:inline">Missions</span>
@@ -62,7 +62,7 @@ export function TopBar({ user }: { user: User | null }) {
             <Link
               href="/admin/ballots"
               aria-label="Ballots"
-              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
+              className="flex shrink-0 items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
             >
               <Vote size={14} aria-hidden="true" />
               <span className="hidden sm:inline">Ballots</span>
@@ -70,7 +70,7 @@ export function TopBar({ user }: { user: User | null }) {
             <Link
               href="/admin/registry"
               aria-label="Registry"
-              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
+              className="flex shrink-0 items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
             >
               <BookUser size={14} aria-hidden="true" />
               <span className="hidden sm:inline">Registry</span>
@@ -78,7 +78,7 @@ export function TopBar({ user }: { user: User | null }) {
             <Link
               href="/admin"
               aria-label="Admin"
-              className="flex items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
+              className="flex shrink-0 items-center gap-1.5 border border-steel-blue px-3 py-1.5 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan pointer-coarse:min-h-11"
             >
               <ShieldCheck size={14} aria-hidden="true" />
               <span className="hidden sm:inline">Admin</span>
@@ -86,7 +86,7 @@ export function TopBar({ user }: { user: User | null }) {
           </div>
         )}
 
-        <div className="flex items-center gap-2.5 border border-ledger-teal py-1.5 pl-3 pr-1.5">
+        <div className="flex shrink-0 items-center gap-2.5 border border-ledger-teal py-1.5 pl-3 pr-1.5">
           <span className="sr-only sm:hidden">
             {displayName}, {clearance} clearance
           </span>

@@ -22,7 +22,7 @@ export function Panel({
     >
       {title && (
         <header className="flex items-center justify-between gap-3 border-b border-elevated-ledger px-5 py-3">
-          <h2 className="font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.06em] text-case-file-white">
+          <h2 className="min-w-0 break-words font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.06em] text-case-file-white">
             {title}
           </h2>
           {meta && <div className="shrink-0">{meta}</div>}

@@ -74,8 +74,8 @@ export default async function AdminFacilitiesPage() {
                     className="flex min-w-0 flex-1 items-center gap-4"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-case-file-white">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="min-w-0 truncate font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-case-file-white">
                           {facility.name}
                         </span>
                         <StatusLabel tone={facility.isOpen ? "live" : "neutral"}>

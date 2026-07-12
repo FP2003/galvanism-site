@@ -136,7 +136,7 @@ export default async function AdminPage() {
                               {p.character.callsign}
                             </span>
                           ) : (
-                            <span className="font-[family-name:var(--font-chakra)] text-[0.6875rem] uppercase tracking-[0.08em] text-muted-ink/70">
+                            <span className="font-[family-name:var(--font-chakra)] text-[0.6875rem] uppercase tracking-[0.08em] text-muted-ink">
                               Unassigned
                             </span>
                           )}

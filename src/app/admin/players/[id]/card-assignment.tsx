@@ -134,9 +134,9 @@ function WeaponRow({
       : [];
 
   return (
-    <li className="flex items-center gap-3 py-3">
+    <li className="flex flex-wrap items-center gap-3 py-3">
       <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-full sm:basis-auto">
         <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
           {card.title}
         </p>
@@ -149,27 +149,29 @@ function WeaponRow({
         </p>
       </div>
 
-      {owned.weaponSlot ? (
-        <form action={slotAction} className="flex items-center gap-2">
-          <input type="hidden" name="characterId" value={characterId} />
-          <input type="hidden" name="assignmentId" value={owned.assignmentId} />
-          <input type="hidden" name="slot" value="" />
-          <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan">
-            {WEAPON_SLOT_META[owned.weaponSlot].label}
+      <div className="ml-[1.375rem] sm:ml-0">
+        {owned.weaponSlot ? (
+          <form action={slotAction} className="flex items-center gap-2">
+            <input type="hidden" name="characterId" value={characterId} />
+            <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+            <input type="hidden" name="slot" value="" />
+            <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan">
+              {WEAPON_SLOT_META[owned.weaponSlot].label}
+            </span>
+            <EquipToggleButton equipped />
+          </form>
+        ) : candidateSlots.length > 0 ? (
+          <form action={slotAction} className="flex items-center gap-2">
+            <input type="hidden" name="characterId" value={characterId} />
+            <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+            <SlotSelect card={card} candidateSlots={candidateSlots} />
+          </form>
+        ) : (
+          <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
+            Unslotted
           </span>
-          <EquipToggleButton equipped />
-        </form>
-      ) : candidateSlots.length > 0 ? (
-        <form action={slotAction} className="flex items-center gap-2">
-          <input type="hidden" name="characterId" value={characterId} />
-          <input type="hidden" name="assignmentId" value={owned.assignmentId} />
-          <SlotSelect card={card} candidateSlots={candidateSlots} />
-        </form>
-      ) : (
-        <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
-          Unslotted
-        </span>
-      )}
+        )}
+      </div>
 
       <form action={removeAction}>
         <input type="hidden" name="assignmentId" value={owned.assignmentId} />
@@ -198,9 +200,9 @@ function ModRow({
   const deltas = modDeltaSummary(card);
 
   return (
-    <li className="flex items-center gap-3 py-3">
+    <li className="flex flex-wrap items-center gap-3 py-3">
       <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-full sm:basis-auto">
         <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
           {card.title}
         </p>
@@ -210,19 +212,21 @@ function ModRow({
         </p>
       </div>
 
-      {owned.installedOnAssignmentId ? (
-        <form action={detachAction} className="flex items-center gap-2">
-          <input type="hidden" name="assignmentId" value={owned.assignmentId} />
-          <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan">
-            On {hostTitle(owned.installedOnAssignmentId)}
+      <div className="ml-[1.375rem] sm:ml-0">
+        {owned.installedOnAssignmentId ? (
+          <form action={detachAction} className="flex items-center gap-2">
+            <input type="hidden" name="assignmentId" value={owned.assignmentId} />
+            <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan">
+              On {hostTitle(owned.installedOnAssignmentId)}
+            </span>
+            <DetachButton />
+          </form>
+        ) : (
+          <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
+            Uninstalled
           </span>
-          <DetachButton />
-        </form>
-      ) : (
-        <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] uppercase tracking-[0.08em] text-muted-ink">
-          Uninstalled
-        </span>
-      )}
+        )}
+      </div>
 
       <form action={removeAction}>
         <input type="hidden" name="assignmentId" value={owned.assignmentId} />
