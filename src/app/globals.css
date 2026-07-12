@@ -29,6 +29,10 @@
   --color-resilience-rose: #7a2942;
   --color-tech-mauve: #8c3f66;
 
+  /* Color — Item subcategory colors (weapons only; card component only) */
+  --color-brass-ochre: #6e5e2e;
+  --color-oxblood-rust: #5c2f26;
+
   /* Typography — families wired from next/font in layout.tsx */
   --font-display: var(--font-rajdhani), "Segoe UI", sans-serif;
   --font-title: var(--font-chakra), "Segoe UI", sans-serif;

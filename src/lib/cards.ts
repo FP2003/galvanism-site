@@ -53,8 +53,8 @@ export const CARD_CATEGORY_META: Record<CardCategory, CardCategoryMeta> = {
   // Weapon customisation — each echoes its host weapon family's accent
   // (ITEM_SUBCATEGORY_META rifle/pistol Brass Ochre, melee Oxblood) so
   // compatibility reads at a glance in the library.
-  firearm_mod: { label: "Firearm Mod", color: "#8a6d1f", icon: "firearm_mod" },
-  melee_mod: { label: "Melee Mod", color: "#7d4a33", icon: "melee_mod" },
+  firearm_mod: { label: "Firearm Mod", color: "#6E5E2E", icon: "firearm_mod" },
+  melee_mod: { label: "Melee Mod", color: "#5C2F26", icon: "melee_mod" },
 };
 
 export const CARD_CATEGORIES = Object.keys(
