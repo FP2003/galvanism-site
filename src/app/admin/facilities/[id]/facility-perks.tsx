@@ -1,11 +1,18 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, Power, X } from "lucide-react";
+import { Pencil, Plus, Power, X } from "lucide-react";
 import { TextInput, Textarea, FormMessage, fieldLabelClass } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { addPerk, deletePerk, setPerkActive, type FormState } from "@/app/admin/facility-perks-actions";
+import { Dialog } from "@/components/ui/dialog";
+import {
+  addPerk,
+  updatePerk,
+  deletePerk,
+  setPerkActive,
+  type FormState,
+} from "@/app/admin/facility-perks-actions";
 import type { FacilityPerk } from "@/lib/schema";
 
 // Admin descriptive-perk catalog for one facility (Phase 6 Step 3) —
@@ -46,48 +53,61 @@ export function FacilityPerks({
 
       <form action={addAction} className="flex flex-col gap-2">
         <input type="hidden" name="facilityId" value={facilityId} />
-        <TextInput
-          name="name"
-          aria-label="Name"
-          placeholder="Name (e.g. Called Extraction time reduction)"
-          maxLength={64}
-          required
-        />
-        <Textarea
-          name="description"
-          aria-label="Description"
-          placeholder="Description: the effect you'll honor at the table"
-          rows={2}
-          maxLength={400}
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex flex-col gap-1">
-            <span className={fieldLabelClass}>Price (Credits)</span>
-            <TextInput
-              name="priceCredits"
-              type="number"
-              min={1}
-              inputMode="numeric"
-              aria-label="Price in Credits"
-              defaultValue={100}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className={fieldLabelClass}>Min Level</span>
-            <TextInput
-              name="minLevel"
-              type="number"
-              min={1}
-              inputMode="numeric"
-              aria-label="Min level"
-              defaultValue={1}
-            />
-          </div>
-        </div>
+        <PerkFields />
         <AddPerkButton />
       </form>
       <FormMessage state={addState} />
     </div>
+  );
+}
+
+// Shared field set for both the inline add-form above and the edit dialog
+// below, same "shared fields, two callers" shape as OfferingFields in
+// facility-xp-offerings.tsx.
+function PerkFields({ perk }: { perk?: FacilityPerk }) {
+  return (
+    <>
+      <TextInput
+        name="name"
+        aria-label="Name"
+        placeholder="Name (e.g. Called Extraction time reduction)"
+        maxLength={64}
+        defaultValue={perk?.name}
+        required
+      />
+      <Textarea
+        name="description"
+        aria-label="Description"
+        placeholder="Description: the effect you'll honor at the table"
+        rows={2}
+        maxLength={400}
+        defaultValue={perk?.description ?? undefined}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <span className={fieldLabelClass}>Price (Credits)</span>
+          <TextInput
+            name="priceCredits"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            aria-label="Price in Credits"
+            defaultValue={perk?.priceCredits ?? 100}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className={fieldLabelClass}>Min Level</span>
+          <TextInput
+            name="minLevel"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            aria-label="Min level"
+            defaultValue={perk?.minLevel ?? 1}
+          />
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -104,6 +124,7 @@ function AddPerkButton() {
 function PerkRow({ perk }: { perk: FacilityPerk }) {
   const [, toggleAction] = useActionState<FormState, FormData>(setPerkActive, {});
   const [, deleteAction] = useActionState<FormState, FormData>(deletePerk, {});
+  const [editOpen, setEditOpen] = useState(false);
 
   return (
     <li className="flex items-center gap-3 py-3">
@@ -120,6 +141,14 @@ function PerkRow({ perk }: { perk: FacilityPerk }) {
           {perk.priceCredits.toLocaleString()} Cr · Min Lv {perk.minLevel}
         </p>
       </div>
+      <button
+        type="button"
+        aria-label={`Edit ${perk.name}`}
+        onClick={() => setEditOpen(true)}
+        className="flex size-8 shrink-0 items-center justify-center border border-elevated-ledger text-muted-ink transition-colors hover:border-signal-cyan hover:text-signal-cyan pointer-coarse:size-11"
+      >
+        <Pencil size={14} aria-hidden="true" />
+      </button>
       <form action={toggleAction}>
         <input type="hidden" name="perkId" value={perk.id} />
         <input type="hidden" name="active" value={(!perk.active).toString()} />
@@ -131,7 +160,40 @@ function PerkRow({ perk }: { perk: FacilityPerk }) {
         <input type="hidden" name="perkId" value={perk.id} />
         <RemovePerkButton label={`Remove ${perk.name}`} />
       </form>
+      <EditPerkDialog open={editOpen} onClose={() => setEditOpen(false)} perk={perk} />
     </li>
+  );
+}
+
+function EditPerkDialog({
+  open,
+  onClose,
+  perk,
+}: {
+  open: boolean;
+  onClose: () => void;
+  perk: FacilityPerk;
+}) {
+  const [state, action] = useActionState<FormState, FormData>(updatePerk, {});
+
+  return (
+    <Dialog open={open} onClose={onClose} title={`Edit ${perk.name}`}>
+      <form action={action} className="flex flex-col gap-2">
+        <input type="hidden" name="perkId" value={perk.id} />
+        <PerkFields perk={perk} />
+        <SavePerkButton />
+        <FormMessage state={state} />
+      </form>
+    </Dialog>
+  );
+}
+
+function SavePerkButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="secondary" disabled={pending} className="shrink-0">
+      {pending ? "Saving…" : "Save changes"}
+    </Button>
   );
 }
 

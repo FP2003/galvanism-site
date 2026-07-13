@@ -18,8 +18,8 @@ import { findRefundablePurchase } from "@/lib/facility-data";
 /*
  * Admin CRUD for a facility's descriptive-perk catalog (Phase 6 Step 3). Same
  * requireAdmin -> validate -> mutate -> revalidatePath shape as
- * facility-xp-offerings-actions.ts. Perks are add/delete rows (no in-place
- * edit), plus an active toggle to retire one without deleting it.
+ * facility-xp-offerings-actions.ts. Perks support in-place edit (same as XP
+ * offerings), plus an active toggle to retire one without deleting it.
  */
 export type FormState = { ok?: boolean; error?: string; message?: string };
 
@@ -65,6 +65,33 @@ export async function addPerk(_prev: FormState, formData: FormData): Promise<For
   revalidatePath(`/admin/facilities/${facilityId}`);
   revalidatePath(`/facilities/${facilityId}`);
   return { ok: true, message: `Perk "${name}" added.` };
+}
+
+export async function updatePerk(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  const perkId = textField(formData, "perkId");
+  if (!perkId) return { error: "Missing perk reference." };
+
+  const name = textField(formData, "name", NAME_MAX);
+  if (!name) return { error: "A name is required." };
+  const description = textField(formData, "description", DESCRIPTION_MAX) || null;
+
+  const priceCredits = intField(formData, "priceCredits", 0);
+  if (priceCredits <= 0) return { error: "Price must be a whole number greater than zero." };
+  const minLevel = intField(formData, "minLevel", 1);
+  if (minLevel < 1) return { error: "Min level must be 1 or more." };
+
+  const db = getDb();
+  const [updated] = await db
+    .update(facilityPerks)
+    .set({ name, description, priceCredits, minLevel, updatedAt: new Date() })
+    .where(eq(facilityPerks.id, perkId))
+    .returning({ facilityId: facilityPerks.facilityId });
+  if (!updated) return { error: "Perk not found." };
+
+  revalidatePath(`/admin/facilities/${updated.facilityId}`);
+  revalidatePath(`/facilities/${updated.facilityId}`);
+  return { ok: true, message: `Perk "${name}" updated.` };
 }
 
 export async function setPerkActive(_prev: FormState, formData: FormData): Promise<FormState> {
