@@ -154,6 +154,27 @@ export async function setFacilityOpen(_prev: FormState, formData: FormData): Pro
   return { ok: true, message: isOpen ? "Facility opened." : "Facility closed." };
 }
 
+// Bulk close (e.g. between campaign arcs, to pull every facility off the
+// player-facing list at once instead of toggling each one individually).
+// Only touches facilities that are currently open — already-closed ones are
+// left alone so their updatedAt isn't churned for no reason.
+export async function closeAllFacilities(_prev: FormState): Promise<FormState> {
+  await requireAdmin();
+
+  const db = getDb();
+  const closed = await db
+    .update(facilities)
+    .set({ isOpen: false, updatedAt: new Date() })
+    .where(eq(facilities.isOpen, true))
+    .returning({ id: facilities.id });
+
+  revalidatePath("/admin/facilities");
+  revalidatePath("/facilities");
+
+  if (closed.length === 0) return { ok: true, message: "All facilities were already closed." };
+  return { ok: true, message: `Closed ${closed.length} facilit${closed.length === 1 ? "y" : "ies"}.` };
+}
+
 export async function deleteFacility(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const facilityId = textField(formData, "facilityId");

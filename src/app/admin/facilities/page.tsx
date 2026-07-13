@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/auth";
 import { getFacilities } from "@/lib/facility-data";
 import { NewFacilityDialog } from "./new-facility-dialog";
 import { FacilityMenu } from "./facility-menu";
+import { CloseAllFacilitiesButton } from "./close-all-facilities-button";
 
 export const metadata: Metadata = { title: "Facilities · Personnel Command" };
 
@@ -47,6 +48,7 @@ export default async function AdminFacilitiesPage() {
               <span className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.06em] text-muted-ink">
                 {facilityList.length} facilit{facilityList.length === 1 ? "y" : "ies"}
               </span>
+              <CloseAllFacilitiesButton />
               <NewFacilityDialog />
             </div>
           }
