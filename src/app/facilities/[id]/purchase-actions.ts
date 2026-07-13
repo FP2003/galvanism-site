@@ -97,7 +97,6 @@ export async function purchaseListing(
         set purchased_by_character_id = ${character.id}, purchased_at = now()
         where id = ${listing.id}
           and card_id = ${listing.cardId}
-          and added_at = ${listing.addedAt}
           and purchased_by_character_id is null
         returning card_id
       ), debited as (
