@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   applyPurchase,
+  facilityListingState,
   pickWeightedRule,
   pickRandomCard,
   planRestock,
@@ -45,6 +46,20 @@ describe("applyPurchase", () => {
 
   it("rejects a non-integer price", () => {
     expect(applyPurchase(500, 49.99).ok).toBe(false);
+  });
+});
+
+describe("facilityListingState", () => {
+  it("makes unclaimed stock available", () => {
+    expect(facilityListingState(null, "character-a")).toBe("available");
+  });
+
+  it("shows a claimed listing as owned to its buyer", () => {
+    expect(facilityListingState("character-a", "character-a")).toBe("owned");
+  });
+
+  it("shows a claimed listing as bought to another player", () => {
+    expect(facilityListingState("character-a", "character-b")).toBe("bought");
   });
 });
 

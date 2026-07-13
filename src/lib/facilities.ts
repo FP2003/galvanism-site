@@ -32,6 +32,21 @@ export function applyPurchase(
   return { ok: true, value: next };
 }
 
+export type FacilityListingState = "available" | "owned" | "bought";
+
+/**
+ * Player-facing state for one appearance of a card in facility stock. The
+ * buyer sees their claimed listing as Owned; everyone else sees it as Bought
+ * until restock clears `purchasedByCharacterId`.
+ */
+export function facilityListingState(
+  purchasedByCharacterId: string | null,
+  viewerCharacterId: string,
+): FacilityListingState {
+  if (purchasedByCharacterId == null) return "available";
+  return purchasedByCharacterId === viewerCharacterId ? "owned" : "bought";
+}
+
 export interface RestockRule {
   id: string;
   category: CardCategory;

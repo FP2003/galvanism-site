@@ -10,6 +10,7 @@ import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
 import { getFacility, getOwnedPerkIds } from "@/lib/facility-data";
 import { getCharacterCards } from "@/lib/card-data";
+import { facilityListingState } from "@/lib/facilities";
 import { ListingCard } from "./listing-card";
 import { XpOfferingRow } from "./xp-offering-row";
 import { PerkRow } from "./perk-row";
@@ -72,7 +73,12 @@ export default async function FacilityDetailPage({
   ]);
   const ownedCardIds = new Set(owned.map((o) => o.card.id));
 
+  // Claimed stock remains on the shelf: its buyer sees Owned (and can expose
+  // the same-page refund), while other players see Bought until rotation.
   const listings = facility.listings.filter((l) => l.card.priceCredits != null);
+  const availableListingCount = facility.listings.filter(
+    (l) => l.card.priceCredits != null && l.purchasedByCharacterId == null,
+  ).length;
   const hasShop = facility.listings.length > 0 || facility.restockRules.length > 0;
   const availableOfferings = facility.xpOfferings.filter(
     (o) => o.active && facility.level >= o.minLevel,
@@ -148,7 +154,7 @@ export default async function FacilityDetailPage({
                 title="For Sale"
                 meta={
                   <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
-                    {listings.length} for sale
+                    {availableListingCount} for sale
                   </span>
                 }
               >
@@ -164,7 +170,17 @@ export default async function FacilityDetailPage({
                           listingId={listing.id}
                           card={listing.card}
                           priceCredits={listing.card.priceCredits!}
-                          alreadyOwned={ownedCardIds.has(listing.cardId)}
+                          alreadyOwned={
+                            ownedCardIds.has(listing.cardId) ||
+                            listing.purchasedByCharacterId === character?.id
+                          }
+                          alreadyBought={
+                            !isAdmin &&
+                            facilityListingState(
+                              listing.purchasedByCharacterId,
+                              character!.id,
+                            ) === "bought"
+                          }
                           canAfford={player ? player.credits >= listing.card.priceCredits! : false}
                           previewOnly={isAdmin}
                         />

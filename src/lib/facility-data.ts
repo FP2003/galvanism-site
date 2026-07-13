@@ -244,7 +244,12 @@ export async function restockFacility(facilityId: string): Promise<RestockOutcom
       if (existingRow) {
         await db
           .update(facilityListings)
-          .set({ cardId: slot.cardId, addedAt: new Date() })
+          .set({
+            cardId: slot.cardId,
+            purchasedByCharacterId: null,
+            purchasedAt: null,
+            addedAt: new Date(),
+          })
           .where(eq(facilityListings.id, existingRow.id));
       } else {
         const row: NewFacilityListing = {

@@ -18,6 +18,7 @@ export function ListingCard({
   card,
   priceCredits,
   alreadyOwned,
+  alreadyBought,
   canAfford,
   previewOnly,
 }: {
@@ -25,6 +26,7 @@ export function ListingCard({
   card: CardWithEffects;
   priceCredits: number;
   alreadyOwned: boolean;
+  alreadyBought: boolean;
   canAfford: boolean;
   previewOnly?: boolean;
 }) {
@@ -66,7 +68,11 @@ export function ListingCard({
         <>
           <form action={buyAction}>
             <input type="hidden" name="listingId" value={listingId} />
-            <BuyButton alreadyOwned={alreadyOwned} canAfford={canAfford} />
+            <BuyButton
+              alreadyOwned={alreadyOwned}
+              alreadyBought={alreadyBought}
+              canAfford={canAfford}
+            />
           </form>
           <FormMessage state={buyState} />
         </>
@@ -77,27 +83,34 @@ export function ListingCard({
 
 function BuyButton({
   alreadyOwned,
+  alreadyBought,
   canAfford,
 }: {
   alreadyOwned: boolean;
+  alreadyBought: boolean;
   canAfford: boolean;
 }) {
   const { pending } = useFormStatus();
-  const disabled = pending || alreadyOwned || !canAfford;
+  const disabled = pending || alreadyOwned || alreadyBought || !canAfford;
+  const stateClasses = alreadyOwned
+    ? "border-signal-cyan bg-signal-cyan/10 text-signal-cyan"
+    : alreadyBought
+      ? "border-elevated-ledger bg-elevated-ledger/40 text-muted-ink"
+      : "border-steel-blue text-signal-cyan hover:bg-elevated-ledger hover:text-live-cyan disabled:border-elevated-ledger disabled:text-muted-ink";
 
   return (
     <button
       type="submit"
       disabled={disabled}
-      className={`flex w-full items-center justify-center gap-1.5 border px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] transition-colors disabled:cursor-not-allowed pointer-coarse:min-h-11 ${
-        alreadyOwned
-          ? "border-signal-cyan bg-signal-cyan/10 text-signal-cyan"
-          : "border-steel-blue text-signal-cyan hover:bg-elevated-ledger hover:text-live-cyan disabled:border-elevated-ledger disabled:text-muted-ink"
-      }`}
+      className={`flex w-full items-center justify-center gap-1.5 border px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] transition-colors disabled:cursor-not-allowed pointer-coarse:min-h-11 ${stateClasses}`}
     >
       {alreadyOwned ? (
         <>
           <Check size={13} aria-hidden="true" /> Owned
+        </>
+      ) : alreadyBought ? (
+        <>
+          <Check size={13} aria-hidden="true" /> Bought
         </>
       ) : (
         <>

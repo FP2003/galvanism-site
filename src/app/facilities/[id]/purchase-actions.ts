@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { requireUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import {
@@ -40,12 +40,12 @@ function textField(formData: FormData, key: string): string {
 const SELF_REFUND_WINDOW_MS = 15 * 60 * 1000;
 
 // Instant facility purchase (Phase 6, absorbing Phase 4's requisitions
-// purchase, no DM-approval step): debits the buyer's credits, appends a
-// credit_ledger row, and grants the card to their character's inventory
-// (unequipped) — all in one db.batch, which the Neon HTTP driver runs as a
-// real transaction, so a duplicate-ownership conflict rolls back the credit
-// debit too. No stock limit: a listing stays for sale until an admin/
-// rotation removes it, so other characters can still buy it.
+// purchase, no DM-approval step): atomically claims this appearance of the
+// listing, debits the buyer, appends a credit-ledger row, and grants the card
+// unequipped. The data-modifying CTEs all depend on the listing claim, and the
+// final guard deliberately fails the statement unless every mutation landed;
+// this makes two simultaneous buyers race on one conditional UPDATE, with
+// exactly one winner and no partial charge. A restock clears the claim.
 export async function purchaseListing(
   _prev: FormState,
   formData: FormData,
@@ -82,33 +82,71 @@ export async function purchaseListing(
     ),
   });
   if (already) return { error: "You already own this item." };
+  if (listing.purchasedByCharacterId) {
+    return { error: "This item is no longer in stock. It may return in a future rotation." };
+  }
 
   const result = applyPurchase(player.credits, listing.card.priceCredits);
   if (!result.ok) return { error: result.error };
 
   try {
-    await db.batch([
-      db
-        .update(players)
-        .set({ credits: result.value, updatedAt: new Date() })
-        .where(eq(players.id, player.id)),
-      db.insert(creditLedger).values({
-        playerId: player.id,
-        description: `Requisition: ${listing.card.title} (${listing.facility.name})`,
-        delta: -listing.card.priceCredits,
-        balanceAfter: result.value,
-        refCode: listing.cardId,
-        createdByUserId: user.id,
-      }),
-      db.insert(characterCards).values({
-        characterId: character.id,
-        cardId: listing.cardId,
-        equipped: false,
-      }),
-    ]);
+    const description = `Requisition: ${listing.card.title} (${listing.facility.name})`;
+    await db.execute(sql`
+      with claimed as (
+        update facility_listings
+        set purchased_by_character_id = ${character.id}, purchased_at = now()
+        where id = ${listing.id}
+          and card_id = ${listing.cardId}
+          and added_at = ${listing.addedAt}
+          and purchased_by_character_id is null
+        returning card_id
+      ), debited as (
+        update players
+        set credits = credits - ${listing.card.priceCredits}, updated_at = now()
+        where id = ${player.id}
+          and credits >= ${listing.card.priceCredits}
+          and exists (select 1 from claimed)
+        returning credits
+      ), granted as (
+        insert into character_cards (character_id, card_id, equipped)
+        select ${character.id}, claimed.card_id, false
+        from claimed
+        where exists (select 1 from debited)
+        returning id
+      ), ledgered as (
+        insert into credit_ledger
+          (player_id, description, delta, balance_after, ref_code, created_by_user_id)
+        select
+          ${player.id},
+          ${description},
+          ${-listing.card.priceCredits},
+          debited.credits,
+          ${listing.cardId},
+          ${user.id}
+        from debited
+        where exists (select 1 from granted)
+        returning id
+      )
+      select
+        (select credits from debited) as balance_after,
+        1 / (select count(*)::integer from ledgered) as purchase_guard
+    `);
   } catch {
+    // The common failure is another request winning the stock claim. Re-read
+    // ownership so a same-character replay still gets the more useful label.
+    try {
+      const ownedNow = await db.query.characterCards.findFirst({
+        where: and(
+          eq(characterCards.characterId, character.id),
+          eq(characterCards.cardId, listing.cardId),
+        ),
+      });
+      if (ownedNow) return { error: "You already own this item." };
+    } catch {
+      // Fall through to the concurrency-safe generic message below.
+    }
     return {
-      error: "You already own this item, or a concurrent purchase just completed.",
+      error: "This item is no longer in stock, or your balance changed. Refresh and try again.",
     };
   }
 
@@ -123,9 +161,10 @@ export async function purchaseListing(
 }
 
 // Undoes a card purchase (self-serve, within SELF_REFUND_WINDOW_MS of buying
-// it): deletes the ownership row and credits back exactly what the original
-// purchase's ledger row debited, found via findRefundablePurchase rather than
-// re-reading the listing's current price (which may have changed since).
+// it): releases the stock claim, deletes the ownership row, and credits back
+// exactly what the original purchase's ledger row debited, found via
+// findRefundablePurchase rather than re-reading the listing's current price
+// (which may have changed since).
 export async function refundListing(
   _prev: FormState,
   formData: FormData,
@@ -154,6 +193,9 @@ export async function refundListing(
     ),
   });
   if (!owned) return { error: "You don't own this item." };
+  if (listing.purchasedByCharacterId !== character.id) {
+    return { error: "This listing has already changed and can no longer be refunded here." };
+  }
   if (Date.now() - owned.acquiredAt.getTime() > SELF_REFUND_WINDOW_MS) {
     return { error: "Too much time has passed to refund this yourself — ask a DM to undo it." };
   }
@@ -162,26 +204,43 @@ export async function refundListing(
   if (!entry) return { error: "No refundable purchase found for this item." };
   const refundAmount = -entry.delta;
 
-  const [deleted] = await db
-    .delete(characterCards)
-    .where(eq(characterCards.id, owned.id))
-    .returning({ id: characterCards.id });
-  if (!deleted) return { error: "This item was already refunded." };
-
-  await db.batch([
-    db
-      .update(players)
-      .set({ credits: player.credits + refundAmount, updatedAt: new Date() })
-      .where(eq(players.id, player.id)),
-    db.insert(creditLedger).values({
-      playerId: player.id,
-      description: `Refund: ${listing.card.title} (${listing.facility.name})`,
-      delta: refundAmount,
-      balanceAfter: player.credits + refundAmount,
-      refCode: listing.cardId,
-      createdByUserId: user.id,
-    }),
-  ]);
+  try {
+    const description = `Refund: ${listing.card.title} (${listing.facility.name})`;
+    await db.execute(sql`
+      with released as (
+        update facility_listings
+        set purchased_by_character_id = null, purchased_at = null
+        where id = ${listing.id}
+          and card_id = ${listing.cardId}
+          and purchased_by_character_id = ${character.id}
+        returning id
+      ), removed as (
+        delete from character_cards
+        where id = ${owned.id} and exists (select 1 from released)
+        returning id
+      ), credited as (
+        update players
+        set credits = credits + ${refundAmount}, updated_at = now()
+        where id = ${player.id} and exists (select 1 from removed)
+        returning credits
+      ), ledgered as (
+        insert into credit_ledger
+          (player_id, description, delta, balance_after, ref_code, created_by_user_id)
+        select
+          ${player.id},
+          ${description},
+          ${refundAmount},
+          credited.credits,
+          ${listing.cardId},
+          ${user.id}
+        from credited
+        returning id
+      )
+      select 1 / (select count(*)::integer from ledgered) as refund_guard
+    `);
+  } catch {
+    return { error: "This item was already refunded, or the listing changed." };
+  }
 
   revalidatePath("/facilities");
   revalidatePath(`/facilities/${listing.facilityId}`);
@@ -203,7 +262,7 @@ const RESOURCE_MAX_KEY: Record<string, "hpMax" | "energyMax" | "ammoMax"> = {
 // bump costs Currency XP (ledgered in xp_ledger); a resource refill costs
 // Credits (ledgered in credit_ledger) like any other facility purchase — see
 // offeringCostCurrency. Either way the balance debit and the stat/resource
-// change land in one db.batch, same transactional shape as purchaseListing.
+// change land in one transactional operation.
 // Offerings are repeatable (no ownership row, unlike cards/perks) — training
 // again or healing again is the point.
 export async function purchaseXpOffering(
