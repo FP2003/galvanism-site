@@ -5,6 +5,7 @@ import {
   facilityListingState,
   pickWeightedRule,
   pickRandomCard,
+  pickRandomCards,
   planRestock,
   isCardLevelUnlocked,
   offeringTargetsFor,
@@ -138,6 +139,32 @@ describe("pickRandomCard", () => {
 
   it("picks the last item just under rng=1 (rounding boundary)", () => {
     expect(pickRandomCard(["x", "y", "z"], sequence([0.999]))).toBe("z");
+  });
+});
+
+describe("pickRandomCards", () => {
+  it("returns an empty array for an empty pool", () => {
+    expect(pickRandomCards([], 3, sequence([0.5]))).toEqual([]);
+  });
+
+  it("returns an empty array when count is zero", () => {
+    expect(pickRandomCards(["x", "y"], 0, sequence([0.5]))).toEqual([]);
+  });
+
+  it("picks the requested count without repeats", () => {
+    const picked = pickRandomCards(["a", "b", "c", "d"], 2, sequence([0, 0.99]));
+    expect(picked).toHaveLength(2);
+    expect(new Set(picked).size).toBe(2);
+  });
+
+  it("returns fewer than requested when the pool runs out", () => {
+    const picked = pickRandomCards(["a", "b"], 5, sequence([0, 0]));
+    expect(picked).toHaveLength(2);
+    expect(new Set(picked)).toEqual(new Set(["a", "b"]));
+  });
+
+  it("picks the first item at rng=0", () => {
+    expect(pickRandomCards(["x", "y", "z"], 1, sequence([0]))).toEqual(["x"]);
   });
 });
 

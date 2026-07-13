@@ -181,8 +181,10 @@ export async function getUnresolvedOngoingEntries(limit = 5) {
 }
 
 /** Library cards with a price set, at or below this facility's level, that
- *  aren't already listed here — feeds the admin "add manual listing" picker. */
-export async function getEligibleListingCards(facilityId: string) {
+ *  aren't already listed here — feeds the admin "add manual listing" picker.
+ *  An optional `category` narrows the pool further, reused by the "replace
+ *  with N random cards of a category" action. */
+export async function getEligibleListingCards(facilityId: string, category?: CardCategory) {
   const db = getDb();
   const [facility, existing] = await Promise.all([
     db.query.facilities.findFirst({
@@ -197,9 +199,12 @@ export async function getEligibleListingCards(facilityId: string) {
   if (!facility) return [];
   const existingIds = existing.map((l) => l.cardId);
 
-  const levelFilter = and(isNotNull(cards.priceCredits), lte(cards.level, facility.level));
+  const filters = [isNotNull(cards.priceCredits), lte(cards.level, facility.level)];
+  if (category) filters.push(eq(cards.category, category));
+  if (existingIds.length > 0) filters.push(notInArray(cards.id, existingIds));
+
   return db.query.cards.findMany({
-    where: existingIds.length > 0 ? and(levelFilter, notInArray(cards.id, existingIds)) : levelFilter,
+    where: and(...filters),
     orderBy: [asc(cards.title)],
   });
 }

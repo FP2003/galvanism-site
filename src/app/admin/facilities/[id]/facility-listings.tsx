@@ -1,12 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, X } from "lucide-react";
-import { Select, FormMessage } from "@/components/ui/form";
+import { Plus, RefreshCw, X } from "lucide-react";
+import { Select, TextInput, FormMessage, fieldLabelClass } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import { CARD_CATEGORY_META } from "@/lib/cards";
-import { addListing, removeListing, type FormState } from "@/app/admin/facility-actions";
+import { Dialog } from "@/components/ui/dialog";
+import { CARD_CATEGORIES, CARD_CATEGORY_META } from "@/lib/cards";
+import { addListing, removeListing, replaceListing, type FormState } from "@/app/admin/facility-actions";
 import type { Card, FacilityListing } from "@/lib/schema";
 
 // Admin listing management for one facility (Phase 6, absorbing Phase 4's
@@ -84,6 +85,7 @@ function AddListingButton({ disabled }: { disabled: boolean }) {
 
 function ListingRow({ listing }: { listing: FacilityListing & { card: Card } }) {
   const [, removeAction] = useActionState<FormState, FormData>(removeListing, {});
+  const [replaceOpen, setReplaceOpen] = useState(false);
   const { card } = listing;
 
   return (
@@ -100,11 +102,85 @@ function ListingRow({ listing }: { listing: FacilityListing & { card: Card } }) 
             : "Manual"}
         </p>
       </div>
+      <button
+        type="button"
+        aria-label={`Replace ${card.title}`}
+        onClick={() => setReplaceOpen(true)}
+        className="flex size-8 shrink-0 items-center justify-center border border-elevated-ledger text-muted-ink transition-colors hover:border-signal-cyan hover:text-signal-cyan pointer-coarse:size-11"
+      >
+        <RefreshCw size={14} aria-hidden="true" />
+      </button>
       <form action={removeAction}>
         <input type="hidden" name="listingId" value={listing.id} />
         <RemoveListingButton label={`Remove ${card.title}`} />
       </form>
+      <ReplaceListingDialog
+        open={replaceOpen}
+        onClose={() => setReplaceOpen(false)}
+        listingId={listing.id}
+        cardTitle={card.title}
+      />
     </li>
+  );
+}
+
+function ReplaceListingDialog({
+  open,
+  onClose,
+  listingId,
+  cardTitle,
+}: {
+  open: boolean;
+  onClose: () => void;
+  listingId: string;
+  cardTitle: string;
+}) {
+  const [state, action] = useActionState<FormState, FormData>(replaceListing, {});
+
+  return (
+    <Dialog open={open} onClose={onClose} title={`Replace ${cardTitle}`}>
+      <form action={action} className="flex flex-col gap-3">
+        <input type="hidden" name="listingId" value={listingId} />
+        <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
+          Removes this listing and refills it with randomly-picked cards from the
+          category below.
+        </p>
+        <div className="flex flex-col gap-1">
+          <span className={fieldLabelClass}>Category</span>
+          <Select name="category" aria-label="Category" defaultValue={CARD_CATEGORIES[0]}>
+            {CARD_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {CARD_CATEGORY_META[c].label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className={fieldLabelClass}>Quantity</span>
+          <TextInput
+            name="quantity"
+            type="number"
+            min={1}
+            max={20}
+            inputMode="numeric"
+            aria-label="Quantity"
+            defaultValue={1}
+          />
+        </div>
+        <ReplaceButton />
+        <FormMessage state={state} />
+      </form>
+    </Dialog>
+  );
+}
+
+function ReplaceButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="secondary" disabled={pending} className="shrink-0">
+      <RefreshCw size={15} />
+      {pending ? "Replacing…" : "Replace"}
+    </Button>
   );
 }
 

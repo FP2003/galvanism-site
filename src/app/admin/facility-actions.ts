@@ -13,9 +13,9 @@ import {
   type NewFacilityListing,
   type NewFacilityRestockRule,
 } from "@/lib/schema";
-import { CARD_CATEGORIES, type CardCategory } from "@/lib/cards";
-import { FACILITY_KINDS, isCardLevelUnlocked, type FacilityKind } from "@/lib/facilities";
-import { restockFacility, pruneRotationSlots, ruleLabel } from "@/lib/facility-data";
+import { CARD_CATEGORIES, CARD_CATEGORY_META, type CardCategory } from "@/lib/cards";
+import { FACILITY_KINDS, isCardLevelUnlocked, pickRandomCards, type FacilityKind } from "@/lib/facilities";
+import { restockFacility, pruneRotationSlots, ruleLabel, getEligibleListingCards } from "@/lib/facility-data";
 
 /*
  * Facility CRUD + listing/restock-rule management (Phase 6, admin only,
@@ -258,6 +258,61 @@ export async function removeListing(_prev: FormState, formData: FormData): Promi
   revalidatePath(`/admin/facilities/${row.facilityId}`);
   revalidatePath(`/facilities/${row.facilityId}`);
   return { ok: true, message: "Listing removed." };
+}
+
+const REPLACE_QUANTITY_MAX = 20;
+
+// Removes one listing and refills it with N randomly-picked distinct cards
+// from a chosen category — an on-demand shop rotation, independent of
+// restockFacility's weighted rotation-slot mechanic. The old listing is
+// deleted before the eligibility query runs, so a card in the target
+// category isn't spuriously excluded from being drawn again.
+export async function replaceListing(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  const listingId = textField(formData, "listingId");
+  if (!listingId) return { error: "Missing listing reference." };
+
+  const categoryRaw = textField(formData, "category") as CardCategory;
+  if (!CARD_CATEGORIES.includes(categoryRaw)) return { error: "Pick a card category." };
+
+  const quantity = intField(formData, "quantity", 0);
+  if (quantity < 1 || quantity > REPLACE_QUANTITY_MAX) {
+    return { error: `Quantity must be between 1 and ${REPLACE_QUANTITY_MAX}.` };
+  }
+
+  const db = getDb();
+  const [removed] = await db
+    .delete(facilityListings)
+    .where(eq(facilityListings.id, listingId))
+    .returning({ facilityId: facilityListings.facilityId });
+  if (!removed) return { error: "Listing not found." };
+  const { facilityId } = removed;
+
+  const eligible = await getEligibleListingCards(facilityId, categoryRaw);
+  const picked = pickRandomCards(eligible, quantity);
+  if (picked.length > 0) {
+    const values: NewFacilityListing[] = picked.map((c) => ({
+      facilityId,
+      cardId: c.id,
+      source: "manual",
+    }));
+    await db.insert(facilityListings).values(values);
+  }
+
+  revalidatePath(`/admin/facilities/${facilityId}`);
+  revalidatePath(`/facilities/${facilityId}`);
+
+  const categoryLabel = CARD_CATEGORY_META[categoryRaw].label;
+  if (picked.length === 0) {
+    return { ok: true, message: `Removed. No eligible ${categoryLabel} cards to add.` };
+  }
+  if (picked.length < quantity) {
+    return {
+      ok: true,
+      message: `Removed. Added ${picked.length} of ${quantity} requested ${categoryLabel} cards (only ${picked.length} eligible).`,
+    };
+  }
+  return { ok: true, message: `Removed. Added ${picked.length} ${categoryLabel} card${picked.length === 1 ? "" : "s"}.` };
 }
 
 export async function addRestockRule(_prev: FormState, formData: FormData): Promise<FormState> {

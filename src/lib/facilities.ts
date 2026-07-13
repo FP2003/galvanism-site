@@ -109,6 +109,24 @@ export function pickRandomCard<T>(
   return candidates[Math.min(Math.floor(rng() * candidates.length), candidates.length - 1)];
 }
 
+/** Uniformly picks up to `count` distinct candidates without replacement —
+ *  the manual "replace with N random cards" admin action's draw. Returns
+ *  fewer than `count` if the pool runs out, same honest-partial-fill
+ *  convention as planRestock, rather than erroring or padding with repeats. */
+export function pickRandomCards<T>(
+  candidates: T[],
+  count: number,
+  rng: () => number = Math.random,
+): T[] {
+  const pool = [...candidates];
+  const picked: T[] = [];
+  while (picked.length < count && pool.length > 0) {
+    const index = Math.min(Math.floor(rng() * pool.length), pool.length - 1);
+    picked.push(pool.splice(index, 1)[0]);
+  }
+  return picked;
+}
+
 /**
  * Plans a shop restock: for each of `slotCount` slots, weighted-picks a rule
  * then uniformly picks one eligible card matching that rule's (category,
