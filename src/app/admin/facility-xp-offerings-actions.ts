@@ -15,8 +15,9 @@ import {
 /*
  * Admin CRUD for a facility's XP-offering catalog (Phase 6 Step 2). Same
  * requireAdmin -> validate -> mutate -> revalidatePath shape as
- * facility-actions.ts. Offerings are add/delete rows like restock rules
- * (no in-place edit), plus an active toggle to retire one without deleting it.
+ * facility-actions.ts. Offerings support in-place edit (unlike restock rules
+ * and perks, which stay add/delete-only), plus an active toggle to retire one
+ * without deleting it.
  */
 export type FormState = { ok?: boolean; error?: string; message?: string };
 
@@ -82,6 +83,44 @@ export async function addXpOffering(_prev: FormState, formData: FormData): Promi
   revalidatePath(`/admin/facilities/${facilityId}`);
   revalidatePath(`/facilities/${facilityId}`);
   return { ok: true, message: `Offering "${name}" added.` };
+}
+
+export async function updateXpOffering(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  const offeringId = textField(formData, "offeringId");
+  if (!offeringId) return { error: "Missing offering reference." };
+
+  const name = textField(formData, "name", NAME_MAX);
+  if (!name) return { error: "A name is required." };
+  const description = textField(formData, "description", DESCRIPTION_MAX) || null;
+
+  const offeringType = textField(formData, "offeringType") as XpOfferingType;
+  if (!XP_OFFERING_TYPES.includes(offeringType)) return { error: "Pick an offering type." };
+
+  const targetKey = textField(formData, "targetKey");
+  if (!isValidOfferingTarget(offeringType, targetKey)) {
+    return { error: "Pick a target that matches the chosen offering type." };
+  }
+
+  const amount = intField(formData, "amount", 0);
+  if (amount <= 0) return { error: "Amount must be a whole number greater than zero." };
+  const cost = intField(formData, "cost", 0);
+  const currencyLabel = offeringCostCurrency(offeringType) === "xp" ? "XP" : "Credit";
+  if (cost <= 0) return { error: `${currencyLabel} cost must be a whole number greater than zero.` };
+  const minLevel = intField(formData, "minLevel", 1);
+  if (minLevel < 1) return { error: "Min level must be 1 or more." };
+
+  const db = getDb();
+  const [updated] = await db
+    .update(facilityXpOfferings)
+    .set({ name, description, offeringType, targetKey, amount, cost, minLevel, updatedAt: new Date() })
+    .where(eq(facilityXpOfferings.id, offeringId))
+    .returning({ facilityId: facilityXpOfferings.facilityId });
+  if (!updated) return { error: "Offering not found." };
+
+  revalidatePath(`/admin/facilities/${updated.facilityId}`);
+  revalidatePath(`/facilities/${updated.facilityId}`);
+  return { ok: true, message: `Offering "${name}" updated.` };
 }
 
 export async function setXpOfferingActive(_prev: FormState, formData: FormData): Promise<FormState> {

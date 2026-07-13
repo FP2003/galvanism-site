@@ -2,9 +2,10 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, Power, X } from "lucide-react";
+import { Pencil, Plus, Power, X } from "lucide-react";
 import { Select, TextInput, Textarea, FormMessage, fieldLabelClass } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import {
   XP_OFFERING_TYPES,
   offeringTargetsFor,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/facilities";
 import {
   addXpOffering,
+  updateXpOffering,
   deleteXpOffering,
   setXpOfferingActive,
   type FormState,
@@ -40,9 +42,6 @@ export function FacilityXpOfferings({
   offerings: FacilityXpOffering[];
 }) {
   const [addState, addAction] = useActionState<FormState, FormData>(addXpOffering, {});
-  const [offeringType, setOfferingType] = useState<XpOfferingType>("stat_bump");
-  const targets = offeringTargetsFor(offeringType);
-  const currency = offeringCostCurrency(offeringType);
 
   return (
     <div className="flex flex-col gap-4">
@@ -66,80 +65,97 @@ export function FacilityXpOfferings({
 
       <form action={addAction} className="flex flex-col gap-2">
         <input type="hidden" name="facilityId" value={facilityId} />
-        <TextInput
-          name="name"
-          aria-label="Name"
-          placeholder="Name (e.g. Precision Drill)"
-          maxLength={64}
-          required
-        />
-        <Textarea
-          name="description"
-          aria-label="Description"
-          placeholder="Description (optional)"
-          rows={2}
-          maxLength={400}
-        />
-        <div className="grid grid-cols-2 gap-2">
-          <Select
-            name="offeringType"
-            aria-label="Type"
-            value={offeringType}
-            onChange={(e) => setOfferingType(e.target.value as XpOfferingType)}
-          >
-            {XP_OFFERING_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {TYPE_LABELS[t]}
-              </option>
-            ))}
-          </Select>
-          <Select name="targetKey" aria-label="Target">
-            {targets.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="flex flex-col gap-1">
-            <span className={fieldLabelClass}>Amount</span>
-            <TextInput
-              name="amount"
-              type="number"
-              min={1}
-              inputMode="numeric"
-              aria-label="Amount"
-              defaultValue={1}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className={fieldLabelClass}>{currency === "xp" ? "XP Cost" : "Credit Cost"}</span>
-            <TextInput
-              name="cost"
-              type="number"
-              min={1}
-              inputMode="numeric"
-              aria-label={currency === "xp" ? "XP cost" : "Credit cost"}
-              defaultValue={currency === "xp" ? 50 : 100}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className={fieldLabelClass}>Min Level</span>
-            <TextInput
-              name="minLevel"
-              type="number"
-              min={1}
-              inputMode="numeric"
-              aria-label="Min level"
-              defaultValue={1}
-            />
-          </div>
-        </div>
+        <OfferingFields />
         <AddOfferingButton />
       </form>
       <FormMessage state={addState} />
     </div>
+  );
+}
+
+// Shared field set for both the inline add-form above and the edit dialog
+// below — offeringType is local state so changing it live-updates the target
+// list and the amount/cost currency labels in either context.
+function OfferingFields({ offering }: { offering?: FacilityXpOffering }) {
+  const [offeringType, setOfferingType] = useState<XpOfferingType>(offering?.offeringType ?? "stat_bump");
+  const targets = offeringTargetsFor(offeringType);
+  const currency = offeringCostCurrency(offeringType);
+
+  return (
+    <>
+      <TextInput
+        name="name"
+        aria-label="Name"
+        placeholder="Name (e.g. Precision Drill)"
+        maxLength={64}
+        defaultValue={offering?.name}
+        required
+      />
+      <Textarea
+        name="description"
+        aria-label="Description"
+        placeholder="Description (optional)"
+        rows={2}
+        maxLength={400}
+        defaultValue={offering?.description ?? undefined}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <Select
+          name="offeringType"
+          aria-label="Type"
+          value={offeringType}
+          onChange={(e) => setOfferingType(e.target.value as XpOfferingType)}
+        >
+          {XP_OFFERING_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {TYPE_LABELS[t]}
+            </option>
+          ))}
+        </Select>
+        <Select name="targetKey" aria-label="Target" defaultValue={offering?.targetKey}>
+          {targets.map((t) => (
+            <option key={t.key} value={t.key}>
+              {t.label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="flex flex-col gap-1">
+          <span className={fieldLabelClass}>Amount</span>
+          <TextInput
+            name="amount"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            aria-label="Amount"
+            defaultValue={offering?.amount ?? 1}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className={fieldLabelClass}>{currency === "xp" ? "XP Cost" : "Credit Cost"}</span>
+          <TextInput
+            name="cost"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            aria-label={currency === "xp" ? "XP cost" : "Credit cost"}
+            defaultValue={offering?.cost ?? (currency === "xp" ? 50 : 100)}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className={fieldLabelClass}>Min Level</span>
+          <TextInput
+            name="minLevel"
+            type="number"
+            min={1}
+            inputMode="numeric"
+            aria-label="Min level"
+            defaultValue={offering?.minLevel ?? 1}
+          />
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -158,6 +174,7 @@ function OfferingRow({ offering }: { offering: FacilityXpOffering }) {
   const [, deleteAction] = useActionState<FormState, FormData>(deleteXpOffering, {});
   const label = offeringTargetLabel(offering.offeringType, offering.targetKey);
   const currencyLabel = offeringCostCurrency(offering.offeringType) === "xp" ? "XP" : "Cr";
+  const [editOpen, setEditOpen] = useState(false);
 
   return (
     <li className="flex items-center gap-3 py-3">
@@ -176,6 +193,14 @@ function OfferingRow({ offering }: { offering: FacilityXpOffering }) {
           +{offering.amount} {label} · {offering.cost} {currencyLabel} · Min Lv {offering.minLevel}
         </p>
       </div>
+      <button
+        type="button"
+        aria-label={`Edit ${offering.name}`}
+        onClick={() => setEditOpen(true)}
+        className="flex size-8 shrink-0 items-center justify-center border border-elevated-ledger text-muted-ink transition-colors hover:border-signal-cyan hover:text-signal-cyan pointer-coarse:size-11"
+      >
+        <Pencil size={14} aria-hidden="true" />
+      </button>
       <form action={toggleAction}>
         <input type="hidden" name="offeringId" value={offering.id} />
         <input type="hidden" name="active" value={(!offering.active).toString()} />
@@ -188,7 +213,40 @@ function OfferingRow({ offering }: { offering: FacilityXpOffering }) {
         <input type="hidden" name="offeringId" value={offering.id} />
         <RemoveOfferingButton label={`Remove ${offering.name}`} />
       </form>
+      <EditOfferingDialog open={editOpen} onClose={() => setEditOpen(false)} offering={offering} />
     </li>
+  );
+}
+
+function EditOfferingDialog({
+  open,
+  onClose,
+  offering,
+}: {
+  open: boolean;
+  onClose: () => void;
+  offering: FacilityXpOffering;
+}) {
+  const [state, action] = useActionState<FormState, FormData>(updateXpOffering, {});
+
+  return (
+    <Dialog open={open} onClose={onClose} title={`Edit ${offering.name}`}>
+      <form action={action} className="flex flex-col gap-2">
+        <input type="hidden" name="offeringId" value={offering.id} />
+        <OfferingFields offering={offering} />
+        <SaveOfferingButton />
+        <FormMessage state={state} />
+      </form>
+    </Dialog>
+  );
+}
+
+function SaveOfferingButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="secondary" disabled={pending} className="shrink-0">
+      {pending ? "Saving…" : "Save changes"}
+    </Button>
   );
 }
 
