@@ -254,6 +254,7 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   xpLedger: many(xpLedger),
   missionAssignments: many(missionAssignments),
   perkPurchases: many(facilityPerkPurchases),
+  purchasedFacilityListings: many(facilityListings),
   ballotVotes: many(ballotVotes),
 }));
 
@@ -525,6 +526,10 @@ export const facilities = pgTable("facilities", {
 // ones; `slotIndex` is set iff source = "rotation" and identifies which of
 // the facility's rotatingSlotCount slots this row occupies — a restock
 // replaces that slot's row in place rather than deleting + reinserting.
+// `purchasedByCharacterId` claims one particular appearance of the card in
+// stock. The buyer sees it as Owned and other characters see it as Bought. A
+// rotation clears the claim, making the newly rolled appearance available
+// again (including when the same card is rolled twice in a row).
 // Unique on (facilityId, cardId): a facility never lists the same card twice
 // regardless of source. Unique on (facilityId, slotIndex) where not null: at
 // most one row per rotation slot, same partial-unique-index shape as
@@ -539,6 +544,11 @@ export const facilityListings = pgTable(
     cardId: uuid("card_id")
       .notNull()
       .references(() => cards.id, { onDelete: "cascade" }),
+    purchasedByCharacterId: uuid("purchased_by_character_id").references(
+      () => characters.id,
+      { onDelete: "set null" },
+    ),
+    purchasedAt: timestamp("purchased_at", { withTimezone: true }),
     source: listingSource("source").notNull().default("manual"),
     slotIndex: integer("slot_index"),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -548,6 +558,7 @@ export const facilityListings = pgTable(
   },
   (t) => [
     index("facility_listings_facility_idx").on(t.facilityId),
+    index("facility_listings_purchased_by_idx").on(t.purchasedByCharacterId),
     uniqueIndex("facility_listings_facility_card_unique").on(t.facilityId, t.cardId),
     uniqueIndex("facility_listings_facility_slot_unique")
       .on(t.facilityId, t.slotIndex)
@@ -728,6 +739,10 @@ export const facilityListingsRelations = relations(facilityListings, ({ one }) =
     references: [facilities.id],
   }),
   card: one(cards, { fields: [facilityListings.cardId], references: [cards.id] }),
+  purchasedBy: one(characters, {
+    fields: [facilityListings.purchasedByCharacterId],
+    references: [characters.id],
+  }),
 }));
 
 export const facilityRestockRulesRelations = relations(facilityRestockRules, ({ one }) => ({
