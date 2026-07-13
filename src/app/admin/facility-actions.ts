@@ -60,6 +60,13 @@ export async function createFacility(_prev: FormState, formData: FormData): Prom
   if (!FACILITY_KINDS.includes(kindRaw)) return { error: "Pick a facility kind." };
   const level = intField(formData, "level", 1);
   if (level < 1) return { error: "Level must be 1 or more." };
+  const nextLevelCost = optionalIntField(formData, "nextLevelCost");
+  if (Number.isNaN(nextLevelCost) || (nextLevelCost != null && nextLevelCost < 1)) {
+    return { error: "Next level cost must be a whole number of 1 or more." };
+  }
+  if (nextLevelCost != null && kindRaw !== "station") {
+    return { error: "Only Station facilities can have an upgrade in progress." };
+  }
   const rotatingSlotCount = intField(formData, "rotatingSlotCount", 4);
   if (rotatingSlotCount < 0) return { error: "Slot count must be zero or more." };
   const restockIntervalOps = optionalIntField(formData, "restockIntervalOps");
@@ -73,6 +80,7 @@ export async function createFacility(_prev: FormState, formData: FormData): Prom
     isOpen,
     kind: kindRaw,
     level,
+    nextLevelCost,
     rotatingSlotCount,
     restockIntervalOps,
     createdByUserId: admin.id,
@@ -99,6 +107,13 @@ export async function updateFacility(_prev: FormState, formData: FormData): Prom
   if (!FACILITY_KINDS.includes(kindRaw)) return { error: "Pick a facility kind." };
   const level = intField(formData, "level", 1);
   if (level < 1) return { error: "Level must be 1 or more." };
+  const nextLevelCost = optionalIntField(formData, "nextLevelCost");
+  if (Number.isNaN(nextLevelCost) || (nextLevelCost != null && nextLevelCost < 1)) {
+    return { error: "Next level cost must be a whole number of 1 or more." };
+  }
+  if (nextLevelCost != null && kindRaw !== "station") {
+    return { error: "Only Station facilities can have an upgrade in progress." };
+  }
   const rotatingSlotCount = intField(formData, "rotatingSlotCount", 4);
   if (rotatingSlotCount < 0) return { error: "Slot count must be zero or more." };
   const restockIntervalOps = optionalIntField(formData, "restockIntervalOps");
@@ -115,6 +130,7 @@ export async function updateFacility(_prev: FormState, formData: FormData): Prom
       isOpen,
       kind: kindRaw,
       level,
+      nextLevelCost,
       rotatingSlotCount,
       restockIntervalOps,
       updatedAt: new Date(),

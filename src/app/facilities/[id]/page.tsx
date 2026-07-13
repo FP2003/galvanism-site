@@ -6,14 +6,16 @@ import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { StatusLabel } from "@/components/ui/status-dot";
 import { ButtonLink } from "@/components/ui/button";
+import { AutoRefresh } from "@/components/auto-refresh";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
-import { getFacility, getOwnedPerkIds } from "@/lib/facility-data";
+import { getFacility, getOwnedPerkIds, getFacilityLevelPool } from "@/lib/facility-data";
 import { getCharacterCards } from "@/lib/card-data";
 import { facilityListingState } from "@/lib/facilities";
 import { ListingCard } from "./listing-card";
 import { XpOfferingRow } from "./xp-offering-row";
 import { PerkRow } from "./perk-row";
+import { LevelProgress } from "./level-progress";
 
 export async function generateMetadata({
   params,
@@ -67,9 +69,13 @@ export default async function FacilityDetailPage({
 
   const player = viewer?.kind === "approved" ? viewer.player : null;
   const character = viewer?.kind === "approved" ? viewer.character : null;
-  const [owned, ownedPerkIds] = await Promise.all([
+  const showLevelProgress = facility.kind === "station" && facility.nextLevelCost != null;
+  const [owned, ownedPerkIds, levelPool] = await Promise.all([
     character ? getCharacterCards(character.id) : Promise.resolve([]),
     character ? getOwnedPerkIds(character.id) : Promise.resolve(new Set<string>()),
+    showLevelProgress
+      ? getFacilityLevelPool(facility.id, facility.level + 1)
+      : Promise.resolve(null),
   ]);
   const ownedCardIds = new Set(owned.map((o) => o.card.id));
 
@@ -88,6 +94,7 @@ export default async function FacilityDetailPage({
 
   return (
     <AppShell>
+      {showLevelProgress && <AutoRefresh intervalMs={5000} />}
       <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8">
         <Link
           href="/facilities"
@@ -136,9 +143,26 @@ export default async function FacilityDetailPage({
           </Panel>
         )}
 
+        {facility.isOpen && showLevelProgress && levelPool && (
+          <Panel title="Next Level" className="mb-6">
+            <LevelProgress
+              facilityId={facility.id}
+              level={facility.level}
+              nextLevelCost={facility.nextLevelCost!}
+              total={levelPool.total}
+              byCharacter={levelPool.byCharacter}
+              credits={player?.credits ?? 0}
+              previewOnly={isAdmin}
+            />
+          </Panel>
+        )}
+
         {!facility.isOpen ? (
           <ClosedNotice />
-        ) : !hasShop && availableOfferings.length === 0 && availablePerks.length === 0 ? (
+        ) : !hasShop &&
+          availableOfferings.length === 0 &&
+          availablePerks.length === 0 &&
+          !showLevelProgress ? (
           <Panel>
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
               <Store size={28} className="text-steel-blue" aria-hidden="true" />

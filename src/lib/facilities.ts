@@ -32,6 +32,22 @@ export function applyPurchase(
   return { ok: true, value: next };
 }
 
+/** Validates a donation toward a facility's next-level cost — same shape as
+ *  applyPurchase (positive integer, must be affordable). */
+export function applyLevelDonation(currentCredits: number, amount: number): Result<number> {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return { ok: false, error: "Enter a whole number of credits greater than zero." };
+  }
+  const next = currentCredits - amount;
+  if (next < 0) {
+    return {
+      ok: false,
+      error: `Not enough credits (balance ${currentCredits}, donation ${amount}).`,
+    };
+  }
+  return { ok: true, value: next };
+}
+
 export type FacilityListingState = "available" | "owned" | "bought";
 
 /**

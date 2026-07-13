@@ -97,6 +97,22 @@ export function FacilityForm({
             />
           )}
         </Field>
+        <Field
+          label="Next level cost"
+          hint="Cr players must donate to auto-level this facility. Blank = no upgrade in progress. Station kind only."
+        >
+          {(id) => (
+            <TextInput
+              id={id}
+              name="nextLevelCost"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              defaultValue={facility?.nextLevelCost ?? ""}
+              placeholder="2000"
+            />
+          )}
+        </Field>
         <Field label="Rotating slots" hint="How many listings restock auto-fills.">
           {(id) => (
             <TextInput

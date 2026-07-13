@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   applyPurchase,
+  applyLevelDonation,
   facilityListingState,
   pickWeightedRule,
   pickRandomCard,
@@ -46,6 +47,32 @@ describe("applyPurchase", () => {
 
   it("rejects a non-integer price", () => {
     expect(applyPurchase(500, 49.99).ok).toBe(false);
+  });
+});
+
+describe("applyLevelDonation", () => {
+  it("debits an affordable donation", () => {
+    expect(applyLevelDonation(500, 200)).toEqual({ ok: true, value: 300 });
+  });
+
+  it("allows donating down to exactly zero", () => {
+    expect(applyLevelDonation(200, 200)).toEqual({ ok: true, value: 0 });
+  });
+
+  it("refuses to overdraw", () => {
+    expect(applyLevelDonation(100, 200).ok).toBe(false);
+  });
+
+  it("rejects a zero amount", () => {
+    expect(applyLevelDonation(500, 0).ok).toBe(false);
+  });
+
+  it("rejects a negative amount", () => {
+    expect(applyLevelDonation(500, -50).ok).toBe(false);
+  });
+
+  it("rejects a non-integer amount", () => {
+    expect(applyLevelDonation(500, 49.99).ok).toBe(false);
   });
 });
 

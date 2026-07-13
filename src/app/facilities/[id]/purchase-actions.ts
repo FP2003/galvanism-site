@@ -5,10 +5,12 @@ import { eq, and, sql } from "drizzle-orm";
 import { requireUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import {
+  facilities,
   facilityListings,
   facilityXpOfferings,
   facilityPerks,
   facilityPerkPurchases,
+  facilityLevelContributions,
   players,
   characters,
   creditLedger,
@@ -17,12 +19,13 @@ import {
 } from "@/lib/schema";
 import { getViewerCharacterState } from "@/lib/characters";
 import { effectiveResourceMaxes } from "@/lib/card-data";
-import { findRefundablePurchase } from "@/lib/facility-data";
-import { applyXpSpend, clampResource, resilienceHpBonus } from "@/lib/ledger";
+import { findRefundablePurchase, getFacilityLevelPool } from "@/lib/facility-data";
+import { applyXpSpend, clampResource, parseSignedInt, resilienceHpBonus } from "@/lib/ledger";
 import {
   applyPurchase,
   applyStatBump,
   applyResourceRefill,
+  applyLevelDonation,
   isCardLevelUnlocked,
 } from "@/lib/facilities";
 
@@ -516,4 +519,90 @@ export async function refundPerk(
   revalidatePath("/roster");
   revalidatePath(`/roster/${character.slug}`);
   return { ok: true, message: `Refunded ${refundAmount} Cr.` };
+}
+
+// Donates Credits toward a Station facility's next-level cost (crowd-funded
+// upgrade). Donations are final — no self-refund, unlike card/perk purchases,
+// since they go into a shared pool rather than buying something back-outable.
+// Once the pool reaches nextLevelCost, this request tries to level the
+// facility up itself via a compare-and-swap UPDATE guarded on the level it
+// read — under concurrent donations crossing the threshold at once, only the
+// request whose guard still matches wins the bump, so the facility can't
+// double-level from a race. Whatever perks/offerings/listings are gated at
+// the new minLevel become visible immediately, with no new gating code.
+export async function donateToFacilityLevel(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const user = await requireUser();
+  const facilityId = textField(formData, "facilityId");
+  if (!facilityId) return { error: "Missing facility reference." };
+
+  const db = getDb();
+  const facility = await db.query.facilities.findFirst({
+    where: eq(facilities.id, facilityId),
+  });
+  if (!facility) return { error: "Facility not found." };
+  if (!facility.isOpen) return { error: "This facility is closed." };
+  if (facility.kind !== "station") return { error: "This facility can't be upgraded." };
+  if (facility.nextLevelCost == null) {
+    return { error: "This facility has no upgrade in progress." };
+  }
+
+  const viewer = await getViewerCharacterState(user.id);
+  if (viewer.kind !== "approved") {
+    return { error: "You need an active character on file to donate here." };
+  }
+  const { player, character } = viewer;
+
+  const parsed = parseSignedInt(formData.get("amount"));
+  if (!parsed.ok) return { error: parsed.error };
+
+  const result = applyLevelDonation(player.credits, parsed.value);
+  if (!result.ok) return { error: result.error };
+
+  const towardLevel = facility.level + 1;
+  const description = `Facility upgrade donation: ${facility.name}`;
+  await db.batch([
+    db
+      .update(players)
+      .set({ credits: result.value, updatedAt: new Date() })
+      .where(eq(players.id, player.id)),
+    db.insert(creditLedger).values({
+      playerId: player.id,
+      description,
+      delta: -parsed.value,
+      balanceAfter: result.value,
+      refCode: facility.id,
+      createdByUserId: user.id,
+    }),
+    db.insert(facilityLevelContributions).values({
+      facilityId: facility.id,
+      characterId: character.id,
+      towardLevel,
+      amount: parsed.value,
+    }),
+  ]);
+
+  const pool = await getFacilityLevelPool(facility.id, towardLevel);
+  let leveledUp = false;
+  if (pool.total >= facility.nextLevelCost) {
+    const [leveled] = await db
+      .update(facilities)
+      .set({ level: towardLevel, nextLevelCost: null, updatedAt: new Date() })
+      .where(and(eq(facilities.id, facility.id), eq(facilities.level, facility.level)))
+      .returning({ id: facilities.id });
+    leveledUp = Boolean(leveled);
+  }
+
+  revalidatePath("/facilities");
+  revalidatePath(`/facilities/${facility.id}`);
+  revalidatePath("/roster");
+  revalidatePath(`/roster/${character.slug}`);
+  return {
+    ok: true,
+    message: leveledUp
+      ? `Donated ${parsed.value} Cr — ${facility.name} reached Level ${towardLevel}!`
+      : `Donated ${parsed.value} Cr toward ${facility.name}'s next level.`,
+  };
 }

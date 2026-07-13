@@ -8,6 +8,7 @@ import {
   facilityPerks,
   facilityPerkPurchases,
   facilityOngoingEntries,
+  facilityLevelContributions,
   creditLedger,
   cards,
   cardEffects,
@@ -87,6 +88,40 @@ export async function getCharacterPerkPurchases(characterId: string) {
     with: { perk: { with: { facility: true } } },
     orderBy: [desc(facilityPerkPurchases.purchasedAt)],
   });
+}
+
+export interface LevelPool {
+  total: number;
+  byCharacter: { callsign: string; amount: number }[];
+}
+
+/** Pooled donations toward `facility.level + 1`, plus a per-character
+ *  breakdown (sorted by amount desc) — feeds the player-facing progress bar.
+ *  Contribution rows are never deleted (creditLedger/xpLedger convention), so
+ *  scoping the sum to `towardLevel` is what makes the pool "reset" for the
+ *  next tier after a level-up, without losing donation history. */
+export async function getFacilityLevelPool(
+  facilityId: string,
+  towardLevel: number,
+): Promise<LevelPool> {
+  const db = getDb();
+  const rows = await db.query.facilityLevelContributions.findMany({
+    where: and(
+      eq(facilityLevelContributions.facilityId, facilityId),
+      eq(facilityLevelContributions.towardLevel, towardLevel),
+    ),
+    with: { character: { columns: { callsign: true } } },
+  });
+  const byCharacter = new Map<string, number>();
+  for (const r of rows) {
+    byCharacter.set(r.character.callsign, (byCharacter.get(r.character.callsign) ?? 0) + r.amount);
+  }
+  return {
+    total: rows.reduce((sum, r) => sum + r.amount, 0),
+    byCharacter: [...byCharacter.entries()]
+      .map(([callsign, amount]) => ({ callsign, amount }))
+      .sort((a, b) => b.amount - a.amount),
+  };
 }
 
 /** Every refCode for this player whose most recent credit_ledger row is still
