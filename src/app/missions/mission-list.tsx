@@ -10,11 +10,13 @@ import {
   MissionStatusFilterChips,
   type MissionFilterBucket,
 } from "@/components/missions/mission-status-filter";
-import { missionBucket } from "@/lib/missions";
+import { missionBucket, callsignsByState } from "@/lib/missions";
 import type { Mission, MissionAssignment } from "@/lib/schema";
 import { MissionInterestButton } from "./mission-interest-button";
 
-type MissionRow = Mission & { assignments: MissionAssignment[] };
+type MissionRow = Mission & {
+  assignments: (MissionAssignment & { character: { callsign: string } })[];
+};
 
 function countByBucket(missions: MissionRow[]): Record<MissionFilterBucket, number> {
   const counts: Record<MissionFilterBucket, number> = { all: missions.length, incomplete: 0, complete: 0, failed: 0 };
@@ -64,6 +66,7 @@ export function MissionList({
               : undefined;
             const state = ownRow?.state ?? "none";
             const canAct = mission.status === "available" || mission.status === "active";
+            const { interested } = callsignsByState(mission.assignments);
             return (
               <Panel key={mission.id} className="group transition-colors hover:bg-elevated-ledger">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -87,6 +90,11 @@ export function MissionList({
                         <LocationTag sector={mission.sector} />
                         <RiskTag risk={mission.risk} />
                       </div>
+                      {interested.length > 0 && (
+                        <p className="mt-1 truncate font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+                          Interested: {interested.join(", ")}
+                        </p>
+                      )}
                     </div>
                     <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
                       {mission.payoutCredits}

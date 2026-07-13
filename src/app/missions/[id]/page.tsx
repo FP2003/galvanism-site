@@ -11,6 +11,7 @@ import { AttachmentGallery } from "@/components/missions/attachment-gallery";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
 import { getMissionWithAttachments } from "@/lib/mission-data";
+import { callsignsByState } from "@/lib/missions";
 import { MissionInterestButton } from "../mission-interest-button";
 
 export const metadata: Metadata = { title: "Mission Briefing" };
@@ -32,6 +33,7 @@ export default async function MissionDetailPage({
   const viewer = isAdmin ? null : await getViewerCharacterState(user.id);
   const character = viewer?.kind === "approved" ? viewer.character : null;
   const ownRow = character ? mission.assignments.find((a) => a.characterId === character.id) : undefined;
+  const { interested, assigned } = callsignsByState(mission.assignments);
 
   return (
     <AppShell>
@@ -89,6 +91,29 @@ export default async function MissionDetailPage({
           {mission.attachments.length > 0 && (
             <Panel title="Photos">
               <AttachmentGallery attachments={mission.attachments} />
+            </Panel>
+          )}
+
+          {(interested.length > 0 || assigned.length > 0) && (
+            <Panel title="Interested Operators">
+              <div className="flex flex-col gap-3">
+                {assigned.length > 0 && (
+                  <p className="text-sm text-case-file-white">
+                    <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+                      Assigned:{" "}
+                    </span>
+                    {assigned.join(", ")}
+                  </p>
+                )}
+                {interested.length > 0 && (
+                  <p className="text-sm text-case-file-white">
+                    <span className="font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
+                      Interested:{" "}
+                    </span>
+                    {interested.join(", ")}
+                  </p>
+                )}
+              </div>
             </Panel>
           )}
 

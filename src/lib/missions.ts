@@ -50,6 +50,25 @@ export function missionBucket(status: string): MissionStatusBucket {
 }
 
 /**
+ * Groups an assignment list's callsigns by state, alphabetically sorted
+ * within each group — same aggregation shape as lib/ballots.ts's
+ * votersByOption, reused here so the player-facing mission tab can show who
+ * else has marked interest (or been assigned) alongside the admin view.
+ */
+export function callsignsByState(
+  assignments: { state: "interested" | "assigned"; character: { callsign: string } }[],
+): { interested: string[]; assigned: string[] } {
+  const interested: string[] = [];
+  const assigned: string[] = [];
+  for (const a of assignments) {
+    (a.state === "interested" ? interested : assigned).push(a.character.callsign);
+  }
+  interested.sort((a, b) => a.localeCompare(b));
+  assigned.sort((a, b) => a.localeCompare(b));
+  return { interested, assigned };
+}
+
+/**
  * Deterministic "stapled photo" tilt angle for a mission attachment, derived
  * from its id — same id always produces the same angle, so the gallery's
  * server-rendered tilt matches the client on hydration (no Math.random). The

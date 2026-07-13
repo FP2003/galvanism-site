@@ -45,14 +45,15 @@ export async function getMissionsForDashboard(limit = 5) {
   });
 }
 
-/** Every mission, with assignments — the player-facing Missions list filters
- *  by status bucket client-side (mirrors getMissions) and computes the
- *  viewer's own interest/assigned state per mission by matching their
- *  characterId against `assignments`. */
+/** Every mission, with assignments joined to the character's callsign — the
+ *  player-facing Missions list filters by status bucket client-side (mirrors
+ *  getMissions), computes the viewer's own interest/assigned state per
+ *  mission by matching their characterId against `assignments`, and shows
+ *  who else has marked interest. */
 export async function getMissionsForViewer() {
   const db = getDb();
   return db.query.missions.findMany({
-    with: { assignments: true },
+    with: { assignments: { with: { character: { columns: { callsign: true } } } } },
     orderBy: [desc(missions.urgent), asc(missions.createdAt)],
   });
 }

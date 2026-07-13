@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { splitPayoutEvenly, tickUrgentDeadline, missionBucket, attachmentTiltDeg } from "./missions";
+import {
+  splitPayoutEvenly,
+  tickUrgentDeadline,
+  missionBucket,
+  callsignsByState,
+  attachmentTiltDeg,
+} from "./missions";
 
 describe("splitPayoutEvenly", () => {
   it("splits evenly with no remainder", () => {
@@ -42,6 +48,33 @@ describe("missionBucket", () => {
   it("maps complete and failed to their own buckets", () => {
     expect(missionBucket("complete")).toBe("complete");
     expect(missionBucket("failed")).toBe("failed");
+  });
+});
+
+describe("callsignsByState", () => {
+  it("splits interested and assigned into separate groups", () => {
+    const assignments = [
+      { state: "interested" as const, character: { callsign: "Zephyr" } },
+      { state: "assigned" as const, character: { callsign: "Anvil" } },
+      { state: "interested" as const, character: { callsign: "Anvil" } },
+    ];
+    expect(callsignsByState(assignments)).toEqual({
+      interested: ["Anvil", "Zephyr"],
+      assigned: ["Anvil"],
+    });
+  });
+
+  it("returns empty arrays for no assignments", () => {
+    expect(callsignsByState([])).toEqual({ interested: [], assigned: [] });
+  });
+
+  it("sorts each group alphabetically regardless of input order", () => {
+    const assignments = [
+      { state: "interested" as const, character: { callsign: "Wraith" } },
+      { state: "interested" as const, character: { callsign: "Ash" } },
+      { state: "interested" as const, character: { callsign: "Mirage" } },
+    ];
+    expect(callsignsByState(assignments).interested).toEqual(["Ash", "Mirage", "Wraith"]);
   });
 });
 
