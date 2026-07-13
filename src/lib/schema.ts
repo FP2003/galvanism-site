@@ -198,6 +198,10 @@ export const characters = pgTable(
 
     hpCurrent: integer("hp_current").notNull().default(0),
     hpMax: integer("hp_max").notNull().default(0),
+    // Freeform temporary HP buffer. Fully player-controlled — no ceiling, no
+    // automatic interaction with hpCurrent (there's no "apply damage" flow to
+    // hook into; players already edit hpCurrent directly).
+    hpTemp: integer("hp_temp").notNull().default(0),
     energyCurrent: integer("energy_current").notNull().default(0),
     energyMax: integer("energy_max").notNull().default(0),
     energyRegen: integer("energy_regen").notNull().default(3),
@@ -506,6 +510,10 @@ export const facilities = pgTable("facilities", {
   description: text("description"),
   isOpen: boolean("is_open").notNull().default(true),
   level: integer("level").notNull().default(1),
+  // Cr required for the pooled facility_level_contributions to reach before
+  // this Station facility auto-levels up. Null = no upgrade in progress.
+  // Field-kind facilities never level, so this should stay null for them.
+  nextLevelCost: integer("next_level_cost"),
   kind: facilityKind("kind").notNull().default("station"),
   rotatingSlotCount: integer("rotating_slot_count").notNull().default(4),
   restockIntervalOps: integer("restock_interval_ops"),
@@ -669,6 +677,30 @@ export const facilityPerkPurchases = pgTable(
   ],
 );
 
+// One row per donation toward a facility's next level (Credits only). Never
+// deleted or updated — `towardLevel` (the level being funded) scopes the live
+// pool total, so a level-up naturally "resets" the bar for the next tier
+// without losing contribution history, same append-only convention as
+// creditLedger/xpLedger.
+export const facilityLevelContributions = pgTable(
+  "facility_level_contributions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    facilityId: uuid("facility_id")
+      .notNull()
+      .references(() => facilities.id, { onDelete: "cascade" }),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    towardLevel: integer("toward_level").notNull(),
+    amount: integer("amount").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("facility_level_contributions_facility_idx").on(t.facilityId, t.towardLevel),
+  ],
+);
+
 // A DM-authored free-text status line for one facility (Phase 6 Step 4), e.g.
 // "Ammo Resupply: 2 days" — `label` is the whole hand-typed string, there's no
 // structured countdown or automatic timer. "Clearing" one toggles `resolved`
@@ -698,7 +730,22 @@ export const facilitiesRelations = relations(facilities, ({ many }) => ({
   xpOfferings: many(facilityXpOfferings),
   perks: many(facilityPerks),
   ongoingEntries: many(facilityOngoingEntries),
+  levelContributions: many(facilityLevelContributions),
 }));
+
+export const facilityLevelContributionsRelations = relations(
+  facilityLevelContributions,
+  ({ one }) => ({
+    facility: one(facilities, {
+      fields: [facilityLevelContributions.facilityId],
+      references: [facilities.id],
+    }),
+    character: one(characters, {
+      fields: [facilityLevelContributions.characterId],
+      references: [characters.id],
+    }),
+  }),
+);
 
 export const facilityXpOfferingsRelations = relations(facilityXpOfferings, ({ one }) => ({
   facility: one(facilities, {
@@ -1059,6 +1106,8 @@ export type FacilityPerkPurchase = typeof facilityPerkPurchases.$inferSelect;
 export type NewFacilityPerkPurchase = typeof facilityPerkPurchases.$inferInsert;
 export type FacilityOngoingEntry = typeof facilityOngoingEntries.$inferSelect;
 export type NewFacilityOngoingEntry = typeof facilityOngoingEntries.$inferInsert;
+export type FacilityLevelContribution = typeof facilityLevelContributions.$inferSelect;
+export type NewFacilityLevelContribution = typeof facilityLevelContributions.$inferInsert;
 export type Mission = typeof missions.$inferSelect;
 export type NewMission = typeof missions.$inferInsert;
 export type MissionAssignment = typeof missionAssignments.$inferSelect;
