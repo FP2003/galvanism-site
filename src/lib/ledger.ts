@@ -108,6 +108,13 @@ export function clampResource(value: number, max: number): number {
   return Math.max(0, Math.min(m, Math.floor(value)));
 }
 
+/** Floors Temp HP at 0 with no ceiling — unlike clampResource, a player may
+ *  set any amount of temporary HP a source grants them. */
+export function clampTempHp(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.floor(value));
+}
+
 /** Moves current HP by the same delta as max HP, preserving the amount of
  * damage already taken. For example, 9/13 becomes 10/14, while 13/13 becomes
  * 14/14. The result is clamped for max reductions. */

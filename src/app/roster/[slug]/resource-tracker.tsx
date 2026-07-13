@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Shield, Zap, Crosshair, Activity, Footprints, Minus, Plus, Check } from "lucide-react";
+import { Shield, ShieldPlus, Zap, Crosshair, Activity, Footprints, Minus, Plus, Check, X } from "lucide-react";
 import { Meter } from "@/components/ui/meter";
 import { Button } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/form";
-import { clampMovementSpend, clampResource, movementMeters } from "@/lib/ledger";
+import { clampMovementSpend, clampResource, clampTempHp, movementMeters } from "@/lib/ledger";
 import { updateResources, type SheetState } from "@/app/roster/actions";
 
 type Resource = { current: number; max: number };
@@ -24,6 +24,7 @@ const clampRegen = (n: number) => Math.max(0, Math.floor(n));
 export function ResourceTracker({
   characterId,
   hp,
+  hpTemp,
   energy,
   ammo,
   energyRegen,
@@ -32,6 +33,7 @@ export function ResourceTracker({
 }: {
   characterId: string;
   hp: Resource;
+  hpTemp: number;
   energy: Resource;
   ammo: Resource;
   energyRegen: number;
@@ -42,6 +44,7 @@ export function ResourceTracker({
   const [pending, startTransition] = useTransition();
   const [values, setValues] = useState({
     hpCurrent: hp.current,
+    hpTemp,
     energyCurrent: energy.current,
     ammoCurrent: ammo.current,
     energyRegen,
@@ -58,6 +61,7 @@ export function ResourceTracker({
             const nextEnergyCurrent = clampResource(v.energyCurrent, energy.max);
             return {
               hpCurrent: clampResource(v.hpCurrent, hp.max),
+              hpTemp: clampTempHp(v.hpTemp),
               energyCurrent: nextEnergyCurrent,
               ammoCurrent: clampResource(v.ammoCurrent, ammo.max),
               energyRegen: clampRegen(v.energyRegen),
@@ -75,6 +79,7 @@ export function ResourceTracker({
 
   const dirty =
     values.hpCurrent !== hp.current ||
+    values.hpTemp !== hpTemp ||
     values.energyCurrent !== energy.current ||
     values.ammoCurrent !== ammo.current ||
     values.energyRegen !== energyRegen ||
@@ -102,6 +107,7 @@ export function ResourceTracker({
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="characterId" value={characterId} />
       <input type="hidden" name="hpCurrent" value={values.hpCurrent} />
+      <input type="hidden" name="hpTemp" value={values.hpTemp} />
       <input type="hidden" name="energyCurrent" value={values.energyCurrent} />
       <input type="hidden" name="ammoCurrent" value={values.ammoCurrent} />
       <input type="hidden" name="energyRegen" value={values.energyRegen} />
@@ -114,6 +120,10 @@ export function ResourceTracker({
         max={hp.max}
         tone={hp.max > 0 && values.hpCurrent / hp.max <= 0.33 ? "critical" : "live"}
         onChange={(n) => set("hpCurrent", n, hp.max)}
+      />
+      <TempHpRow
+        value={values.hpTemp}
+        onChange={(n) => setValues((v) => ({ ...v, hpTemp: clampTempHp(n) }))}
       />
       <Row
         icon={<Zap size={14} aria-hidden="true" />}
@@ -205,6 +215,53 @@ function Row({
         />
         <Stepper label={`Increase ${label}`} onClick={() => onChange(value + 1)}>
           <Plus size={14} aria-hidden="true" />
+        </Stepper>
+      </div>
+    </div>
+  );
+}
+
+// Temporary HP: a freeform buffer with no ceiling, unlike Health's Row (no
+// Meter — there's no max to show progress against). A one-tap Clear zeroes it
+// out, the usual way a table wipes temp HP once it's been used up.
+function TempHpRow({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
+          <span className="text-steel-blue">
+            <ShieldPlus size={14} aria-hidden="true" />
+          </span>
+          Temp HP
+        </span>
+        <span className="font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white">
+          {value}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Stepper label="Decrease Temp HP" onClick={() => onChange(value - 1)}>
+          <Minus size={14} aria-hidden="true" />
+        </Stepper>
+        <input
+          type="number"
+          min={0}
+          inputMode="numeric"
+          aria-label="Temp HP current"
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-full border border-elevated-ledger bg-void-navy px-2 py-1.5 text-center font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white outline-none focus:border-signal-cyan pointer-coarse:py-3"
+        />
+        <Stepper label="Increase Temp HP" onClick={() => onChange(value + 1)}>
+          <Plus size={14} aria-hidden="true" />
+        </Stepper>
+        <Stepper label="Clear Temp HP" onClick={() => onChange(0)}>
+          <X size={14} aria-hidden="true" />
         </Stepper>
       </div>
     </div>

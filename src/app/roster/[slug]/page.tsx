@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { ArrowLeft, Shield, Zap, Crosshair, Activity, Clock, Sparkles, Footprints } from "lucide-react";
+import { ArrowLeft, Shield, ShieldPlus, Zap, Crosshair, Activity, Clock, Sparkles, Footprints } from "lucide-react";
 import { eq, desc } from "drizzle-orm";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
@@ -185,6 +185,7 @@ export default async function CaseFilePage({
                 <ResourceTracker
                   characterId={op.id}
                   hp={loadout.resources.hp}
+                  hpTemp={op.hpTemp}
                   energy={loadout.resources.energy}
                   ammo={loadout.resources.ammo}
                   energyRegen={op.energyRegen}
@@ -204,6 +205,17 @@ export default async function CaseFilePage({
                         : "live"
                     }
                   />
+                  {op.hpTemp > 0 && (
+                    <div className="flex items-center justify-between border-t border-elevated-ledger pt-3">
+                      <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
+                        <ShieldPlus size={14} className="text-steel-blue" aria-hidden="true" />
+                        Temp HP
+                      </span>
+                      <span className="font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white">
+                        {op.hpTemp}
+                      </span>
+                    </div>
+                  )}
                   <ResourceRow
                     icon={<Zap size={14} aria-hidden="true" />}
                     label="Energy"

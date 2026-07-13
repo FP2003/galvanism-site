@@ -6,7 +6,7 @@ import { del } from "@vercel/blob";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { characters, characterCards } from "@/lib/schema";
-import { clampMovementSpend, clampResource, resilienceHpBonus } from "@/lib/ledger";
+import { clampMovementSpend, clampResource, clampTempHp, resilienceHpBonus } from "@/lib/ledger";
 import { effectiveResourceMaxes } from "@/lib/card-data";
 import { TEXT_LIMITS } from "@/lib/game-rules";
 import { isWeaponSubcategory, isModCategory, type WeaponSlotName } from "@/lib/cards";
@@ -119,6 +119,7 @@ export async function updateResources(
     .update(characters)
     .set({
       hpCurrent: clampResource(read("hpCurrent", c.hpCurrent), max.hpMax),
+      hpTemp: clampTempHp(read("hpTemp", c.hpTemp)),
       energyCurrent,
       ammoCurrent: clampResource(read("ammoCurrent", c.ammoCurrent), max.ammoMax),
       energyRegen,

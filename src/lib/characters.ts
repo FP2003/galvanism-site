@@ -30,6 +30,7 @@ export interface CharacterView {
   totalXp: number;
   currencyXp: number;
   hp: { current: number; max: number };
+  hpTemp: number;
   energy: { current: number; max: number };
   energyRegen: number;
   ammo: { current: number; max: number };
@@ -58,6 +59,7 @@ export function toCharacterView(
     totalXp: c.totalXp,
     currencyXp: c.currencyXp,
     hp: { current: c.hpCurrent, max: c.hpMax },
+    hpTemp: c.hpTemp,
     energy: { current: c.energyCurrent, max: c.energyMax },
     energyRegen: c.energyRegen,
     ammo: { current: c.ammoCurrent, max: c.ammoMax },

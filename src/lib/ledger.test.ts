@@ -7,6 +7,7 @@ import {
   adjustCurrentForMaxChange,
   clampMovementSpend,
   clampResource,
+  clampTempHp,
   movementMeters,
   parseSignedInt,
   resilienceHpBonus,
@@ -116,6 +117,28 @@ describe("clampResource", () => {
 
   it("treats non-finite input as zero", () => {
     expect(clampResource(NaN, 20)).toBe(0);
+  });
+});
+
+describe("clampTempHp", () => {
+  it("passes through a positive value", () => {
+    expect(clampTempHp(12)).toBe(12);
+  });
+
+  it("has no ceiling", () => {
+    expect(clampTempHp(9999)).toBe(9999);
+  });
+
+  it("clamps negatives up to zero", () => {
+    expect(clampTempHp(-5)).toBe(0);
+  });
+
+  it("floors fractional input", () => {
+    expect(clampTempHp(12.9)).toBe(12);
+  });
+
+  it("treats non-finite input as zero", () => {
+    expect(clampTempHp(NaN)).toBe(0);
   });
 });
 
