@@ -8,7 +8,7 @@
  */
 import { clampResource, type Result } from "./ledger";
 import type { facilityKind, xpOfferingType } from "./schema";
-import { STAT_TARGETS, type CardCategory } from "./cards";
+import { STAT_TARGETS, type CardCategory, type ItemSubcategory } from "./cards";
 
 export type FacilityKind = (typeof facilityKind.enumValues)[number];
 export const FACILITY_KINDS: FacilityKind[] = ["station", "field"];
@@ -71,6 +71,9 @@ export function facilityListingState(
 export interface RestockRule {
   id: string;
   category: CardCategory;
+  // Missing/null means the rule draws from every subcategory of `category`
+  // (and is always unset when category isn't "item").
+  subcategory?: ItemSubcategory | null;
   level: number;
   weight: number;
 }
@@ -78,6 +81,7 @@ export interface RestockRule {
 export interface EligibleCard {
   id: string;
   category: CardCategory;
+  subcategory?: ItemSubcategory | null;
   level: number;
 }
 
@@ -135,7 +139,7 @@ export function pickRandomCards<T>(
 /**
  * Plans a shop restock: for each of `slotCount` slots, weighted-picks a rule
  * then uniformly picks one eligible card matching that rule's (category,
- * level) that isn't already listed (or picked by an earlier slot in this
+ * subcategory, level) that isn't already listed (or picked by an earlier slot in this
  * same call — `alreadyListedCardIds` is never mutated by the caller, so this
  * function tracks picks internally). A slot whose rule pool has no cards, or
  * for which no rule exists at all, gets `cardId: null` — the caller should
@@ -158,7 +162,11 @@ export function planRestock(
       continue;
     }
     const candidates = eligibleCards.filter(
-      (c) => c.category === rule.category && c.level === rule.level && !excluded.has(c.id),
+      (c) =>
+        c.category === rule.category &&
+        c.level === rule.level &&
+        (rule.subcategory == null || c.subcategory === rule.subcategory) &&
+        !excluded.has(c.id),
     );
     const picked = pickRandomCard(candidates, rng);
     if (!picked) {

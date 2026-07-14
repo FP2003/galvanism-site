@@ -219,6 +219,28 @@ describe("planRestock", () => {
     ]);
   });
 
+  it("scopes a rule's candidates to its subcategory when one is set", () => {
+    const itemRules: RestockRule[] = [
+      { id: "rifle-rule", category: "item", subcategory: "rifle", level: 1, weight: 100 },
+    ];
+    const itemPool: EligibleCard[] = [
+      { id: "rifle-1", category: "item", subcategory: "rifle", level: 1 },
+      { id: "pistol-1", category: "item", subcategory: "pistol", level: 1 },
+    ];
+    const plan = planRestock(itemRules, itemPool, [], 1, sequence([0, 0]));
+    expect(plan[0].cardId).toBe("rifle-1");
+  });
+
+  it("matches any subcategory when a rule leaves it unset", () => {
+    const anyItemRule: RestockRule[] = [{ id: "any-item", category: "item", level: 1, weight: 100 }];
+    const itemPool: EligibleCard[] = [
+      { id: "rifle-1", category: "item", subcategory: "rifle", level: 1 },
+      { id: "medical-1", category: "item", subcategory: "medical", level: 1 },
+    ];
+    const plan = planRestock(anyItemRule, itemPool, ["rifle-1"], 1, sequence([0, 0]));
+    expect(plan[0].cardId).toBe("medical-1");
+  });
+
   it("runs a fully deterministic scripted scenario end to end", () => {
     const twoRules: RestockRule[] = [
       { id: "tech1", category: "tech", level: 1, weight: 80 },

@@ -13,7 +13,7 @@ import {
   cardEffects,
   type NewFacilityListing,
 } from "./schema";
-import { CARD_CATEGORY_META, type CardCategory } from "./cards";
+import { CARD_CATEGORY_META, ITEM_SUBCATEGORY_META, type CardCategory, type ItemSubcategory } from "./cards";
 import { planRestock, type EligibleCard, type RestockRule } from "./facilities";
 
 /*
@@ -228,19 +228,21 @@ export async function restockFacility(facilityId: string): Promise<RestockOutcom
     db.query.facilityListings.findMany({ where: eq(facilityListings.facilityId, facilityId) }),
     db.query.cards.findMany({
       where: and(isNotNull(cards.priceCredits), lte(cards.level, facility.level)),
-      columns: { id: true, category: true, level: true },
+      columns: { id: true, category: true, subcategory: true, level: true },
     }),
   ]);
 
   const rules: RestockRule[] = ruleRows.map((r) => ({
     id: r.id,
     category: r.category,
+    subcategory: r.subcategory,
     level: r.level,
     weight: r.weight,
   }));
   const eligible: EligibleCard[] = priceableCards.map((c) => ({
     id: c.id,
     category: c.category,
+    subcategory: c.subcategory,
     level: c.level,
   }));
   const existingBySlot = new Map(
@@ -320,7 +322,15 @@ export async function pruneRotationSlots(facilityId: string, newSlotCount: numbe
     );
 }
 
-/** Label for a restock rule row, e.g. "Tech · Level 2". */
-export function ruleLabel(category: CardCategory, level: number): string {
-  return `${CARD_CATEGORY_META[category].label} · Level ${level}`;
+/** Label for a restock rule row, e.g. "Tech · Level 2" or, for an item rule
+ *  scoped to a subcategory, "Item · Rifle · Level 2". */
+export function ruleLabel(
+  category: CardCategory,
+  level: number,
+  subcategory?: ItemSubcategory | null,
+): string {
+  const categoryLabel = subcategory
+    ? `${CARD_CATEGORY_META[category].label} · ${ITEM_SUBCATEGORY_META[subcategory].label}`
+    : CARD_CATEGORY_META[category].label;
+  return `${categoryLabel} · Level ${level}`;
 }
