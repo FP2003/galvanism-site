@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/shell/app-shell";
-import { Panel } from "@/components/ui/panel";
+import { RegistryTerminalFrame } from "@/components/registry/registry-terminal-frame";
 import { requireUser } from "@/lib/auth";
 import { getPublicRegistryEntries } from "@/lib/registry-data";
 import { RegistryBrowser } from "./registry-browser";
@@ -18,19 +18,25 @@ export default async function RegistryPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8">
-        <div className="mb-6 border-b border-ledger-teal pb-5">
-          <h1 className="font-[family-name:var(--font-rajdhani)] text-3xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white sm:text-4xl">
-            Registry
-          </h1>
-          <p className="mt-2 max-w-prose text-sm text-muted-ink">
-            NPCs, locations, factions, items, and events on record.
-          </p>
-        </div>
+      <div className="mx-auto max-w-[1500px] px-3 py-5 sm:px-6 sm:py-7 lg:py-9">
+        <RegistryTerminalFrame
+          variant="index"
+          systemLabel="F.C.B. public archive"
+          meta={`${String(entries.length).padStart(2, "0")} ${entries.length === 1 ? "record" : "records"}`}
+          status="Read only"
+        >
+          <div className="border-b border-elevated-ledger px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+            <h1 className="font-[family-name:var(--font-orbitron)] text-2xl font-semibold uppercase leading-tight tracking-[0.08em] text-case-file-white sm:text-3xl lg:text-4xl">
+              Registry
+            </h1>
+            <p className="mt-3 max-w-2xl font-[family-name:var(--font-inter)] text-sm leading-relaxed text-muted-ink">
+              Search released intelligence on known personnel, locations, factions,
+              assets, and recorded events.
+            </p>
+          </div>
 
-        <Panel title="All Entries" bodyClassName="p-0">
           <RegistryBrowser entries={entries} />
-        </Panel>
+        </RegistryTerminalFrame>
       </div>
     </AppShell>
   );

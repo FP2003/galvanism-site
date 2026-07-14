@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Rajdhani, Chakra_Petch, Inter, JetBrains_Mono } from "next/font/google";
+import {
+  Chakra_Petch,
+  Inter,
+  JetBrains_Mono,
+  Orbitron,
+  Rajdhani,
+} from "next/font/google";
 import "./globals.css";
 
 // Display / headline — condensed, official-signage register (DESIGN.md §3)
@@ -29,6 +35,13 @@ const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+// Registry terminal only — the rest of the interface keeps the core type split.
+const orbitron = Orbitron({
+  variable: "--font-orbitron",
+  subsets: ["latin"],
+  weight: "variable",
+});
+
 export const metadata: Metadata = {
   title: {
     default: "Galvanism",
@@ -47,7 +60,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="en"
-        className={`${rajdhani.variable} ${chakraPetch.variable} ${inter.variable} ${jetBrainsMono.variable} h-full`}
+        className={`${rajdhani.variable} ${chakraPetch.variable} ${inter.variable} ${jetBrainsMono.variable} ${orbitron.variable} h-full`}
       >
         <body className="min-h-full">{children}</body>
       </html>

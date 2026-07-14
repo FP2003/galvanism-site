@@ -1,0 +1,81 @@
+.frame {
+  position: relative;
+  padding: 1px;
+  background: var(--color-steel-blue);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 1.25rem) 0,
+    100% 1.25rem,
+    100% 100%,
+    1.25rem 100%,
+    0 calc(100% - 1.25rem)
+  );
+}
+
+.surface {
+  min-height: 100%;
+  background: var(--color-ledger-teal);
+  clip-path: polygon(
+    0 0,
+    calc(100% - 1.2rem) 0,
+    100% 1.2rem,
+    100% 100%,
+    1.2rem 100%,
+    0 calc(100% - 1.2rem)
+  );
+}
+
+.modeActive {
+  border-color: var(--color-signal-cyan);
+  background: var(--color-signal-cyan);
+  color: var(--color-void-navy);
+  animation: registry-mode-flicker 1.6s steps(1, end) infinite;
+}
+
+.recordReveal {
+  transform-origin: top center;
+  animation: registry-record-mount 230ms var(--ease-out-quart) both;
+}
+
+.searchInput::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+@keyframes registry-mode-flicker {
+  0%,
+  64%,
+  72%,
+  100% {
+    border-color: var(--color-signal-cyan);
+    background: var(--color-signal-cyan);
+    color: var(--color-void-navy);
+  }
+
+  66%,
+  70% {
+    border-color: var(--color-signal-cyan);
+    background: var(--color-void-navy);
+    color: var(--color-signal-cyan);
+  }
+}
+
+@keyframes registry-record-mount {
+  from {
+    opacity: 0.55;
+    transform: translateY(0.375rem);
+    clip-path: inset(0 0 8% 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modeActive,
+  .recordReveal {
+    animation: none;
+  }
+}
