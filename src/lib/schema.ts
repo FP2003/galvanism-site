@@ -257,7 +257,7 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   }),
   xpLedger: many(xpLedger),
   missionAssignments: many(missionAssignments),
-  perkPurchases: many(facilityPerkPurchases),
+  perkContributions: many(facilityPerkContributions),
   purchasedFacilityListings: many(facilityListings),
   ballotVotes: many(ballotVotes),
 }));
@@ -510,10 +510,6 @@ export const facilities = pgTable("facilities", {
   description: text("description"),
   isOpen: boolean("is_open").notNull().default(true),
   level: integer("level").notNull().default(1),
-  // Cr required for the pooled facility_level_contributions to reach before
-  // this Station facility auto-levels up. Null = no upgrade in progress.
-  // Field-kind facilities never level, so this should stay null for them.
-  nextLevelCost: integer("next_level_cost"),
   kind: facilityKind("kind").notNull().default("station"),
   rotatingSlotCount: integer("rotating_slot_count").notNull().default(4),
   restockIntervalOps: integer("restock_interval_ops"),
@@ -633,10 +629,16 @@ export const facilityXpOfferings = pgTable(
 
 // A facility's descriptive-perk catalog entry (Phase 6 Step 3), e.g. the
 // Communication Center's "Called Extraction time reduction." Purely
-// descriptive — purchasing debits Credits and records the unlock; the DM
-// manually honors the effect at the table, no mission-engine mechanic reads
-// this row. `minLevel`/`active` follow the same gating convention as
-// facilityXpOfferings.
+// descriptive — the DM manually honors the effect at the table, no
+// mission-engine mechanic reads this row. `minLevel`/`active` follow the same
+// gating convention as facilityXpOfferings.
+// Perks are crowd-funded team-wide upgrades (reworked from a one-time
+// per-character purchase): `priceCredits` is the funding target, players
+// chip in any amount via facilityPerkContributions, and `fundedAt` is set
+// once the pooled total reaches the price — at which point the perk benefits
+// the whole team, not just whoever tipped it over. A facility auto-levels
+// once every currently-unlocked perk (active, minLevel <= facility.level) is
+// funded — see contributeToPerk in app/facilities/[id]/purchase-actions.ts.
 export const facilityPerks = pgTable(
   "facility_perks",
   {
@@ -650,17 +652,20 @@ export const facilityPerks = pgTable(
     minLevel: integer("min_level").notNull().default(1),
     active: boolean("active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
+    fundedAt: timestamp("funded_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("facility_perks_facility_idx").on(t.facilityId)],
 );
 
-// A character's permanent ownership of a perk — unlike facilityXpOfferings,
-// perks are a one-time purchase per character (mirrors characterCards' unique
-// ownership shape) rather than repeatable.
-export const facilityPerkPurchases = pgTable(
-  "facility_perk_purchases",
+// One row per player contribution toward funding a perk (Credits only).
+// Never deleted or updated outside an admin correction — multiple characters
+// (or the same one, more than once) can each chip in, same append-only
+// convention as creditLedger/xpLedger. The pooled sum for a perk is compared
+// against `facilityPerks.priceCredits` to decide when it's funded.
+export const facilityPerkContributions = pgTable(
+  "facility_perk_contributions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     perkId: uuid("perk_id")
@@ -669,36 +674,10 @@ export const facilityPerkPurchases = pgTable(
     characterId: uuid("character_id")
       .notNull()
       .references(() => characters.id, { onDelete: "cascade" }),
-    purchasedAt: timestamp("purchased_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    index("facility_perk_purchases_character_idx").on(t.characterId),
-    uniqueIndex("facility_perk_purchases_unique").on(t.perkId, t.characterId),
-  ],
-);
-
-// One row per donation toward a facility's next level (Credits only). Never
-// deleted or updated — `towardLevel` (the level being funded) scopes the live
-// pool total, so a level-up naturally "resets" the bar for the next tier
-// without losing contribution history, same append-only convention as
-// creditLedger/xpLedger.
-export const facilityLevelContributions = pgTable(
-  "facility_level_contributions",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    facilityId: uuid("facility_id")
-      .notNull()
-      .references(() => facilities.id, { onDelete: "cascade" }),
-    characterId: uuid("character_id")
-      .notNull()
-      .references(() => characters.id, { onDelete: "cascade" }),
-    towardLevel: integer("toward_level").notNull(),
     amount: integer("amount").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [
-    index("facility_level_contributions_facility_idx").on(t.facilityId, t.towardLevel),
-  ],
+  (t) => [index("facility_perk_contributions_perk_idx").on(t.perkId)],
 );
 
 // A DM-authored free-text status line for one facility (Phase 6 Step 4), e.g.
@@ -730,22 +709,7 @@ export const facilitiesRelations = relations(facilities, ({ many }) => ({
   xpOfferings: many(facilityXpOfferings),
   perks: many(facilityPerks),
   ongoingEntries: many(facilityOngoingEntries),
-  levelContributions: many(facilityLevelContributions),
 }));
-
-export const facilityLevelContributionsRelations = relations(
-  facilityLevelContributions,
-  ({ one }) => ({
-    facility: one(facilities, {
-      fields: [facilityLevelContributions.facilityId],
-      references: [facilities.id],
-    }),
-    character: one(characters, {
-      fields: [facilityLevelContributions.characterId],
-      references: [characters.id],
-    }),
-  }),
-);
 
 export const facilityXpOfferingsRelations = relations(facilityXpOfferings, ({ one }) => ({
   facility: one(facilities, {
@@ -759,19 +723,22 @@ export const facilityPerksRelations = relations(facilityPerks, ({ one, many }) =
     fields: [facilityPerks.facilityId],
     references: [facilities.id],
   }),
-  purchases: many(facilityPerkPurchases),
+  contributions: many(facilityPerkContributions),
 }));
 
-export const facilityPerkPurchasesRelations = relations(facilityPerkPurchases, ({ one }) => ({
-  perk: one(facilityPerks, {
-    fields: [facilityPerkPurchases.perkId],
-    references: [facilityPerks.id],
+export const facilityPerkContributionsRelations = relations(
+  facilityPerkContributions,
+  ({ one }) => ({
+    perk: one(facilityPerks, {
+      fields: [facilityPerkContributions.perkId],
+      references: [facilityPerks.id],
+    }),
+    character: one(characters, {
+      fields: [facilityPerkContributions.characterId],
+      references: [characters.id],
+    }),
   }),
-  character: one(characters, {
-    fields: [facilityPerkPurchases.characterId],
-    references: [characters.id],
-  }),
-}));
+);
 
 export const facilityOngoingEntriesRelations = relations(facilityOngoingEntries, ({ one }) => ({
   facility: one(facilities, {
@@ -1102,12 +1069,10 @@ export type FacilityXpOffering = typeof facilityXpOfferings.$inferSelect;
 export type NewFacilityXpOffering = typeof facilityXpOfferings.$inferInsert;
 export type FacilityPerk = typeof facilityPerks.$inferSelect;
 export type NewFacilityPerk = typeof facilityPerks.$inferInsert;
-export type FacilityPerkPurchase = typeof facilityPerkPurchases.$inferSelect;
-export type NewFacilityPerkPurchase = typeof facilityPerkPurchases.$inferInsert;
+export type FacilityPerkContribution = typeof facilityPerkContributions.$inferSelect;
+export type NewFacilityPerkContribution = typeof facilityPerkContributions.$inferInsert;
 export type FacilityOngoingEntry = typeof facilityOngoingEntries.$inferSelect;
 export type NewFacilityOngoingEntry = typeof facilityOngoingEntries.$inferInsert;
-export type FacilityLevelContribution = typeof facilityLevelContributions.$inferSelect;
-export type NewFacilityLevelContribution = typeof facilityLevelContributions.$inferInsert;
 export type Mission = typeof missions.$inferSelect;
 export type NewMission = typeof missions.$inferInsert;
 export type MissionAssignment = typeof missionAssignments.$inferSelect;
