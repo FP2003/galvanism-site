@@ -57,7 +57,7 @@ export function CardLibrary({ items }: { items: CardLibraryItem[] }) {
         <Search
           size={15}
           aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-steel-blue"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-ink"
         />
         <TextInput
           type="search"
@@ -110,7 +110,7 @@ export function CardLibrary({ items }: { items: CardLibraryItem[] }) {
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-          <Layers size={28} className="text-steel-blue" aria-hidden="true" />
+          <Layers size={28} className="text-muted-ink" aria-hidden="true" />
           <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
             No cards match
           </p>

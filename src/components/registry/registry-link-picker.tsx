@@ -139,7 +139,7 @@ export function RegistryLinkPicker({
             <Search
               size={13}
               aria-hidden="true"
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-steel-blue"
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-ink"
             />
             <TextInput
               autoFocus
@@ -160,7 +160,7 @@ export function RegistryLinkPicker({
               type="button"
               onClick={() => setOpen(false)}
               aria-label="Close"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-steel-blue hover:text-case-file-white"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-ink hover:text-case-file-white"
             >
               <X size={13} aria-hidden="true" />
             </button>
@@ -192,7 +192,7 @@ export function RegistryLinkPicker({
                       isActive ? "bg-ledger-teal text-signal-cyan" : ""
                     }`}
                   >
-                    <RegistryTypeIcon type={entry.type} size={13} className="shrink-0 text-steel-blue" />
+                    <RegistryTypeIcon type={entry.type} size={13} className="shrink-0 text-muted-ink" />
                     <span className="truncate">{entry.name}</span>
                   </button>
                 </li>

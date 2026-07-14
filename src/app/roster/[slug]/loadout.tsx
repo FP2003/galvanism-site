@@ -44,7 +44,7 @@ export function Loadout({
   if (owned.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-        <Layers size={28} className="text-steel-blue" aria-hidden="true" />
+        <Layers size={28} className="text-muted-ink" aria-hidden="true" />
         <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
           No cards assigned
         </p>
@@ -157,12 +157,12 @@ function WeaponSlots({
                 </>
               ) : heldByTwoHandedPrimary ? (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 border border-dashed border-elevated-ledger p-4 text-center">
-                  <Crosshair size={20} className="text-steel-blue" aria-hidden="true" />
+                  <Crosshair size={20} className="text-muted-ink" aria-hidden="true" />
                   <p className="text-xs text-muted-ink">2H Equipped</p>
                 </div>
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 border border-dashed border-elevated-ledger p-4 text-center">
-                  <Crosshair size={20} className="text-steel-blue" aria-hidden="true" />
+                  <Crosshair size={20} className="text-muted-ink" aria-hidden="true" />
                   <p className="text-xs text-muted-ink">No weapon equipped</p>
                   {canEdit && candidates.length > 0 && (
                     <WeaponSlotAssignForm

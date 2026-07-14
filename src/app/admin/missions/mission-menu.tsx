@@ -232,7 +232,7 @@ function StatusItem({
           : "text-case-file-white hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan"
       }`}
     >
-      <Icon size={13} className="shrink-0 text-steel-blue" aria-hidden="true" />
+      <Icon size={13} className="shrink-0 text-muted-ink" aria-hidden="true" />
       {pending ? "…" : label}
     </button>
   );

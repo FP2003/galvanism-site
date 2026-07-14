@@ -153,7 +153,7 @@ export default async function AdminPage() {
                         <td className="py-2.5 pl-4 text-right">
                           <ChevronRight
                             size={16}
-                            className="ml-auto text-steel-blue transition-colors group-hover:text-signal-cyan"
+                            className="ml-auto text-muted-ink transition-colors group-hover:text-signal-cyan"
                             aria-hidden="true"
                           />
                         </td>

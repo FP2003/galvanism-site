@@ -41,7 +41,7 @@ export function MissionList({ missions }: { missions: MissionRow[] }) {
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 px-5 py-12 text-center">
-          <Crosshair size={28} className="text-steel-blue" aria-hidden="true" />
+          <Crosshair size={28} className="text-muted-ink" aria-hidden="true" />
           <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
             No missions match
           </p>
@@ -81,7 +81,7 @@ export function MissionList({ missions }: { missions: MissionRow[] }) {
                   </div>
                   <ChevronRight
                     size={16}
-                    className="shrink-0 text-steel-blue transition-colors group-hover:text-signal-cyan"
+                    className="shrink-0 text-muted-ink transition-colors group-hover:text-signal-cyan"
                     aria-hidden="true"
                   />
                 </Link>

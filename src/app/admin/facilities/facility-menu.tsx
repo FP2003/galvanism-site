@@ -196,9 +196,9 @@ function ToggleOpenItem({ isOpen }: { isOpen: boolean }) {
       className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-case-file-white transition-colors hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan focus:outline-none disabled:opacity-60 pointer-coarse:min-h-11"
     >
       {isOpen ? (
-        <Lock size={13} className="shrink-0 text-steel-blue" aria-hidden="true" />
+        <Lock size={13} className="shrink-0 text-muted-ink" aria-hidden="true" />
       ) : (
-        <Unlock size={13} className="shrink-0 text-steel-blue" aria-hidden="true" />
+        <Unlock size={13} className="shrink-0 text-muted-ink" aria-hidden="true" />
       )}
       {pending ? "…" : isOpen ? "Close facility" : "Open facility"}
     </button>

@@ -66,7 +66,7 @@ export default async function AdminCardsPage() {
         >
           {library.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <Layers size={28} className="text-steel-blue" aria-hidden="true" />
+              <Layers size={28} className="text-muted-ink" aria-hidden="true" />
               <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
                 No cards authored yet
               </p>

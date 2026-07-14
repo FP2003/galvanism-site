@@ -129,7 +129,7 @@ function PerkRow({ perk }: { perk: FacilityPerk }) {
   return (
     <li className="flex items-center gap-3 py-3">
       <span
-        className={`size-2.5 shrink-0 ${perk.active ? "bg-steel-blue" : "bg-elevated-ledger"}`}
+        className={`size-2.5 shrink-0 ${perk.active ? "bg-muted-ink" : "bg-elevated-ledger"}`}
         aria-hidden="true"
       />
       <div className="min-w-0 flex-1">

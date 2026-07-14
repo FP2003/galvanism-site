@@ -35,7 +35,7 @@ export function RegistryList({ entries }: { entries: RegistryEntry[] }) {
           <Search
             size={15}
             aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-steel-blue"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-ink"
           />
           <TextInput
             type="search"
@@ -67,7 +67,7 @@ export function RegistryList({ entries }: { entries: RegistryEntry[] }) {
 
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 px-5 pb-5 pt-2 text-center">
-          <BookUser size={28} className="text-steel-blue" aria-hidden="true" />
+          <BookUser size={28} className="text-muted-ink" aria-hidden="true" />
           <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
             {entries.length === 0 ? "No entries yet" : "No entries match"}
           </p>
@@ -88,7 +88,7 @@ export function RegistryList({ entries }: { entries: RegistryEntry[] }) {
                 href={`/admin/registry/${entry.id}`}
                 className="flex min-w-0 flex-1 items-center gap-4"
               >
-                <RegistryTypeIcon type={entry.type} size={18} className="shrink-0 text-steel-blue" />
+                <RegistryTypeIcon type={entry.type} size={18} className="shrink-0 text-muted-ink" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-[family-name:var(--font-chakra)] text-sm font-bold uppercase tracking-[0.04em] text-case-file-white">
@@ -111,7 +111,7 @@ export function RegistryList({ entries }: { entries: RegistryEntry[] }) {
                 </div>
                 <ChevronRight
                   size={16}
-                  className="shrink-0 text-steel-blue transition-colors group-hover:text-signal-cyan"
+                  className="shrink-0 text-muted-ink transition-colors group-hover:text-signal-cyan"
                   aria-hidden="true"
                 />
               </Link>

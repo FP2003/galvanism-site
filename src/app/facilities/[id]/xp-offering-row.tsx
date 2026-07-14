@@ -36,7 +36,7 @@ export function XpOfferingRow({
     <li className="flex flex-col gap-2 border border-elevated-ledger p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
-          <Icon size={16} className="mt-0.5 shrink-0 text-steel-blue" aria-hidden="true" />
+          <Icon size={16} className="mt-0.5 shrink-0 text-muted-ink" aria-hidden="true" />
           <div className="min-w-0">
             <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
               {offering.name}

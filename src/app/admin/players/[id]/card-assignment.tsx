@@ -151,7 +151,7 @@ function WeaponRow({
 
   return (
     <li className="flex flex-wrap items-center gap-3 py-3">
-      <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
+      <span className="size-2.5 shrink-0 bg-muted-ink" aria-hidden="true" />
       <div className="min-w-0 flex-1 basis-full sm:basis-auto">
         <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
           {card.title}
@@ -221,7 +221,7 @@ function ModRow({
 
   return (
     <li className="flex flex-wrap items-center gap-3 py-3">
-      <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
+      <span className="size-2.5 shrink-0 bg-muted-ink" aria-hidden="true" />
       <div className="min-w-0 flex-1 basis-full sm:basis-auto">
         <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
           {card.title}
@@ -347,7 +347,7 @@ function OwnedRow({
 
   return (
     <li className="flex items-center gap-3 py-3">
-      <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
+      <span className="size-2.5 shrink-0 bg-muted-ink" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
           {card.title}

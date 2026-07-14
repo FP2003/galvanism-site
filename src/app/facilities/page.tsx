@@ -37,13 +37,13 @@ export default async function FacilitiesPage() {
         <div className="flex flex-col gap-6">
           <FacilityGroup
             title="The Station"
-            icon={<Factory size={28} className="text-steel-blue" aria-hidden="true" />}
+            icon={<Factory size={28} className="text-muted-ink" aria-hidden="true" />}
             emptyLabel="No station facilities open right now."
             facilities={station}
           />
           <FacilityGroup
             title="Field"
-            icon={<Store size={28} className="text-steel-blue" aria-hidden="true" />}
+            icon={<Store size={28} className="text-muted-ink" aria-hidden="true" />}
             emptyLabel="No field shops open right now."
             facilities={field}
           />
@@ -121,7 +121,7 @@ function FacilityGroup({
                 </div>
                 <ChevronRight
                   size={16}
-                  className="shrink-0 text-steel-blue transition-colors group-hover:text-signal-cyan"
+                  className="shrink-0 text-muted-ink transition-colors group-hover:text-signal-cyan"
                   aria-hidden="true"
                 />
               </Link>

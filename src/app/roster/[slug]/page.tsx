@@ -215,7 +215,7 @@ export default async function CaseFilePage({
                   {op.hpTemp > 0 && (
                     <div className="flex items-center justify-between border-t border-elevated-ledger pt-3">
                       <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                        <ShieldPlus size={14} className="text-steel-blue" aria-hidden="true" />
+                        <ShieldPlus size={14} className="text-muted-ink" aria-hidden="true" />
                         Temp HP
                       </span>
                       <span className="font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white">
@@ -244,7 +244,7 @@ export default async function CaseFilePage({
                   />
                   <div className="flex items-center justify-between border-t border-elevated-ledger pt-3">
                     <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-                      <Activity size={14} className="text-steel-blue" aria-hidden="true" />
+                      <Activity size={14} className="text-muted-ink" aria-hidden="true" />
                       Energy Regen
                     </span>
                     <span className="font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">
@@ -325,7 +325,7 @@ export default async function CaseFilePage({
                           key={`mod-${i}`}
                           className="flex items-center gap-3"
                         >
-                          <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
+                          <span className="size-2.5 shrink-0 bg-muted-ink" aria-hidden="true" />
                           <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-inter)] text-sm text-case-file-white">
                             {m.cardTitle}
                           </span>
@@ -395,7 +395,7 @@ function ResourceRow({
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-          <span className="text-steel-blue">{icon}</span>
+          <span className="text-muted-ink">{icon}</span>
           {label}
         </span>
         <span className="font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white">

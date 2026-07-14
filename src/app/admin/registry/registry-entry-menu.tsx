@@ -198,9 +198,9 @@ function ToggleVisibilityItem({ visibility }: { visibility: RegistryEntry["visib
       className="flex w-full items-center gap-2 px-3 py-1.5 text-left font-[family-name:var(--font-inter)] text-[0.8125rem] text-case-file-white transition-colors hover:bg-ledger-teal hover:text-signal-cyan focus:bg-ledger-teal focus:text-signal-cyan focus:outline-none disabled:opacity-60 pointer-coarse:min-h-11"
     >
       {isPublic ? (
-        <EyeOff size={13} className="shrink-0 text-steel-blue" aria-hidden="true" />
+        <EyeOff size={13} className="shrink-0 text-muted-ink" aria-hidden="true" />
       ) : (
-        <Eye size={13} className="shrink-0 text-steel-blue" aria-hidden="true" />
+        <Eye size={13} className="shrink-0 text-muted-ink" aria-hidden="true" />
       )}
       {pending ? "…" : isPublic ? "Hide from players" : "Make public"}
     </button>

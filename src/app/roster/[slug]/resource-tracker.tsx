@@ -190,7 +190,7 @@ function Row({
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-          <span className="text-steel-blue">{icon}</span>
+          <span className="text-muted-ink">{icon}</span>
           {label}
         </span>
         <span className="font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white">
@@ -235,7 +235,7 @@ function TempHpRow({
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-          <span className="text-steel-blue">
+          <span className="text-muted-ink">
             <ShieldPlus size={14} aria-hidden="true" />
           </span>
           Temp HP
@@ -292,7 +292,7 @@ function MovementRow({
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-          <span className="text-steel-blue">
+          <span className="text-muted-ink">
             <Footprints size={14} aria-hidden="true" />
           </span>
           Movement
@@ -334,7 +334,7 @@ function RateRow({
     <div>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex items-center gap-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-          <span className="text-steel-blue">{icon}</span>
+          <span className="text-muted-ink">{icon}</span>
           {label}
         </span>
         <span className="font-[family-name:var(--font-jetbrains)] text-sm text-signal-cyan">

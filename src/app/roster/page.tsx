@@ -35,7 +35,7 @@ export default async function RosterPage() {
         {operators.length === 0 ? (
           <Panel>
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <Users size={28} className="text-steel-blue" aria-hidden="true" />
+              <Users size={28} className="text-muted-ink" aria-hidden="true" />
               <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
                 Roster empty
               </p>
@@ -115,7 +115,7 @@ export default async function RosterPage() {
                     <span className="flex items-center justify-end font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
                       <ChevronRight
                         size={16}
-                        className="text-steel-blue transition-colors group-hover:text-signal-cyan"
+                        className="text-muted-ink transition-colors group-hover:text-signal-cyan"
                         aria-hidden="true"
                       />
                     </span>

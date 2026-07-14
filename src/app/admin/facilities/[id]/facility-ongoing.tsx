@@ -80,7 +80,7 @@ function EntryRow({ entry }: { entry: FacilityOngoingEntry }) {
   return (
     <li className="flex items-center gap-3 py-3">
       <span
-        className={`size-2.5 shrink-0 ${entry.resolved ? "bg-elevated-ledger" : "bg-steel-blue"}`}
+        className={`size-2.5 shrink-0 ${entry.resolved ? "bg-elevated-ledger" : "bg-muted-ink"}`}
         aria-hidden="true"
       />
       <div className="min-w-0 flex-1">

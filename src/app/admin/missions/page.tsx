@@ -49,7 +49,7 @@ export default async function AdminMissionsPage() {
         >
           {missionList.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <Crosshair size={28} className="text-steel-blue" aria-hidden="true" />
+              <Crosshair size={28} className="text-muted-ink" aria-hidden="true" />
               <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
                 No missions yet
               </p>

@@ -182,7 +182,7 @@ export function CommandDashboard({
                     <span className="flex shrink-0 items-center font-[family-name:var(--font-jetbrains)] text-xs text-muted-ink">
                       <ChevronRight
                         size={16}
-                        className="text-steel-blue transition-colors group-hover:text-signal-cyan"
+                        className="text-muted-ink transition-colors group-hover:text-signal-cyan"
                         aria-hidden="true"
                       />
                     </span>
