@@ -198,6 +198,8 @@ const STAT_COLUMN: Record<StatKey, string> = {
 export interface ActiveModifier {
   cardTitle: string;
   category: CardWithEffects["category"];
+  colorOverride: CardWithEffects["colorOverride"];
+  subcategory: CardWithEffects["subcategory"];
   summary: string; // e.g. "+1 Tech"
 }
 
@@ -297,6 +299,8 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     o.card.effects.filter(isPersistentEffect).map((e) => ({
       cardTitle: o.card.title,
       category: o.card.category,
+      colorOverride: o.card.colorOverride,
+      subcategory: o.card.subcategory,
       summary: effectSummary(e),
     })),
   );

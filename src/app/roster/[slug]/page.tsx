@@ -13,7 +13,7 @@ import { creditLedger, xpLedger } from "@/lib/schema";
 import { HistoryPanel, type HistoryRow } from "@/components/ledger/history-table";
 import { getCharacterBySlug, getRosterViews } from "@/lib/characters";
 import { getCharacterCards, computeLoadout } from "@/lib/card-data";
-import { CARD_CATEGORY_META } from "@/lib/cards";
+import { CARD_CATEGORY_META, cardAccent } from "@/lib/cards";
 import { agilityMovementBonus } from "@/lib/ledger";
 import { regiment } from "@/lib/mock-data";
 import {
@@ -325,7 +325,11 @@ export default async function CaseFilePage({
                           key={`mod-${i}`}
                           className="flex items-center gap-3"
                         >
-                          <span className="size-2.5 shrink-0 bg-muted-ink" aria-hidden="true" />
+                          <span
+                            className="size-2.5 shrink-0"
+                            style={{ backgroundColor: cardAccent(m.category, m.colorOverride, m.subcategory) }}
+                            aria-hidden="true"
+                          />
                           <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-inter)] text-sm text-case-file-white">
                             {m.cardTitle}
                           </span>
