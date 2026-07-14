@@ -209,9 +209,6 @@ export async function createCard(
   let modAddedDamageType: WeaponDamageType | null = null;
 
   if (isModCategory(categoryRaw)) {
-    if (effects.length > 0) {
-      return { error: "Mod cards use weapon deltas, not character effects." };
-    }
     modDamageDelta = optionalIntField(formData, "modDamageDelta");
     modRangeDelta = optionalIntField(formData, "modRangeDelta");
     const addedTypeRaw = textField(formData, "modAddedDamageType") as WeaponDamageType;
@@ -394,9 +391,6 @@ export async function updateCard(
   let modAddedDamageType: WeaponDamageType | null = null;
 
   if (isModCategory(categoryRaw)) {
-    if (effects.length > 0) {
-      return { error: "Mod cards use weapon deltas, not character effects." };
-    }
     modDamageDelta = optionalIntField(formData, "modDamageDelta");
     modRangeDelta = optionalIntField(formData, "modRangeDelta");
     const addedTypeRaw = textField(formData, "modAddedDamageType") as WeaponDamageType;

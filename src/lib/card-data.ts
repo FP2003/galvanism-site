@@ -161,19 +161,40 @@ export async function getCharacterCards(
 }
 
 /**
- * Effective resource maxes (base + equipped resource-modifier cards) for one
- * character. Used by the resource-tracking action so a player can fill up to a
- * card-boosted max, not just the base. Kept small + self-contained so the write
- * path doesn't need to build a full CharacterView.
+ * Persistent effects from mods installed on a currently-equipped host weapon.
+ * Mods are never "equipped" themselves (they're tracked via
+ * installedOnCharacterCardId, not the equipped toggle — see partitionByWeapon),
+ * so their effects only reach the character while their host weapon is worn.
+ */
+function installedModEffects(
+  equipped: OwnedCard[],
+  owned: OwnedCard[],
+): CardWithEffects["effects"] {
+  const { byHost } = groupInstalledMods(
+    owned.filter((o) => isModCategory(o.card.category)),
+  );
+  return equipped.flatMap(
+    (host) => byHost.get(host.assignmentId)?.flatMap((m) => m.card.effects) ?? [],
+  );
+}
+
+/**
+ * Effective resource maxes (base + equipped resource-modifier cards, plus any
+ * installed mods on those equipped cards) for one character. Used by the
+ * resource-tracking action so a player can fill up to a card-boosted max, not
+ * just the base. Kept small + self-contained so the write path doesn't need to
+ * build a full CharacterView.
  */
 export async function effectiveResourceMaxes(
   characterId: string,
   base: { hpMax: number; energyMax: number; ammoMax: number },
 ): Promise<{ hpMax: number; energyMax: number; ammoMax: number }> {
   const owned = await getCharacterCards(characterId);
-  const mods = accumulateModifiers(
-    owned.filter((o) => o.equipped).flatMap((o) => o.card.effects),
-  );
+  const equipped = owned.filter((o) => o.equipped);
+  const mods = accumulateModifiers([
+    ...equipped.flatMap((o) => o.card.effects),
+    ...installedModEffects(equipped, owned),
+  ]);
   const { effective } = applyModifiers(
     { hpMax: base.hpMax, energyMax: base.energyMax, ammoMax: base.ammoMax },
     mods,
@@ -254,7 +275,10 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     ammoMax: view.ammo.max,
   };
 
-  const mods = accumulateModifiers(equipped.flatMap((o) => o.card.effects));
+  const mods = accumulateModifiers([
+    ...equipped.flatMap((o) => o.card.effects),
+    ...installedModEffects(equipped, owned),
+  ]);
   const { effective, deltas } = applyModifiers(base, mods);
 
   const effectiveStats = {} as Record<StatKey, number>;
@@ -295,15 +319,37 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     max: movementMeters(movementBase, view.movementEpSpent + resources.energy.current),
   };
 
-  const activeModifiers: ActiveModifier[] = equipped.flatMap((o) =>
-    o.card.effects.filter(isPersistentEffect).map((e) => ({
-      cardTitle: o.card.title,
-      category: o.card.category,
-      colorOverride: o.card.colorOverride,
-      subcategory: o.card.subcategory,
-      summary: effectSummary(e),
-    })),
+  // Mods carry card_effects too (e.g. a scope's +1 Precision), but they're
+  // never "equipped" themselves — only their descriptive text/effects surface
+  // here, and only while the host weapon they're installed on is equipped
+  // (mirrors lib/weapons.ts computeWeaponProfile, which folds mod deltas into
+  // the host's own displayed stat line the same way).
+  const { byHost } = groupInstalledMods(
+    owned.filter((o) => isModCategory(o.card.category)),
   );
+
+  const activeModifiers: ActiveModifier[] = [
+    ...equipped.flatMap((o) =>
+      o.card.effects.filter(isPersistentEffect).map((e) => ({
+        cardTitle: o.card.title,
+        category: o.card.category,
+        colorOverride: o.card.colorOverride,
+        subcategory: o.card.subcategory,
+        summary: effectSummary(e),
+      })),
+    ),
+    ...equipped.flatMap((host) =>
+      (byHost.get(host.assignmentId) ?? []).flatMap((mod) =>
+        mod.card.effects.filter(isPersistentEffect).map((e) => ({
+          cardTitle: `${mod.card.title} (on ${host.card.title})`,
+          category: mod.card.category,
+          colorOverride: mod.card.colorOverride,
+          subcategory: mod.card.subcategory,
+          summary: effectSummary(e),
+        })),
+      ),
+    ),
+  ];
 
   const descriptiveEffects: DescriptiveEffect[] = equipped
     .filter((o) => o.card.descriptiveText)
@@ -313,14 +359,6 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
       text: o.card.descriptiveText!,
     }));
 
-  // Mods carry no card_effects (character stats are untouched by design —
-  // they only alter their host weapon's displayed stat line, see
-  // lib/weapons.ts computeWeaponProfile). Their descriptive text (EP
-  // penalties, ACC, SHOCK, ...) surfaces here only while the host weapon is
-  // equipped, so the DM-adjudicated line is visible on the Case File.
-  const { byHost } = groupInstalledMods(
-    owned.filter((o) => isModCategory(o.card.category)),
-  );
   for (const host of equipped) {
     const installed = byHost.get(host.assignmentId);
     if (!installed) continue;

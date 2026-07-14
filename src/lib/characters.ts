@@ -80,16 +80,18 @@ export function toCharacterView(
 }
 
 /**
- * Applies equipped-card resource modifiers on top of each view's base hp/energy/
- * ammo maxes, in one batched query — the same math the Case File's `computeLoadout`
- * uses, but scoped to just the resource maxes the roster + dashboard render.
+ * Applies equipped-card resource modifiers (plus any mods installed on those
+ * equipped cards — see lib/card-data.ts installedModEffects) on top of each
+ * view's base hp/energy/ammo maxes, in two batched queries — the same math
+ * the Case File's `computeLoadout` uses, but scoped to just the resource
+ * maxes the roster + dashboard render.
  */
 async function withEffectiveResources(
   views: CharacterView[],
 ): Promise<CharacterView[]> {
   if (views.length === 0) return views;
   const db = getDb();
-  const rows = await db.query.characterCards.findMany({
+  const equippedRows = await db.query.characterCards.findMany({
     where: and(
       inArray(
         characterCards.characterId,
@@ -99,9 +101,16 @@ async function withEffectiveResources(
     ),
     with: { card: { with: { effects: true } } },
   });
+  const equippedIds = equippedRows.map((r) => r.id);
+  const installedModRows = equippedIds.length
+    ? await db.query.characterCards.findMany({
+        where: inArray(characterCards.installedOnCharacterCardId, equippedIds),
+        with: { card: { with: { effects: true } } },
+      })
+    : [];
 
-  const effectsByCharacter = new Map<string, (typeof rows)[number]["card"]["effects"]>();
-  for (const row of rows) {
+  const effectsByCharacter = new Map<string, (typeof equippedRows)[number]["card"]["effects"]>();
+  for (const row of [...equippedRows, ...installedModRows]) {
     const list = effectsByCharacter.get(row.characterId) ?? [];
     list.push(...row.card.effects);
     effectsByCharacter.set(row.characterId, list);

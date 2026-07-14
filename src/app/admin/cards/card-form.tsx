@@ -146,12 +146,12 @@ export function CardForm({
   // than a structured effect, so switching into "item" starts from a blank
   // effect list instead of the usual pre-seeded row — and switching back out
   // restores it, but only if the DM hasn't already started filling it in.
-  // Mod cards (firearm_mod/melee_mod) never carry mechanical effects at all —
-  // they use the weapon-delta fieldset instead — so the same blank-on-in,
-  // restore-on-out rule applies to them.
+  // Mod cards (firearm_mod/melee_mod) mainly use the weapon-delta fieldset,
+  // but can also carry mechanical effects (e.g. a +1 Precision scope mod), so
+  // they get the same pre-seeded row as everything else.
   function handleCategoryChange(next: CardCategory) {
-    const leavingBlankable = category === "item" || isModCategory(category);
-    const enteringBlankable = next === "item" || isModCategory(next);
+    const leavingBlankable = category === "item";
+    const enteringBlankable = next === "item";
     if (enteringBlankable && !leavingBlankable) {
       setEffects([]);
     } else if (!enteringBlankable && leavingBlankable && effects.length === 0) {
@@ -473,37 +473,35 @@ export function CardForm({
             <RegistryLinkPicker textareaRef={descriptiveTextRef} />
           </div>
 
-          {!isModCategory(category) && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className={fieldLabelClass}>Mechanical effects</span>
-                <button
-                  type="button"
-                  onClick={addEffect}
-                  disabled={effects.length >= CARD_TEXT_LIMITS.effectsMax}
-                  className="flex items-center gap-1 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:text-case-file-white disabled:opacity-40"
-                >
-                  <Plus size={13} aria-hidden="true" /> Add effect
-                </button>
-              </div>
-
-              {effects.length === 0 && (
-                <p className="text-xs text-muted-ink">
-                  No mechanical effects. This card is descriptive only.
-                </p>
-              )}
-
-              {effects.map((row, i) => (
-                <EffectRowFields
-                  key={i}
-                  row={row}
-                  index={i}
-                  onChange={(patch) => updateEffect(i, patch)}
-                  onRemove={() => removeEffect(i)}
-                />
-              ))}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className={fieldLabelClass}>Mechanical effects</span>
+              <button
+                type="button"
+                onClick={addEffect}
+                disabled={effects.length >= CARD_TEXT_LIMITS.effectsMax}
+                className="flex items-center gap-1 font-[family-name:var(--font-chakra)] text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:text-case-file-white disabled:opacity-40"
+              >
+                <Plus size={13} aria-hidden="true" /> Add effect
+              </button>
             </div>
-          )}
+
+            {effects.length === 0 && (
+              <p className="text-xs text-muted-ink">
+                No mechanical effects. This card is descriptive only.
+              </p>
+            )}
+
+            {effects.map((row, i) => (
+              <EffectRowFields
+                key={i}
+                row={row}
+                index={i}
+                onChange={(patch) => updateEffect(i, patch)}
+                onRemove={() => removeEffect(i)}
+              />
+            ))}
+          </div>
 
           <input type="hidden" name="effects" value={JSON.stringify(effects)} />
         </fieldset>
