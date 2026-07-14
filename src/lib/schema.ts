@@ -573,7 +573,9 @@ export const facilityListings = pgTable(
 // The admin's weighted restock pool for a facility, e.g. category=tech
 // level=1 weight=80, category=tech level=2 weight=20 — see lib/facilities.ts
 // planRestock. `level` must not exceed the parent facility's own `level`
-// (enforced in the addRestockRule action, not a DB constraint).
+// (enforced in the addRestockRule action, not a DB constraint). `subcategory`
+// is set iff category = "item" (same convention as cards.subcategory above) —
+// null means the rule draws from every item subcategory.
 export const facilityRestockRules = pgTable(
   "facility_restock_rules",
   {
@@ -582,6 +584,7 @@ export const facilityRestockRules = pgTable(
       .notNull()
       .references(() => facilities.id, { onDelete: "cascade" }),
     category: cardCategory("category").notNull(),
+    subcategory: itemSubcategory("subcategory"),
     level: integer("level").notNull(),
     weight: integer("weight").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),

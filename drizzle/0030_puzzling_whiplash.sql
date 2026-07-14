@@ -1,0 +1,1 @@
+ALTER TABLE "facility_restock_rules" ADD COLUMN "subcategory" "item_subcategory";
