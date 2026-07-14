@@ -1,39 +1,50 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Sparkles, Check, Undo2 } from "lucide-react";
+import { Sparkles, Check } from "lucide-react";
+import { Meter } from "@/components/ui/meter";
 import { FormMessage } from "@/components/ui/form";
-import { purchasePerk, refundPerk, type FormState } from "./purchase-actions";
+import { contributeToPerk, type FormState } from "./purchase-actions";
 import type { FacilityPerk } from "@/lib/schema";
 
-// One descriptive-perk row (Phase 6 Step 3) — a permanent per-character
-// unlock the DM honors at the table. Text-based, no mechanical effect to
-// render. Owned/Buy button mirrors ListingCard's composition; unlike XP
-// offerings a perk is one-time, so an owned perk shows a disabled "Owned"
-// state instead of staying repeatable.
+// One descriptive-perk row (Phase 6 Step 3, reworked into a crowd-funded team
+// upgrade): a permanent, facility-wide unlock the DM honors at the table.
+// Unlike XP offerings/listings, nobody "owns" a perk — any character can chip
+// in any amount toward its priceCredits, and once the pool reaches that
+// price the perk is funded for everyone. No self-refund once contributed,
+// same reasoning as the old top-level facility-level donation had (a shared
+// pool isn't something one contributor can buy back out).
 export function PerkRow({
   perk,
+  total,
+  byCharacter,
   credits,
-  owned,
   previewOnly,
 }: {
   perk: FacilityPerk;
+  total: number;
+  byCharacter: { callsign: string; amount: number }[];
   credits: number;
-  owned: boolean;
   previewOnly?: boolean;
 }) {
-  const [buyState, buyAction] = useActionState<FormState, FormData>(purchasePerk, {});
-  const [refundState, refundAction] = useActionState<FormState, FormData>(refundPerk, {});
-  const canAfford = credits >= perk.priceCredits;
-  // See ListingCard's justBought for why this resets on navigation/reload.
-  const justBought = buyState.ok === true;
+  const [state, formAction] = useActionState<FormState, FormData>(contributeToPerk, {});
+  const [amount, setAmount] = useState("");
+  const funded = perk.fundedAt != null;
+
+  useEffect(() => {
+    if (state.ok) setAmount("");
+  }, [state]);
+
+  const parsed = Number(amount);
+  const valid = amount.trim() !== "" && Number.isInteger(parsed) && parsed > 0;
+  const canAfford = valid && parsed <= credits;
 
   return (
     <li className="flex flex-col gap-2 border border-elevated-ledger p-3">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
-          <Sparkles size={16} className="mt-0.5 shrink-0 text-steel-blue" aria-hidden="true" />
+          <Sparkles size={16} className="mt-0.5 shrink-0 text-muted-ink" aria-hidden="true" />
           <div className="min-w-0">
             <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
               {perk.name}
@@ -43,12 +54,31 @@ export function PerkRow({
             )}
           </div>
         </div>
-        <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-xs font-bold text-signal-cyan">
-          {perk.priceCredits.toLocaleString()}
-          <span className="ml-0.5 text-[0.5625rem] uppercase text-muted-ink">Cr</span>
-        </span>
+        {funded ? (
+          <span className="flex shrink-0 items-center gap-1 font-[family-name:var(--font-jetbrains)] text-xs font-bold text-signal-cyan">
+            <Check size={13} aria-hidden="true" /> Funded
+          </span>
+        ) : (
+          <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-xs font-bold text-signal-cyan">
+            {Math.min(total, perk.priceCredits).toLocaleString()}
+            <span className="text-muted-ink">/{perk.priceCredits.toLocaleString()} Cr</span>
+          </span>
+        )}
       </div>
-      {previewOnly ? (
+      {!funded && (
+        <Meter
+          value={total}
+          max={perk.priceCredits}
+          tone="live"
+          label={`${perk.name} funding: ${total} of ${perk.priceCredits} Cr`}
+        />
+      )}
+      {byCharacter.length > 0 && (
+        <p className="font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+          {byCharacter.map((c) => `${c.callsign} (${c.amount.toLocaleString()} Cr)`).join(", ")}
+        </p>
+      )}
+      {funded ? null : previewOnly ? (
         <button
           type="button"
           disabled
@@ -56,66 +86,40 @@ export function PerkRow({
         >
           Admin preview
         </button>
-      ) : owned && justBought ? (
-        <>
-          <form action={refundAction}>
-            <input type="hidden" name="perkId" value={perk.id} />
-            <RefundButton />
-          </form>
-          <FormMessage state={refundState} />
-        </>
       ) : (
         <>
-          <form action={buyAction}>
+          <form action={formAction} className="flex items-center gap-2">
             <input type="hidden" name="perkId" value={perk.id} />
-            <UnlockButton owned={owned} canAfford={canAfford} />
+            <input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              name="amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Amount"
+              aria-label={`Contribution amount toward ${perk.name} in Credits`}
+              className="w-full border border-elevated-ledger bg-void-navy px-2 py-1.5 text-center font-[family-name:var(--font-jetbrains)] text-sm text-case-file-white outline-none focus:border-signal-cyan pointer-coarse:py-3"
+            />
+            <ContributeButton valid={valid} canAfford={canAfford} />
           </form>
-          <FormMessage state={buyState} />
+          <FormMessage state={state} />
         </>
       )}
     </li>
   );
 }
 
-function RefundButton() {
+function ContributeButton({ valid, canAfford }: { valid: boolean; canAfford: boolean }) {
   const { pending } = useFormStatus();
-
-  return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="flex w-full items-center justify-center gap-1.5 border border-signal-cyan px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:border-stamp-red hover:text-stamp-red disabled:cursor-not-allowed disabled:opacity-60 pointer-coarse:min-h-11"
-    >
-      <Undo2 size={13} aria-hidden="true" />
-      {pending ? "Refunding…" : "Refund"}
-    </button>
-  );
-}
-
-function UnlockButton({ owned, canAfford }: { owned: boolean; canAfford: boolean }) {
-  const { pending } = useFormStatus();
-  const disabled = pending || owned || !canAfford;
-
+  const disabled = pending || !valid || !canAfford;
   return (
     <button
       type="submit"
       disabled={disabled}
-      className={`flex w-full items-center justify-center gap-1.5 border px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] transition-colors disabled:cursor-not-allowed pointer-coarse:min-h-11 ${
-        owned
-          ? "border-signal-cyan bg-signal-cyan/10 text-signal-cyan"
-          : "border-steel-blue text-signal-cyan hover:bg-elevated-ledger hover:text-live-cyan disabled:border-elevated-ledger disabled:text-muted-ink"
-      }`}
+      className="flex shrink-0 items-center justify-center gap-1.5 border border-steel-blue px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-signal-cyan transition-colors hover:bg-elevated-ledger hover:text-live-cyan disabled:cursor-not-allowed disabled:border-elevated-ledger disabled:text-muted-ink pointer-coarse:min-h-11"
     >
-      {owned ? (
-        <>
-          <Check size={13} aria-hidden="true" /> Owned
-        </>
-      ) : (
-        <>
-          <Sparkles size={13} aria-hidden="true" />
-          {pending ? "Unlocking…" : !canAfford ? "Insufficient credits" : "Unlock"}
-        </>
-      )}
+      {pending ? "Working…" : valid && !canAfford ? "Insufficient Cr" : "Contribute"}
     </button>
   );
 }

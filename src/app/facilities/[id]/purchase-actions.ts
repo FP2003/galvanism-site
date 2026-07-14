@@ -9,8 +9,7 @@ import {
   facilityListings,
   facilityXpOfferings,
   facilityPerks,
-  facilityPerkPurchases,
-  facilityLevelContributions,
+  facilityPerkContributions,
   players,
   characters,
   creditLedger,
@@ -19,13 +18,14 @@ import {
 } from "@/lib/schema";
 import { getViewerCharacterState } from "@/lib/characters";
 import { effectiveResourceMaxes } from "@/lib/card-data";
-import { findRefundablePurchase, getFacilityLevelPool } from "@/lib/facility-data";
+import { findRefundablePurchase, getPerkContributionPools } from "@/lib/facility-data";
 import { applyXpSpend, clampResource, parseSignedInt, resilienceHpBonus } from "@/lib/ledger";
 import {
   applyPurchase,
   applyStatBump,
   applyResourceRefill,
-  applyLevelDonation,
+  applyPerkContribution,
+  isPerkFunded,
   isCardLevelUnlocked,
 } from "@/lib/facilities";
 
@@ -379,13 +379,18 @@ export async function purchaseXpOffering(
   return { ok: true, message: `${offering.name}: spent ${offering.cost} Cr.` };
 }
 
-// Unlocks a facility perk (Phase 6 Step 3): debits Credits and records a
-// permanent per-character ownership row — the DM manually honors the
-// described effect at the table, no new mission-engine mechanic reads this.
-// Unlike XP offerings, a perk is a one-time purchase per character (mirrors
-// purchaseListing's ownership check), so the unique (perkId, characterId)
-// index is the last line of defense against a duplicate under concurrency.
-export async function purchasePerk(
+// Contributes Credits toward crowd-funding a facility perk (reworked from a
+// one-time per-character purchase): any character can chip in any amount,
+// and once the pool reaches priceCredits the perk is funded for the whole
+// team — no per-character ownership, no self-refund (same "final, shared
+// pool" reasoning the old top-level donation had). The funded-state flip is
+// a compare-and-swap UPDATE guarded on fundedAt IS NULL, so two contributions
+// crossing the threshold at once can't double-fund it. Once every currently
+// -unlocked perk at this facility (active, minLevel <= level) is funded, the
+// facility itself auto-levels via the same compare-and-swap pattern against
+// its own `level` column — whatever perks/offerings/listings gate at the new
+// minLevel become visible immediately, with no new gating code.
+export async function contributeToPerk(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
@@ -404,165 +409,21 @@ export async function purchasePerk(
   if (perk.facility.level < perk.minLevel) {
     return { error: "This perk isn't unlocked at this facility's current level." };
   }
+  if (perk.fundedAt) return { error: "This perk is already fully funded." };
 
   const viewer = await getViewerCharacterState(user.id);
   if (viewer.kind !== "approved") {
-    return { error: "You need an active character on file to unlock a perk." };
-  }
-  const { player, character } = viewer;
-
-  const already = await db.query.facilityPerkPurchases.findFirst({
-    where: and(
-      eq(facilityPerkPurchases.perkId, perkId),
-      eq(facilityPerkPurchases.characterId, character.id),
-    ),
-  });
-  if (already) return { error: "You already unlocked this perk." };
-
-  const result = applyPurchase(player.credits, perk.priceCredits);
-  if (!result.ok) return { error: result.error };
-
-  try {
-    await db.batch([
-      db
-        .update(players)
-        .set({ credits: result.value, updatedAt: new Date() })
-        .where(eq(players.id, player.id)),
-      db.insert(creditLedger).values({
-        playerId: player.id,
-        description: `${perk.name} (${perk.facility.name})`,
-        delta: -perk.priceCredits,
-        balanceAfter: result.value,
-        refCode: perk.id,
-        createdByUserId: user.id,
-      }),
-      db.insert(facilityPerkPurchases).values({
-        perkId: perk.id,
-        characterId: character.id,
-      }),
-    ]);
-  } catch {
-    return {
-      error: "You already unlocked this perk, or a concurrent purchase just completed.",
-    };
-  }
-
-  revalidatePath("/facilities");
-  revalidatePath(`/facilities/${perk.facilityId}`);
-  revalidatePath("/roster");
-  revalidatePath(`/roster/${character.slug}`);
-  return { ok: true, message: `Unlocked ${perk.name} for ${perk.priceCredits} Cr.` };
-}
-
-// Undoes a perk unlock (self-serve, within SELF_REFUND_WINDOW_MS) — same
-// shape as refundListing, just against facility_perk_purchases instead of
-// character_cards.
-export async function refundPerk(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
-  const user = await requireUser();
-  const perkId = textField(formData, "perkId");
-  if (!perkId) return { error: "Missing perk reference." };
-
-  const db = getDb();
-  const perk = await db.query.facilityPerks.findFirst({
-    where: eq(facilityPerks.id, perkId),
-    with: { facility: true },
-  });
-  if (!perk) return { error: "Perk not found." };
-
-  const viewer = await getViewerCharacterState(user.id);
-  if (viewer.kind !== "approved") {
-    return { error: "You need an active character on file to refund a perk." };
-  }
-  const { player, character } = viewer;
-
-  const owned = await db.query.facilityPerkPurchases.findFirst({
-    where: and(
-      eq(facilityPerkPurchases.perkId, perkId),
-      eq(facilityPerkPurchases.characterId, character.id),
-    ),
-  });
-  if (!owned) return { error: "You haven't unlocked this perk." };
-  if (Date.now() - owned.purchasedAt.getTime() > SELF_REFUND_WINDOW_MS) {
-    return { error: "Too much time has passed to refund this yourself — ask a DM to undo it." };
-  }
-
-  const entry = await findRefundablePurchase(player.id, perk.id);
-  if (!entry) return { error: "No refundable purchase found for this perk." };
-  const refundAmount = -entry.delta;
-
-  const [deleted] = await db
-    .delete(facilityPerkPurchases)
-    .where(eq(facilityPerkPurchases.id, owned.id))
-    .returning({ id: facilityPerkPurchases.id });
-  if (!deleted) return { error: "This perk was already refunded." };
-
-  await db.batch([
-    db
-      .update(players)
-      .set({ credits: player.credits + refundAmount, updatedAt: new Date() })
-      .where(eq(players.id, player.id)),
-    db.insert(creditLedger).values({
-      playerId: player.id,
-      description: `Refund: ${perk.name} (${perk.facility.name})`,
-      delta: refundAmount,
-      balanceAfter: player.credits + refundAmount,
-      refCode: perk.id,
-      createdByUserId: user.id,
-    }),
-  ]);
-
-  revalidatePath("/facilities");
-  revalidatePath(`/facilities/${perk.facilityId}`);
-  revalidatePath("/roster");
-  revalidatePath(`/roster/${character.slug}`);
-  return { ok: true, message: `Refunded ${refundAmount} Cr.` };
-}
-
-// Donates Credits toward a Station facility's next-level cost (crowd-funded
-// upgrade). Donations are final — no self-refund, unlike card/perk purchases,
-// since they go into a shared pool rather than buying something back-outable.
-// Once the pool reaches nextLevelCost, this request tries to level the
-// facility up itself via a compare-and-swap UPDATE guarded on the level it
-// read — under concurrent donations crossing the threshold at once, only the
-// request whose guard still matches wins the bump, so the facility can't
-// double-level from a race. Whatever perks/offerings/listings are gated at
-// the new minLevel become visible immediately, with no new gating code.
-export async function donateToFacilityLevel(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
-  const user = await requireUser();
-  const facilityId = textField(formData, "facilityId");
-  if (!facilityId) return { error: "Missing facility reference." };
-
-  const db = getDb();
-  const facility = await db.query.facilities.findFirst({
-    where: eq(facilities.id, facilityId),
-  });
-  if (!facility) return { error: "Facility not found." };
-  if (!facility.isOpen) return { error: "This facility is closed." };
-  if (facility.kind !== "station") return { error: "This facility can't be upgraded." };
-  if (facility.nextLevelCost == null) {
-    return { error: "This facility has no upgrade in progress." };
-  }
-
-  const viewer = await getViewerCharacterState(user.id);
-  if (viewer.kind !== "approved") {
-    return { error: "You need an active character on file to donate here." };
+    return { error: "You need an active character on file to contribute here." };
   }
   const { player, character } = viewer;
 
   const parsed = parseSignedInt(formData.get("amount"));
   if (!parsed.ok) return { error: parsed.error };
 
-  const result = applyLevelDonation(player.credits, parsed.value);
+  const result = applyPerkContribution(player.credits, parsed.value);
   if (!result.ok) return { error: result.error };
 
-  const towardLevel = facility.level + 1;
-  const description = `Facility upgrade donation: ${facility.name}`;
+  const description = `Perk contribution: ${perk.name} (${perk.facility.name})`;
   await db.batch([
     db
       .update(players)
@@ -573,36 +434,61 @@ export async function donateToFacilityLevel(
       description,
       delta: -parsed.value,
       balanceAfter: result.value,
-      refCode: facility.id,
+      refCode: perk.id,
       createdByUserId: user.id,
     }),
-    db.insert(facilityLevelContributions).values({
-      facilityId: facility.id,
+    db.insert(facilityPerkContributions).values({
+      perkId: perk.id,
       characterId: character.id,
-      towardLevel,
       amount: parsed.value,
     }),
   ]);
 
-  const pool = await getFacilityLevelPool(facility.id, towardLevel);
+  const pool = (await getPerkContributionPools([perk.id])).get(perk.id)!;
+  let perkFunded = false;
   let leveledUp = false;
-  if (pool.total >= facility.nextLevelCost) {
-    const [leveled] = await db
-      .update(facilities)
-      .set({ level: towardLevel, nextLevelCost: null, updatedAt: new Date() })
-      .where(and(eq(facilities.id, facility.id), eq(facilities.level, facility.level)))
-      .returning({ id: facilities.id });
-    leveledUp = Boolean(leveled);
+  let newLevel = perk.facility.level;
+
+  if (isPerkFunded(pool.total, perk.priceCredits)) {
+    const [funded] = await db
+      .update(facilityPerks)
+      .set({ fundedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(facilityPerks.id, perk.id), sql`${facilityPerks.fundedAt} is null`))
+      .returning({ id: facilityPerks.id });
+    perkFunded = Boolean(funded);
+
+    if (perkFunded) {
+      const siblings = await db.query.facilityPerks.findMany({
+        where: eq(facilityPerks.facilityId, perk.facilityId),
+      });
+      const currentlyAvailable = siblings.filter(
+        (p) => p.active && p.minLevel <= perk.facility.level,
+      );
+      const allFunded = currentlyAvailable.every(
+        (p) => p.id === perk.id || p.fundedAt != null,
+      );
+      if (allFunded) {
+        newLevel = perk.facility.level + 1;
+        const [leveled] = await db
+          .update(facilities)
+          .set({ level: newLevel, updatedAt: new Date() })
+          .where(and(eq(facilities.id, perk.facilityId), eq(facilities.level, perk.facility.level)))
+          .returning({ id: facilities.id });
+        leveledUp = Boolean(leveled);
+      }
+    }
   }
 
   revalidatePath("/facilities");
-  revalidatePath(`/facilities/${facility.id}`);
+  revalidatePath(`/facilities/${perk.facilityId}`);
   revalidatePath("/roster");
   revalidatePath(`/roster/${character.slug}`);
   return {
     ok: true,
     message: leveledUp
-      ? `Donated ${parsed.value} Cr — ${facility.name} reached Level ${towardLevel}!`
-      : `Donated ${parsed.value} Cr toward ${facility.name}'s next level.`,
+      ? `Contributed ${parsed.value} Cr — ${perk.name} is funded and ${perk.facility.name} reached Level ${newLevel}!`
+      : perkFunded
+        ? `Contributed ${parsed.value} Cr — ${perk.name} is fully funded!`
+        : `Contributed ${parsed.value} Cr toward ${perk.name}.`,
   };
 }

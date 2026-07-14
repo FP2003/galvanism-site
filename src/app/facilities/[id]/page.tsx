@@ -9,7 +9,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
-import { getFacility, getOwnedPerkIds, getFacilityLevelPool } from "@/lib/facility-data";
+import { getFacility, getPerkContributionPools } from "@/lib/facility-data";
 import { getCharacterCards } from "@/lib/card-data";
 import { facilityListingState } from "@/lib/facilities";
 import { ListingCard } from "./listing-card";
@@ -50,7 +50,7 @@ export default async function FacilityDetailPage({
           <Header name={facility.name} level={facility.kind === "station" ? facility.level : null} />
           <Panel>
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <ClipboardList size={28} className="text-steel-blue" aria-hidden="true" />
+              <ClipboardList size={28} className="text-muted-ink" aria-hidden="true" />
               <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
                 No character on file
               </p>
@@ -69,15 +69,6 @@ export default async function FacilityDetailPage({
 
   const player = viewer?.kind === "approved" ? viewer.player : null;
   const character = viewer?.kind === "approved" ? viewer.character : null;
-  const showLevelProgress = facility.kind === "station" && facility.nextLevelCost != null;
-  const [owned, ownedPerkIds, levelPool] = await Promise.all([
-    character ? getCharacterCards(character.id) : Promise.resolve([]),
-    character ? getOwnedPerkIds(character.id) : Promise.resolve(new Set<string>()),
-    showLevelProgress
-      ? getFacilityLevelPool(facility.id, facility.level + 1)
-      : Promise.resolve(null),
-  ]);
-  const ownedCardIds = new Set(owned.map((o) => o.card.id));
 
   // Claimed stock remains on the shelf: its buyer sees Owned (and can expose
   // the same-page refund), while other players see Bought until rotation.
@@ -91,6 +82,20 @@ export default async function FacilityDetailPage({
   );
   const availablePerks = facility.perks.filter((p) => p.active && facility.level >= p.minLevel);
   const unresolvedEntries = facility.ongoingEntries.filter((e) => !e.resolved);
+  const showLevelProgress = facility.kind === "station" && availablePerks.length > 0;
+
+  const [owned, perkPools] = await Promise.all([
+    character ? getCharacterCards(character.id) : Promise.resolve([]),
+    getPerkContributionPools(availablePerks.map((p) => p.id)),
+  ]);
+  const ownedCardIds = new Set(owned.map((o) => o.card.id));
+
+  const totalCost = availablePerks.reduce((sum, p) => sum + p.priceCredits, 0);
+  const totalContributed = availablePerks.reduce(
+    (sum, p) => sum + Math.min(perkPools.get(p.id)!.total, p.priceCredits),
+    0,
+  );
+  const fundedCount = availablePerks.filter((p) => p.fundedAt != null).length;
 
   return (
     <AppShell>
@@ -133,7 +138,7 @@ export default async function FacilityDetailPage({
             <ul className="flex flex-col divide-y divide-elevated-ledger">
               {unresolvedEntries.map((entry) => (
                 <li key={entry.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                  <Radio size={14} className="shrink-0 text-steel-blue" aria-hidden="true" />
+                  <Radio size={14} className="shrink-0 text-muted-ink" aria-hidden="true" />
                   <span className="font-[family-name:var(--font-inter)] text-sm text-case-file-white">
                     {entry.label}
                   </span>
@@ -143,29 +148,24 @@ export default async function FacilityDetailPage({
           </Panel>
         )}
 
-        {facility.isOpen && showLevelProgress && levelPool && (
+        {facility.isOpen && showLevelProgress && (
           <Panel title="Next Level" className="mb-6">
             <LevelProgress
-              facilityId={facility.id}
               level={facility.level}
-              nextLevelCost={facility.nextLevelCost!}
-              total={levelPool.total}
-              byCharacter={levelPool.byCharacter}
-              credits={player?.credits ?? 0}
-              previewOnly={isAdmin}
+              totalCost={totalCost}
+              totalContributed={totalContributed}
+              fundedCount={fundedCount}
+              perkCount={availablePerks.length}
             />
           </Panel>
         )}
 
         {!facility.isOpen ? (
           <ClosedNotice />
-        ) : !hasShop &&
-          availableOfferings.length === 0 &&
-          availablePerks.length === 0 &&
-          !showLevelProgress ? (
+        ) : !hasShop && availableOfferings.length === 0 && availablePerks.length === 0 ? (
           <Panel>
             <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-              <Store size={28} className="text-steel-blue" aria-hidden="true" />
+              <Store size={28} className="text-muted-ink" aria-hidden="true" />
               <p className="max-w-sm text-pretty text-sm text-muted-ink">
                 This facility doesn&rsquo;t sell gear or offer training right now.
               </p>
@@ -256,8 +256,9 @@ export default async function FacilityDetailPage({
                     <PerkRow
                       key={perk.id}
                       perk={perk}
+                      total={perkPools.get(perk.id)!.total}
+                      byCharacter={perkPools.get(perk.id)!.byCharacter}
                       credits={player?.credits ?? 0}
-                      owned={ownedPerkIds.has(perk.id)}
                       previewOnly={isAdmin}
                     />
                   ))}
@@ -288,7 +289,7 @@ function ClosedNotice() {
   return (
     <Panel>
       <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-        <Store size={28} className="text-steel-blue" aria-hidden="true" />
+        <Store size={28} className="text-muted-ink" aria-hidden="true" />
         <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
           Facility closed
         </p>
