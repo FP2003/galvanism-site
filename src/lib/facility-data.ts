@@ -1,4 +1,4 @@
-import { eq, and, asc, desc, isNotNull, gte, lte, notInArray } from "drizzle-orm";
+import { eq, and, asc, desc, isNotNull, gte, lte, notInArray, inArray } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   facilities,
@@ -6,9 +6,8 @@ import {
   facilityRestockRules,
   facilityXpOfferings,
   facilityPerks,
-  facilityPerkPurchases,
+  facilityPerkContributions,
   facilityOngoingEntries,
-  facilityLevelContributions,
   creditLedger,
   cards,
   cardEffects,
@@ -66,62 +65,56 @@ export async function getFacility(facilityId: string) {
   });
 }
 
-/** The perk ids a character already owns, across every facility — feeds the
- *  player detail page's Owned/Buy button state (mirrors getCharacterCards'
- *  ownership-set role for the card shop). */
-export async function getOwnedPerkIds(characterId: string): Promise<Set<string>> {
+/** A character's perk contributions with the perk + facility joined in —
+ *  feeds the admin player page's perk panel (mirrors getCharacterCards' role
+ *  for card inventory). */
+export async function getCharacterPerkContributions(characterId: string) {
   const db = getDb();
-  const rows = await db.query.facilityPerkPurchases.findMany({
-    where: eq(facilityPerkPurchases.characterId, characterId),
-    columns: { perkId: true },
-  });
-  return new Set(rows.map((r) => r.perkId));
-}
-
-/** A character's unlocked perks with the perk + facility joined in — feeds
- *  the admin player page's perk panel (mirrors getCharacterCards' role for
- *  card inventory). */
-export async function getCharacterPerkPurchases(characterId: string) {
-  const db = getDb();
-  return db.query.facilityPerkPurchases.findMany({
-    where: eq(facilityPerkPurchases.characterId, characterId),
+  return db.query.facilityPerkContributions.findMany({
+    where: eq(facilityPerkContributions.characterId, characterId),
     with: { perk: { with: { facility: true } } },
-    orderBy: [desc(facilityPerkPurchases.purchasedAt)],
+    orderBy: [desc(facilityPerkContributions.createdAt)],
   });
 }
 
-export interface LevelPool {
+export interface PerkPool {
   total: number;
   byCharacter: { callsign: string; amount: number }[];
 }
 
-/** Pooled donations toward `facility.level + 1`, plus a per-character
- *  breakdown (sorted by amount desc) — feeds the player-facing progress bar.
- *  Contribution rows are never deleted (creditLedger/xpLedger convention), so
- *  scoping the sum to `towardLevel` is what makes the pool "reset" for the
- *  next tier after a level-up, without losing donation history. */
-export async function getFacilityLevelPool(
-  facilityId: string,
-  towardLevel: number,
-): Promise<LevelPool> {
+/** Pooled contributions per perk, plus a per-character breakdown (sorted by
+ *  amount desc) — feeds each perk row's progress bar and the facility-level
+ *  rollup panel. Contribution rows are never deleted (creditLedger/xpLedger
+ *  convention), so a perk's total only grows even past its price (funding
+ *  stops mattering once `facilityPerks.fundedAt` is set, but the ledger keeps
+ *  the full history). Always returns an entry for every requested id, even
+ *  one with zero contributions. */
+export async function getPerkContributionPools(perkIds: string[]): Promise<Map<string, PerkPool>> {
+  const pools = new Map<string, PerkPool>(perkIds.map((id) => [id, { total: 0, byCharacter: [] }]));
+  if (perkIds.length === 0) return pools;
+
   const db = getDb();
-  const rows = await db.query.facilityLevelContributions.findMany({
-    where: and(
-      eq(facilityLevelContributions.facilityId, facilityId),
-      eq(facilityLevelContributions.towardLevel, towardLevel),
-    ),
+  const rows = await db.query.facilityPerkContributions.findMany({
+    where: inArray(facilityPerkContributions.perkId, perkIds),
     with: { character: { columns: { callsign: true } } },
   });
-  const byCharacter = new Map<string, number>();
+
+  const byCharacter = new Map<string, Map<string, number>>();
   for (const r of rows) {
-    byCharacter.set(r.character.callsign, (byCharacter.get(r.character.callsign) ?? 0) + r.amount);
+    pools.get(r.perkId)!.total += r.amount;
+    let perCharacter = byCharacter.get(r.perkId);
+    if (!perCharacter) {
+      perCharacter = new Map();
+      byCharacter.set(r.perkId, perCharacter);
+    }
+    perCharacter.set(r.character.callsign, (perCharacter.get(r.character.callsign) ?? 0) + r.amount);
   }
-  return {
-    total: rows.reduce((sum, r) => sum + r.amount, 0),
-    byCharacter: [...byCharacter.entries()]
+  for (const [perkId, perCharacter] of byCharacter) {
+    pools.get(perkId)!.byCharacter = [...perCharacter.entries()]
       .map(([callsign, amount]) => ({ callsign, amount }))
-      .sort((a, b) => b.amount - a.amount),
-  };
+      .sort((a, b) => b.amount - a.amount);
+  }
+  return pools;
 }
 
 /** Every refCode for this player whose most recent credit_ledger row is still
@@ -148,8 +141,8 @@ export async function getRefundableRefCodes(playerId: string): Promise<Set<strin
 
 /**
  * The most recent credit_ledger row tagged `refCode` for this player, if it's
- * still an unrefunded purchase (delta < 0). purchaseListing/purchasePerk tag
- * their debit row's refCode with the purchased card/perk id, and a refund
+ * still an unrefunded purchase (delta < 0). purchaseListing tags its debit
+ * row's refCode with the purchased card's id, and a refund
  * posts its own row with that same refCode — so the latest matching row's
  * sign tells the whole story (positive = already refunded) without a
  * separate status column. Relies on the app's 1:1 player↔character

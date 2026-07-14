@@ -32,9 +32,9 @@ export function applyPurchase(
   return { ok: true, value: next };
 }
 
-/** Validates a donation toward a facility's next-level cost — same shape as
- *  applyPurchase (positive integer, must be affordable). */
-export function applyLevelDonation(currentCredits: number, amount: number): Result<number> {
+/** Validates a contribution toward crowd-funding a facility perk — same
+ *  shape as applyPurchase (positive integer, must be affordable). */
+export function applyPerkContribution(currentCredits: number, amount: number): Result<number> {
   if (!Number.isInteger(amount) || amount <= 0) {
     return { ok: false, error: "Enter a whole number of credits greater than zero." };
   }
@@ -42,10 +42,15 @@ export function applyLevelDonation(currentCredits: number, amount: number): Resu
   if (next < 0) {
     return {
       ok: false,
-      error: `Not enough credits (balance ${currentCredits}, donation ${amount}).`,
+      error: `Not enough credits (balance ${currentCredits}, contribution ${amount}).`,
     };
   }
   return { ok: true, value: next };
+}
+
+/** True once a perk's pooled contributions have reached its price. */
+export function isPerkFunded(totalContributed: number, priceCredits: number): boolean {
+  return totalContributed >= priceCredits;
 }
 
 export type FacilityListingState = "available" | "owned" | "bought";
