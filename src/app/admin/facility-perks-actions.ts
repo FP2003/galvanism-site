@@ -7,13 +7,14 @@ import { getDb } from "@/lib/db";
 import {
   facilities,
   facilityPerks,
-  facilityPerkPurchases,
+  facilityPerkContributions,
   characters,
   players,
   creditLedger,
   type NewFacilityPerk,
 } from "@/lib/schema";
-import { findRefundablePurchase } from "@/lib/facility-data";
+import { getPerkContributionPools } from "@/lib/facility-data";
+import { isPerkFunded } from "@/lib/facilities";
 
 /*
  * Admin CRUD for a facility's descriptive-perk catalog (Phase 6 Step 3). Same
@@ -130,62 +131,73 @@ export async function deletePerk(_prev: FormState, formData: FormData): Promise<
   return { ok: true, message: "Perk removed." };
 }
 
-// Undoes a character's perk unlock from the admin side (mirrors card-actions'
-// refundCardPurchase): credits back the original purchase's ledger amount
-// and deletes the ownership row. No self-refund time window — a DM can undo
-// a perk unlock at any point.
-export async function refundPerkPurchase(
+// Undoes one character's contribution toward a perk, from the admin side
+// (mirrors card-actions' refundCardPurchase): credits back exactly that
+// contribution's amount and deletes its row. No self-refund time window — a
+// DM can undo a contribution at any point. If the perk had already been
+// marked funded and this refund drops the pool back under price, it's
+// un-funded so the "Funded" badge stops overstating reality — deliberately
+// doesn't cascade to de-level the facility; an admin can adjust Level by
+// hand if a level-up needs undoing too.
+export async function refundPerkContribution(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
   const admin = await requireAdmin();
-  const purchaseId = textField(formData, "purchaseId");
-  if (!purchaseId) return { error: "Missing perk purchase reference." };
+  const contributionId = textField(formData, "contributionId");
+  if (!contributionId) return { error: "Missing contribution reference." };
 
   const db = getDb();
-  const owned = await db.query.facilityPerkPurchases.findFirst({
-    where: eq(facilityPerkPurchases.id, purchaseId),
+  const contribution = await db.query.facilityPerkContributions.findFirst({
+    where: eq(facilityPerkContributions.id, contributionId),
     with: { perk: true },
   });
-  if (!owned) return { error: "Perk purchase not found." };
+  if (!contribution) return { error: "Contribution not found." };
 
   const character = await db.query.characters.findFirst({
-    where: eq(characters.id, owned.characterId),
+    where: eq(characters.id, contribution.characterId),
     columns: { slug: true, playerId: true },
   });
   if (!character) return { error: "Character not found." };
   const player = await db.query.players.findFirst({ where: eq(players.id, character.playerId) });
   if (!player) return { error: "Player not found." };
 
-  const entry = await findRefundablePurchase(player.id, owned.perkId);
-  if (!entry) {
-    return { error: "No purchase record found for this perk — remove it via the catalog instead." };
-  }
-  const refundAmount = -entry.delta;
-
   const [deleted] = await db
-    .delete(facilityPerkPurchases)
-    .where(eq(facilityPerkPurchases.id, purchaseId))
-    .returning({ id: facilityPerkPurchases.id });
-  if (!deleted) return { error: "Perk purchase not found." };
+    .delete(facilityPerkContributions)
+    .where(eq(facilityPerkContributions.id, contributionId))
+    .returning({ id: facilityPerkContributions.id });
+  if (!deleted) return { error: "Contribution already refunded." };
 
   await db.batch([
     db
       .update(players)
-      .set({ credits: player.credits + refundAmount, updatedAt: new Date() })
+      .set({ credits: player.credits + contribution.amount, updatedAt: new Date() })
       .where(eq(players.id, player.id)),
     db.insert(creditLedger).values({
       playerId: player.id,
-      description: `Refund (admin): ${owned.perk.name}`,
-      delta: refundAmount,
-      balanceAfter: player.credits + refundAmount,
-      refCode: owned.perkId,
+      description: `Refund (admin): ${contribution.perk.name} contribution`,
+      delta: contribution.amount,
+      balanceAfter: player.credits + contribution.amount,
+      refCode: contribution.perkId,
       createdByUserId: admin.id,
     }),
   ]);
 
+  if (contribution.perk.fundedAt) {
+    const pool = (await getPerkContributionPools([contribution.perkId])).get(contribution.perkId)!;
+    if (!isPerkFunded(pool.total, contribution.perk.priceCredits)) {
+      await db
+        .update(facilityPerks)
+        .set({ fundedAt: null, updatedAt: new Date() })
+        .where(eq(facilityPerks.id, contribution.perkId));
+    }
+  }
+
   revalidatePath(`/admin/players/${character.playerId}`);
   revalidatePath(`/roster/${character.slug}`);
   revalidatePath("/facilities");
-  return { ok: true, message: `Refunded ${refundAmount} Cr and removed ${owned.perk.name}.` };
+  return {
+    ok: true,
+    message: `Refunded ${contribution.amount} Cr from ${contribution.perk.name}.`,
+  };
 }

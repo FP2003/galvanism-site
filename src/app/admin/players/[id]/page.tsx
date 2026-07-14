@@ -11,7 +11,7 @@ import { eq, desc } from "drizzle-orm";
 import { players, creditLedger, xpLedger } from "@/lib/schema";
 import { toCharacterView } from "@/lib/characters";
 import { getCardLibrary, getCharacterCards } from "@/lib/card-data";
-import { getRefundableRefCodes, getCharacterPerkPurchases } from "@/lib/facility-data";
+import { getRefundableRefCodes, getCharacterPerkContributions } from "@/lib/facility-data";
 import { PlayerForm } from "./player-form";
 import { CreditForm } from "./credit-form";
 import { XpForm } from "./xp-form";
@@ -63,7 +63,7 @@ export default async function AdminPlayerPage({
     ? await Promise.all([
         getCardLibrary(),
         getCharacterCards(player.character.id),
-        getCharacterPerkPurchases(player.character.id),
+        getCharacterPerkContributions(player.character.id),
       ])
     : [[], [], []];
   // Cards/perks with an unrefunded facility purchase (vs. admin-assigned for
@@ -194,7 +194,7 @@ export default async function AdminPlayerPage({
               title="Facility Perks"
               meta={
                 <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
-                  {perkPurchases.length} unlocked
+                  {perkPurchases.length} contribution{perkPurchases.length === 1 ? "" : "s"}
                 </span>
               }
             >
