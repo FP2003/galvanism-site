@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Panel } from "@/components/ui/panel";
 import { FormDialogTrigger } from "@/components/ui/form-dialog-trigger";
+import { InfoTooltip } from "@/components/ui/info-tooltip";
 import { requireAdmin } from "@/lib/auth";
 import { getFacility, getEligibleListingCards } from "@/lib/facility-data";
 import { FacilityForm } from "../facility-form";
@@ -82,7 +83,14 @@ export default async function AdminFacilityDetailPage({
           </div>
 
           <div className="flex flex-col gap-6">
-            <Panel title="Rotation">
+            <Panel
+              title={
+                <span className="flex items-center gap-1.5">
+                  Rotation
+                  <InfoTooltip label="Restock now re-rolls every rotating slot at once, weighted-picking a new card per slot from the Restock Rules below (eligible cards at or below this facility's level). It never touches manually-added listings, and it resets the ops counter, regardless of the auto-restock cadence threshold." />
+                </span>
+              }
+            >
               <div className="flex flex-col gap-4">
                 <dl className="flex flex-col gap-3">
                   <div className="flex items-baseline justify-between border-b border-elevated-ledger pb-3">

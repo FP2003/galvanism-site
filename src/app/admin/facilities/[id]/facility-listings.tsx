@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Plus, RefreshCw, X } from "lucide-react";
 import { Select, TextInput, FormMessage, fieldLabelClass } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { CARD_CATEGORIES, CARD_CATEGORY_META } from "@/lib/cards";
-import { addListing, removeListing, replaceListing, type FormState } from "@/app/admin/facility-actions";
+import { CARD_CATEGORIES, CARD_CATEGORY_META, type CardCategory } from "@/lib/cards";
+import { addListing, removeListing, replaceCategoryListings, type FormState } from "@/app/admin/facility-actions";
 import type { Card, FacilityListing } from "@/lib/schema";
 
 // Admin listing management for one facility (Phase 6, absorbing Phase 4's
@@ -25,6 +25,21 @@ export function FacilityListingManagement({
   listings: (FacilityListing & { card: Card })[];
 }) {
   const [addState, addAction] = useActionState<FormState, FormData>(addListing, {});
+  const [replaceOpen, setReplaceOpen] = useState(false);
+
+  // Categories currently represented in this facility's listings, with a
+  // count each — feeds the "replace category" dialog's defaults (first
+  // present category, and that category's current count as the quantity).
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<CardCategory, number>();
+    for (const listing of listings) {
+      counts.set(listing.card.category, (counts.get(listing.card.category) ?? 0) + 1);
+    }
+    return CARD_CATEGORIES.filter((c) => counts.has(c)).map((category) => ({
+      category,
+      count: counts.get(category)!,
+    }));
+  }, [listings]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -58,12 +73,30 @@ export function FacilityListingManagement({
           rules to fill the rotating slots automatically.
         </p>
       ) : (
-        <ul className="flex flex-col divide-y divide-elevated-ledger border-y border-elevated-ledger">
-          {listings.map((listing) => (
-            <ListingRow key={listing.id} listing={listing} />
-          ))}
-        </ul>
+        <>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setReplaceOpen(true)}
+              className="flex items-center gap-1.5 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.05em] text-muted-ink transition-colors hover:text-signal-cyan pointer-coarse:min-h-11"
+            >
+              <RefreshCw size={13} aria-hidden="true" />
+              Replace category
+            </button>
+          </div>
+          <ul className="flex flex-col divide-y divide-elevated-ledger border-y border-elevated-ledger">
+            {listings.map((listing) => (
+              <ListingRow key={listing.id} listing={listing} />
+            ))}
+          </ul>
+        </>
       )}
+      <ReplaceCategoryDialog
+        open={replaceOpen}
+        onClose={() => setReplaceOpen(false)}
+        facilityId={facilityId}
+        categoryCounts={categoryCounts}
+      />
     </div>
   );
 }
@@ -85,12 +118,11 @@ function AddListingButton({ disabled }: { disabled: boolean }) {
 
 function ListingRow({ listing }: { listing: FacilityListing & { card: Card } }) {
   const [, removeAction] = useActionState<FormState, FormData>(removeListing, {});
-  const [replaceOpen, setReplaceOpen] = useState(false);
   const { card } = listing;
 
   return (
     <li className="flex items-center gap-3 py-3">
-      <span className="size-2.5 shrink-0 bg-steel-blue" aria-hidden="true" />
+      <span className="size-2.5 shrink-0 bg-muted-ink" aria-hidden="true" />
       <div className="min-w-0 flex-1">
         <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
           {card.title}
@@ -102,55 +134,55 @@ function ListingRow({ listing }: { listing: FacilityListing & { card: Card } }) 
             : "Manual"}
         </p>
       </div>
-      <button
-        type="button"
-        aria-label={`Replace ${card.title}`}
-        onClick={() => setReplaceOpen(true)}
-        className="flex size-8 shrink-0 items-center justify-center border border-elevated-ledger text-muted-ink transition-colors hover:border-signal-cyan hover:text-signal-cyan pointer-coarse:size-11"
-      >
-        <RefreshCw size={14} aria-hidden="true" />
-      </button>
       <form action={removeAction}>
         <input type="hidden" name="listingId" value={listing.id} />
         <RemoveListingButton label={`Remove ${card.title}`} />
       </form>
-      <ReplaceListingDialog
-        open={replaceOpen}
-        onClose={() => setReplaceOpen(false)}
-        listingId={listing.id}
-        cardTitle={card.title}
-      />
     </li>
   );
 }
 
-function ReplaceListingDialog({
+function ReplaceCategoryDialog({
   open,
   onClose,
-  listingId,
-  cardTitle,
+  facilityId,
+  categoryCounts,
 }: {
   open: boolean;
   onClose: () => void;
-  listingId: string;
-  cardTitle: string;
+  facilityId: string;
+  categoryCounts: { category: CardCategory; count: number }[];
 }) {
-  const [state, action] = useActionState<FormState, FormData>(replaceListing, {});
+  const [state, action] = useActionState<FormState, FormData>(replaceCategoryListings, {});
+  const first = categoryCounts[0];
+  const [category, setCategory] = useState<CardCategory | undefined>(first?.category);
+  const [quantity, setQuantity] = useState(first?.count ?? 1);
+
+  if (!first) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} title={`Replace ${cardTitle}`}>
+    <Dialog open={open} onClose={onClose} title="Replace Category">
       <form action={action} className="flex flex-col gap-3">
-        <input type="hidden" name="listingId" value={listingId} />
+        <input type="hidden" name="facilityId" value={facilityId} />
         <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
-          Removes this listing and refills it with randomly-picked cards from the
-          category below.
+          Removes every listing of the chosen category and refills it with
+          randomly-picked cards from that category.
         </p>
         <div className="flex flex-col gap-1">
           <span className={fieldLabelClass}>Category</span>
-          <Select name="category" aria-label="Category" defaultValue={CARD_CATEGORIES[0]}>
-            {CARD_CATEGORIES.map((c) => (
+          <Select
+            name="category"
+            aria-label="Category"
+            value={category}
+            onChange={(e) => {
+              const next = e.target.value as CardCategory;
+              setCategory(next);
+              setQuantity(categoryCounts.find((c) => c.category === next)?.count ?? 1);
+            }}
+          >
+            {categoryCounts.map(({ category: c, count }) => (
               <option key={c} value={c}>
-                {CARD_CATEGORY_META[c].label}
+                {CARD_CATEGORY_META[c].label} ({count})
               </option>
             ))}
           </Select>
@@ -161,10 +193,11 @@ function ReplaceListingDialog({
             name="quantity"
             type="number"
             min={1}
-            max={20}
+            max={50}
             inputMode="numeric"
             aria-label="Quantity"
-            defaultValue={1}
+            value={quantity}
+            onChange={(e) => setQuantity(Number(e.target.value))}
           />
         </div>
         <ReplaceButton />

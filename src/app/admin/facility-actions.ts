@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import {
@@ -244,20 +244,21 @@ export async function removeListing(_prev: FormState, formData: FormData): Promi
   return { ok: true, message: "Listing removed." };
 }
 
-const REPLACE_QUANTITY_MAX = 20;
+const REPLACE_QUANTITY_MAX = 50;
 
-// Removes one listing and refills it with N randomly-picked distinct cards
-// from a chosen category — an on-demand shop rotation, independent of
-// restockFacility's weighted rotation-slot mechanic. The old listing is
-// deleted before the eligibility query runs, so a card in the target
-// category isn't spuriously excluded from being drawn again.
-export async function replaceListing(_prev: FormState, formData: FormData): Promise<FormState> {
+// Removes every listing of one category and refills it with N randomly-
+// picked distinct cards from that category — an on-demand shop rotation,
+// independent of restockFacility's weighted rotation-slot mechanic. The old
+// listings are deleted before the eligibility query runs, so a card in the
+// target category isn't spuriously excluded from being drawn again.
+export async function replaceCategoryListings(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
-  const listingId = textField(formData, "listingId");
-  if (!listingId) return { error: "Missing listing reference." };
+  const facilityId = textField(formData, "facilityId");
+  if (!facilityId) return { error: "Missing facility reference." };
 
   const categoryRaw = textField(formData, "category") as CardCategory;
   if (!CARD_CATEGORIES.includes(categoryRaw)) return { error: "Pick a card category." };
+  const categoryLabel = CARD_CATEGORY_META[categoryRaw].label;
 
   const quantity = intField(formData, "quantity", 0);
   if (quantity < 1 || quantity > REPLACE_QUANTITY_MAX) {
@@ -265,12 +266,17 @@ export async function replaceListing(_prev: FormState, formData: FormData): Prom
   }
 
   const db = getDb();
-  const [removed] = await db
-    .delete(facilityListings)
-    .where(eq(facilityListings.id, listingId))
-    .returning({ facilityId: facilityListings.facilityId });
-  if (!removed) return { error: "Listing not found." };
-  const { facilityId } = removed;
+  const currentListings = await db.query.facilityListings.findMany({
+    where: eq(facilityListings.facilityId, facilityId),
+    columns: { id: true },
+    with: { card: { columns: { category: true } } },
+  });
+  const toReplace = currentListings.filter((l) => l.card.category === categoryRaw);
+  if (toReplace.length === 0) return { error: `No ${categoryLabel} listings to replace.` };
+
+  await db.delete(facilityListings).where(
+    inArray(facilityListings.id, toReplace.map((l) => l.id)),
+  );
 
   const eligible = await getEligibleListingCards(facilityId, categoryRaw);
   const picked = pickRandomCards(eligible, quantity);
@@ -286,17 +292,16 @@ export async function replaceListing(_prev: FormState, formData: FormData): Prom
   revalidatePath(`/admin/facilities/${facilityId}`);
   revalidatePath(`/facilities/${facilityId}`);
 
-  const categoryLabel = CARD_CATEGORY_META[categoryRaw].label;
-  if (picked.length === 0) {
-    return { ok: true, message: `Removed. No eligible ${categoryLabel} cards to add.` };
-  }
   if (picked.length < quantity) {
     return {
       ok: true,
-      message: `Removed. Added ${picked.length} of ${quantity} requested ${categoryLabel} cards (only ${picked.length} eligible).`,
+      message: `Replaced ${toReplace.length} ${categoryLabel} listing${toReplace.length === 1 ? "" : "s"} with ${picked.length} of ${quantity} requested (only ${picked.length} eligible).`,
     };
   }
-  return { ok: true, message: `Removed. Added ${picked.length} ${categoryLabel} card${picked.length === 1 ? "" : "s"}.` };
+  return {
+    ok: true,
+    message: `Replaced ${toReplace.length} ${categoryLabel} listing${toReplace.length === 1 ? "" : "s"} with ${picked.length} new card${picked.length === 1 ? "" : "s"}.`,
+  };
 }
 
 export async function addRestockRule(_prev: FormState, formData: FormData): Promise<FormState> {
