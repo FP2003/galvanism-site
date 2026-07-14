@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   agilityMovementBonus,
   applyCreditsDelta,
+  applyCreditsTransfer,
   applyXpGrant,
   applyXpSpend,
   adjustCurrentForMaxChange,
@@ -44,6 +45,42 @@ describe("applyCreditsDelta", () => {
 
   it("rejects exceeding the maximum balance", () => {
     expect(applyCreditsDelta(MAX_CREDITS, 1).ok).toBe(false);
+  });
+});
+
+describe("applyCreditsTransfer", () => {
+  it("moves credits from sender to recipient", () => {
+    expect(applyCreditsTransfer(500, 100, 200)).toEqual({
+      ok: true,
+      value: { senderBalance: 300, recipientBalance: 300 },
+    });
+  });
+
+  it("allows sending the entire balance", () => {
+    expect(applyCreditsTransfer(200, 0, 200)).toEqual({
+      ok: true,
+      value: { senderBalance: 0, recipientBalance: 200 },
+    });
+  });
+
+  it("rejects a zero amount", () => {
+    expect(applyCreditsTransfer(500, 100, 0).ok).toBe(false);
+  });
+
+  it("rejects a negative amount", () => {
+    expect(applyCreditsTransfer(500, 100, -50).ok).toBe(false);
+  });
+
+  it("rejects a non-integer amount", () => {
+    expect(applyCreditsTransfer(500, 100, 1.5).ok).toBe(false);
+  });
+
+  it("refuses to overdraw the sender", () => {
+    expect(applyCreditsTransfer(100, 0, 200).ok).toBe(false);
+  });
+
+  it("rejects exceeding the recipient's maximum balance", () => {
+    expect(applyCreditsTransfer(MAX_CREDITS, MAX_CREDITS, 1).ok).toBe(false);
   });
 });
 

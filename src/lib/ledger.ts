@@ -101,6 +101,30 @@ export function applyXpSpend(currencyXp: number, cost: number): Result<number> {
   return { ok: true, value: next };
 }
 
+/**
+ * Validates a peer-to-peer credit transfer: amount must be a positive integer
+ * the sender can afford, and the recipient's new balance must not exceed
+ * MAX_CREDITS. Reuses applyCreditsDelta for both halves so a transfer can
+ * never diverge from the single-account adjustment rules.
+ */
+export function applyCreditsTransfer(
+  senderBalance: number,
+  recipientBalance: number,
+  amount: number,
+): Result<{ senderBalance: number; recipientBalance: number }> {
+  if (!Number.isInteger(amount) || amount <= 0) {
+    return { ok: false, error: "Enter a whole number of credits greater than zero." };
+  }
+  const debit = applyCreditsDelta(senderBalance, -amount);
+  if (!debit.ok) return debit;
+  const credit = applyCreditsDelta(recipientBalance, amount);
+  if (!credit.ok) return credit;
+  return {
+    ok: true,
+    value: { senderBalance: debit.value, recipientBalance: credit.value },
+  };
+}
+
 /** Clamps a resource's current value into [0, max]. Used for HP/Energy/Ammo. */
 export function clampResource(value: number, max: number): number {
   if (!Number.isFinite(value)) return 0;
