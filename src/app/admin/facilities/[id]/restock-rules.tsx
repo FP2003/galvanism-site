@@ -1,12 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Plus, X } from "lucide-react";
 import { Select, TextInput, FormMessage, fieldLabelClass } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { InfoTooltip } from "@/components/ui/info-tooltip";
-import { CARD_CATEGORIES, CARD_CATEGORY_META } from "@/lib/cards";
+import {
+  CARD_CATEGORIES,
+  CARD_CATEGORY_META,
+  ITEM_SUBCATEGORIES,
+  ITEM_SUBCATEGORY_META,
+  type CardCategory,
+  type ItemSubcategory,
+} from "@/lib/cards";
 import {
   addRestockRule,
   deleteRestockRule,
@@ -29,6 +36,8 @@ export function RestockRules({
   rules: FacilityRestockRule[];
 }) {
   const [addState, addAction] = useActionState<FormState, FormData>(addRestockRule, {});
+  const [category, setCategory] = useState<CardCategory>(CARD_CATEGORIES[0]);
+  const [subcategory, setSubcategory] = useState<ItemSubcategory | "">("");
 
   return (
     <div className="flex flex-col gap-4">
@@ -56,13 +65,36 @@ export function RestockRules({
 
       <form action={addAction} className="flex flex-col gap-2">
         <input type="hidden" name="facilityId" value={facilityId} />
-        <Select name="category" aria-label="Category" defaultValue={CARD_CATEGORIES[0]}>
+        <Select
+          name="category"
+          aria-label="Category"
+          value={category}
+          onChange={(e) => {
+            setCategory(e.target.value as CardCategory);
+            setSubcategory("");
+          }}
+        >
           {CARD_CATEGORIES.map((c) => (
             <option key={c} value={c}>
               {CARD_CATEGORY_META[c].label}
             </option>
           ))}
         </Select>
+        {category === "item" && (
+          <Select
+            name="subcategory"
+            aria-label="Subcategory"
+            value={subcategory}
+            onChange={(e) => setSubcategory(e.target.value as ItemSubcategory | "")}
+          >
+            <option value="">Any subcategory</option>
+            {ITEM_SUBCATEGORIES.map((s) => (
+              <option key={s} value={s}>
+                {ITEM_SUBCATEGORY_META[s].label}
+              </option>
+            ))}
+          </Select>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <div className="flex flex-col gap-1">
             <span className={fieldLabelClass}>Level</span>
@@ -111,7 +143,10 @@ function AddRuleButton() {
 
 function RuleRow({ rule }: { rule: FacilityRestockRule }) {
   const [, deleteAction] = useActionState<FormState, FormData>(deleteRestockRule, {});
-  const label = `${CARD_CATEGORY_META[rule.category].label} · Level ${rule.level}`;
+  const categoryLabel = rule.subcategory
+    ? `${CARD_CATEGORY_META[rule.category].label} · ${ITEM_SUBCATEGORY_META[rule.subcategory].label}`
+    : CARD_CATEGORY_META[rule.category].label;
+  const label = `${categoryLabel} · Level ${rule.level}`;
 
   return (
     <li className="flex items-center gap-3 py-3">

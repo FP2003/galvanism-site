@@ -13,7 +13,13 @@ import {
   type NewFacilityListing,
   type NewFacilityRestockRule,
 } from "@/lib/schema";
-import { CARD_CATEGORIES, CARD_CATEGORY_META, type CardCategory } from "@/lib/cards";
+import {
+  CARD_CATEGORIES,
+  CARD_CATEGORY_META,
+  ITEM_SUBCATEGORIES,
+  type CardCategory,
+  type ItemSubcategory,
+} from "@/lib/cards";
 import { FACILITY_KINDS, isCardLevelUnlocked, pickRandomCards, type FacilityKind } from "@/lib/facilities";
 import { restockFacility, pruneRotationSlots, ruleLabel, getEligibleListingCards } from "@/lib/facility-data";
 
@@ -313,6 +319,21 @@ export async function addRestockRule(_prev: FormState, formData: FormData): Prom
   if (!CARD_CATEGORIES.includes(categoryRaw)) {
     return { error: "Pick a card category." };
   }
+
+  // Subcategory only ever applies to "item" rules — an empty selection there
+  // means "any item subcategory," same "null = unscoped" convention as
+  // cards.subcategory itself.
+  let subcategory: ItemSubcategory | null = null;
+  if (categoryRaw === "item") {
+    const subRaw = textField(formData, "subcategory") as ItemSubcategory;
+    if (subRaw) {
+      if (!ITEM_SUBCATEGORIES.includes(subRaw)) {
+        return { error: "Pick a valid item subcategory." };
+      }
+      subcategory = subRaw;
+    }
+  }
+
   const level = intField(formData, "level", 1);
   if (level < 1) return { error: "Level must be 1 or more." };
   const weight = intField(formData, "weight", 0);
@@ -328,11 +349,20 @@ export async function addRestockRule(_prev: FormState, formData: FormData): Prom
     return { error: `This facility is only level ${facility.level}. It can't roll level ${level} cards yet.` };
   }
 
-  const values: NewFacilityRestockRule = { facilityId, category: categoryRaw, level, weight };
+  const values: NewFacilityRestockRule = {
+    facilityId,
+    category: categoryRaw,
+    subcategory,
+    level,
+    weight,
+  };
   await db.insert(facilityRestockRules).values(values);
 
   revalidatePath(`/admin/facilities/${facilityId}`);
-  return { ok: true, message: `Rule added: ${ruleLabel(categoryRaw, level)} (weight ${weight}).` };
+  return {
+    ok: true,
+    message: `Rule added: ${ruleLabel(categoryRaw, level, subcategory)} (weight ${weight}).`,
+  };
 }
 
 export async function deleteRestockRule(_prev: FormState, formData: FormData): Promise<FormState> {
