@@ -11,7 +11,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { creditLedger, xpLedger } from "@/lib/schema";
 import { HistoryPanel, type HistoryRow } from "@/components/ledger/history-table";
-import { getCharacterBySlug } from "@/lib/characters";
+import { getCharacterBySlug, getRosterViews } from "@/lib/characters";
 import { getCharacterCards, computeLoadout } from "@/lib/card-data";
 import { CARD_CATEGORY_META } from "@/lib/cards";
 import { agilityMovementBonus } from "@/lib/ledger";
@@ -26,6 +26,7 @@ import { BioEditor } from "./bio-editor";
 import { ResourceTracker } from "./resource-tracker";
 import { Loadout } from "./loadout";
 import { Portrait } from "./portrait";
+import { SendCredits } from "./send-credits";
 
 export async function generateMetadata({
   params,
@@ -54,14 +55,14 @@ export default async function CaseFilePage({
   if (!detail) notFound();
 
   const op = detail.view;
-  const canEdit =
-    viewer?.id === detail.ownerUserId || viewer?.role === "admin";
+  const isOwner = viewer?.id === detail.ownerUserId;
+  const canEdit = isOwner || viewer?.role === "admin";
 
   // A pending application is visible only to its owner and the DM.
   if (!op.approved && !canEdit) notFound();
 
   const db = getDb();
-  const [ledger, xpHistory, ownedCards] = await Promise.all([
+  const [ledger, xpHistory, ownedCards, roster] = await Promise.all([
     db.query.creditLedger.findMany({
       where: eq(creditLedger.playerId, op.playerId),
       orderBy: [desc(creditLedger.createdAt)],
@@ -73,7 +74,13 @@ export default async function CaseFilePage({
       limit: 50,
     }),
     getCharacterCards(op.id),
+    // Only the owner sees the Send Credits panel, so skip this fetch for
+    // everyone else viewing the case file.
+    isOwner ? getRosterViews() : Promise.resolve([]),
   ]);
+  const transferRecipients = roster
+    .filter((c) => c.id !== op.id)
+    .map((c) => ({ id: c.id, callsign: c.callsign }));
 
   // Merge credit + XP into one chronological feed (mirrors the admin console's
   // player page) so the operator sees everything that happened to them in one
@@ -284,6 +291,16 @@ export default async function CaseFilePage({
                 ))}
               </StatGroup>
             </Panel>
+
+            {isOwner && (
+              <Panel title="Send Credits">
+                <SendCredits
+                  characterId={op.id}
+                  balance={op.credits}
+                  recipients={transferRecipients}
+                />
+              </Panel>
+            )}
           </div>
 
           {/* Right column: biography + ledger */}

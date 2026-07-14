@@ -1,12 +1,19 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq, and, ne, inArray, isNotNull, isNull } from "drizzle-orm";
+import { eq, and, ne, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { del } from "@vercel/blob";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { characters, characterCards } from "@/lib/schema";
-import { clampMovementSpend, clampResource, clampTempHp, resilienceHpBonus } from "@/lib/ledger";
+import {
+  applyCreditsTransfer,
+  clampMovementSpend,
+  clampResource,
+  clampTempHp,
+  parseSignedInt,
+  resilienceHpBonus,
+} from "@/lib/ledger";
 import { effectiveResourceMaxes } from "@/lib/card-data";
 import { TEXT_LIMITS } from "@/lib/game-rules";
 import { isWeaponSubcategory, isModCategory, type WeaponSlotName } from "@/lib/cards";
@@ -43,7 +50,7 @@ async function authorizeEdit(characterId: string) {
   if (!isOwner && user.role !== "admin") {
     return { error: "You can only edit your own case file." as const };
   }
-  return { db, character };
+  return { db, character, user };
 }
 
 // Mirrors admin/actions.ts's revalidateCharacter — HP/bio edited here are also
@@ -130,6 +137,82 @@ export async function updateResources(
 
   revalidateCharacterPaths(c.slug, c.playerId);
   return { ok: true, message: "Resources updated." };
+}
+
+// Peer-to-peer credit transfer, initiated from the sender's own Case File.
+// The two balance updates and their ledger rows must land together or not at
+// all, so — like purchaseListing/refundListing in facilities/purchase-actions.ts
+// — this runs as one guarded SQL statement: the debit only commits if the
+// sender can afford it, and each later CTE only runs if the one before it
+// actually touched a row, so a lost race (e.g. a concurrent spend dropping the
+// sender's balance) fails the whole transfer with no partial write.
+export async function sendCredits(
+  _prev: SheetState,
+  formData: FormData,
+): Promise<SheetState> {
+  const fromCharacterId = String(formData.get("fromCharacterId") ?? "");
+  const toCharacterId = String(formData.get("toCharacterId") ?? "");
+  const auth = await authorizeEdit(fromCharacterId);
+  if ("error" in auth) return { error: auth.error };
+  const { db, character: sender, user } = auth;
+
+  if (!toCharacterId) return { error: "Pick a recipient." };
+  if (toCharacterId === fromCharacterId) {
+    return { error: "You can't send credits to yourself." };
+  }
+
+  const parsedAmount = parseSignedInt(formData.get("amount"));
+  if (!parsedAmount.ok) return { error: parsedAmount.error };
+  const amount = parsedAmount.value;
+
+  const recipient = await db.query.characters.findFirst({
+    where: and(eq(characters.id, toCharacterId), eq(characters.approved, true)),
+    with: { player: true },
+  });
+  if (!recipient) return { error: "Recipient not found." };
+
+  const transfer = applyCreditsTransfer(sender.player.credits, recipient.player.credits, amount);
+  if (!transfer.ok) return { error: transfer.error };
+
+  const senderDescription = `Sent to ${recipient.callsign}`;
+  const recipientDescription = `Received from ${sender.callsign}`;
+
+  try {
+    await db.execute(sql`
+      with debited as (
+        update players
+        set credits = credits - ${amount}, updated_at = now()
+        where id = ${sender.playerId} and credits >= ${amount}
+        returning credits
+      ), credited as (
+        update players
+        set credits = credits + ${amount}, updated_at = now()
+        where id = ${recipient.playerId} and exists (select 1 from debited)
+        returning credits
+      ), sender_ledger as (
+        insert into credit_ledger (player_id, description, delta, balance_after, created_by_user_id)
+        select ${sender.playerId}, ${senderDescription}, ${-amount}, debited.credits, ${user.id}
+        from debited
+        where exists (select 1 from credited)
+        returning id
+      ), recipient_ledger as (
+        insert into credit_ledger (player_id, description, delta, balance_after, created_by_user_id)
+        select ${recipient.playerId}, ${recipientDescription}, ${amount}, credited.credits, ${user.id}
+        from credited
+        where exists (select 1 from sender_ledger)
+        returning id
+      )
+      select 1 / (select count(*)::integer from recipient_ledger) as transfer_guard
+    `);
+  } catch {
+    return {
+      error: "Transfer failed — your balance may have changed. Refresh and try again.",
+    };
+  }
+
+  revalidateCharacterPaths(sender.slug, sender.playerId);
+  revalidateCharacterPaths(recipient.slug, recipient.playerId);
+  return { ok: true, message: `Sent ${amount.toLocaleString()} Cr to ${recipient.callsign}.` };
 }
 
 // Case-file portrait: a single spinning HeroForge mini GIF per character, not
