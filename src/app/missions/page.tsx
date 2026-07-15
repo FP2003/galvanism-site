@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Crosshair, IdCard } from "lucide-react";
 import { AppShell } from "@/components/shell/app-shell";
-import { Panel } from "@/components/ui/panel";
+import { RegistryTerminalFrame } from "@/components/registry/registry-terminal-frame";
 import { ButtonLink } from "@/components/ui/button";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
@@ -10,9 +10,11 @@ import { MissionList } from "./mission-list";
 
 export const metadata: Metadata = { title: "Missions" };
 
-// Player-facing mission board (Phase 5). Admins have no character to claim
-// against, so they get a read-only preview instead — same convention as
-// facilities/[id]/page.tsx.
+// Player-facing mission board (Phase 5), styled as the Registry's
+// Data-Shard Frame (DESIGN.md "Data-Shard Frame") since briefings link into
+// /registry/slug and the two boards read as one system. Admins have no
+// character to claim against, so they get a read-only preview instead —
+// same convention as facilities/[id]/page.tsx.
 export default async function MissionsPage() {
   const user = await requireUser();
   const isAdmin = user.role === "admin";
@@ -21,22 +23,22 @@ export default async function MissionsPage() {
   if (!isAdmin && (!viewer || viewer.kind !== "approved")) {
     return (
       <AppShell>
-        <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8">
-          <Header />
-          <Panel>
-            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <div className="mx-auto max-w-[1500px] px-3 py-5 sm:px-6 sm:py-7 lg:py-9">
+          <RegistryTerminalFrame variant="index" systemLabel="F.C.B. operations log" status="Unregistered">
+            <Header />
+            <div className="flex flex-col items-center justify-center gap-3 px-5 py-12 text-center">
               <Crosshair size={28} className="text-muted-ink" aria-hidden="true" />
               <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
                 No character on file
               </p>
-              <p className="max-w-sm text-pretty text-sm text-muted-ink">
+              <p className="max-w-sm text-pretty font-[family-name:var(--font-inter)] text-sm text-muted-ink">
                 Submit an enlistment application first. Approved operators can claim ops here.
               </p>
               <ButtonLink href="/apply">
                 <IdCard size={15} /> Enlist now
               </ButtonLink>
             </div>
-          </Panel>
+          </RegistryTerminalFrame>
         </div>
       </AppShell>
     );
@@ -47,14 +49,28 @@ export default async function MissionsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:py-8">
-        <Header />
-
-        {missionList.length === 0 ? (
-          <EmptyMissions />
-        ) : (
-          <MissionList missions={missionList} characterId={character?.id ?? null} isAdmin={isAdmin} />
-        )}
+      <div className="mx-auto max-w-[1500px] px-3 py-5 sm:px-6 sm:py-7 lg:py-9">
+        <RegistryTerminalFrame
+          variant="index"
+          systemLabel="F.C.B. operations log"
+          meta={`${String(missionList.length).padStart(2, "0")} ${missionList.length === 1 ? "op" : "ops"}`}
+          status={isAdmin ? "Preview" : "Operator"}
+        >
+          <Header />
+          {missionList.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 px-5 py-12 text-center">
+              <Crosshair size={28} className="text-muted-ink" aria-hidden="true" />
+              <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
+                No missions posted
+              </p>
+              <p className="max-w-sm text-pretty font-[family-name:var(--font-inter)] text-sm text-muted-ink">
+                Check back once the DM posts one.
+              </p>
+            </div>
+          ) : (
+            <MissionList missions={missionList} characterId={character?.id ?? null} isAdmin={isAdmin} />
+          )}
+        </RegistryTerminalFrame>
       </div>
     </AppShell>
   );
@@ -62,29 +78,13 @@ export default async function MissionsPage() {
 
 function Header() {
   return (
-    <div className="mb-6 border-b border-ledger-teal pb-5">
-      <h1 className="font-[family-name:var(--font-rajdhani)] text-3xl font-bold uppercase leading-none tracking-[0.02em] text-case-file-white sm:text-4xl">
+    <div className="border-b border-elevated-ledger px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <h1 className="font-[family-name:var(--font-orbitron)] text-2xl font-semibold uppercase leading-tight tracking-[0.08em] text-case-file-white sm:text-3xl lg:text-4xl">
         Missions
       </h1>
-      <p className="mt-2 max-w-prose text-sm text-muted-ink">
+      <p className="mt-3 max-w-2xl font-[family-name:var(--font-inter)] text-sm leading-relaxed text-muted-ink">
         Mark interest in an op. The DM confirms who&rsquo;s actually assigned.
       </p>
     </div>
-  );
-}
-
-function EmptyMissions() {
-  return (
-    <Panel>
-      <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-        <Crosshair size={28} className="text-muted-ink" aria-hidden="true" />
-        <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] text-muted-ink">
-          No missions posted
-        </p>
-        <p className="max-w-sm text-pretty text-sm text-muted-ink">
-          Check back once the DM posts one.
-        </p>
-      </div>
-    </Panel>
   );
 }

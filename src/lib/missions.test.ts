@@ -5,6 +5,7 @@ import {
   missionBucket,
   callsignsByState,
   attachmentTiltDeg,
+  briefingPreview,
 } from "./missions";
 
 describe("splitPayoutEvenly", () => {
@@ -75,6 +76,29 @@ describe("callsignsByState", () => {
       { state: "interested" as const, character: { callsign: "Mirage" } },
     ];
     expect(callsignsByState(assignments).interested).toEqual(["Ash", "Mirage", "Wraith"]);
+  });
+});
+
+describe("briefingPreview", () => {
+  it("returns an empty string for null or empty briefings", () => {
+    expect(briefingPreview(null)).toBe("");
+    expect(briefingPreview("")).toBe("");
+  });
+
+  it("strips a registry link down to its display text", () => {
+    expect(briefingPreview("Check in with [Marcus Kade](/registry/marcus-kade) first.")).toBe(
+      "Check in with Marcus Kade first.",
+    );
+  });
+
+  it("strips bold/italic markers and bullet dashes", () => {
+    expect(briefingPreview("**Urgent**: secure the *cache*.\n- Watch patrols")).toBe(
+      "Urgent: secure the cache. Watch patrols",
+    );
+  });
+
+  it("leaves plain text untouched", () => {
+    expect(briefingPreview("Plain text with no markdown at all.")).toBe("Plain text with no markdown at all.");
   });
 });
 

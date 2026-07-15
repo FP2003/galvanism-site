@@ -69,6 +69,22 @@ export function callsignsByState(
 }
 
 /**
+ * Strips the markdown a DM can actually author in a briefing (bold/italic,
+ * "- " bullets, RegistryLinkPicker's `[Name](/registry/slug)` links) down to
+ * plain text for a one-line list preview — a raw link fragment cut
+ * mid-syntax by `truncate` would read as broken.
+ */
+export function briefingPreview(briefing: string | null): string {
+  if (!briefing) return "";
+  return briefing
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`>#]+/g, "")
+    .replace(/^\s*[-+]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Deterministic "stapled photo" tilt angle for a mission attachment, derived
  * from its id — same id always produces the same angle, so the gallery's
  * server-rendered tilt matches the client on hydration (no Math.random). The
