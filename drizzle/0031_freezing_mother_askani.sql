@@ -1,0 +1,1 @@
+ALTER TYPE "public"."xp_offering_type" ADD VALUE 'descriptive';

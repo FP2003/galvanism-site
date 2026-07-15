@@ -107,11 +107,18 @@ export const listingSource = pgEnum("listing_source", ["manual", "rotation"]);
 // small flavor shops (food, arcade, ...) that never level up.
 export const facilityKind = pgEnum("facility_kind", ["station", "field"]);
 
-// Phase 6 Step 2 — an XP offering is either a permanent stat bump (targets one
-// of the 6 stat columns) or a one-off refill of a current resource (targets
+// Phase 6 Step 2 — an XP offering is a permanent stat bump (targets one of
+// the 6 stat columns), a one-off refill of a current resource (targets
 // hpCurrent/energyCurrent/ammoCurrent, clamped to its — possibly card-boosted
-// — max). See lib/facilities.ts offeringTargetsFor.
-export const xpOfferingType = pgEnum("xp_offering_type", ["stat_bump", "resource_refill"]);
+// — max), or purely descriptive (charges XP but touches no character column —
+// the DM manually honors the effect, e.g. a perk-funded Tech Slot Upgrade
+// letting a player buy extra equip slots). See lib/facilities.ts
+// offeringTargetsFor.
+export const xpOfferingType = pgEnum("xp_offering_type", [
+  "stat_bump",
+  "resource_refill",
+  "descriptive",
+]);
 
 // Phase 5 — Mission enums (info/roadmap.md §Phase 5). "failed" only happens via
 // an Urgent deadline hitting zero without the mission completing first.
