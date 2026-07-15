@@ -2,8 +2,9 @@
 
 import { useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { BookUser, ChevronRight, RotateCcw, Search, X } from "lucide-react";
+import { BookUser, ChevronRight, Crosshair, RotateCcw, Search, X } from "lucide-react";
 import { RegistryTypeIcon } from "@/components/registry/registry-type-icon";
+import { MissionStatusBadge } from "@/components/missions/mission-tags";
 import styles from "@/components/registry/registry-terminal.module.css";
 import { Button } from "@/components/ui/button";
 import { TextInput } from "@/components/ui/form";
@@ -13,42 +14,96 @@ import {
   registryHref,
   type RegistryEntryType,
 } from "@/lib/registry";
+import { briefingPreview } from "@/lib/missions";
 import type { getPublicRegistryEntries } from "@/lib/registry-data";
+import type { Mission, MissionAssignment } from "@/lib/schema";
 
 type PublicRegistryEntry = Awaited<ReturnType<typeof getPublicRegistryEntries>>[number];
+type MissionRow = Mission & { assignments: (MissionAssignment & { character: { callsign: string } })[] };
+
+type Classification = RegistryEntryType | "mission";
+
+type BrowsableItem =
+  | { kind: "entry"; key: string; data: PublicRegistryEntry }
+  | { kind: "mission"; key: string; data: MissionRow };
+
+function itemName(item: BrowsableItem): string {
+  return item.kind === "entry" ? item.data.name : item.data.title;
+}
+
+function itemClassification(item: BrowsableItem): Classification {
+  return item.kind === "entry" ? item.data.type : "mission";
+}
+
+function itemHref(item: BrowsableItem): string {
+  return item.kind === "entry" ? registryHref(item.data.slug) : `/missions/${item.data.id}`;
+}
+
+function itemDescription(item: BrowsableItem): string {
+  return item.kind === "entry" ? (item.data.description?.trim() ?? "") : briefingPreview(item.data.briefing);
+}
+
+function itemIdLine(item: BrowsableItem): string {
+  return item.kind === "entry" ? `REG://${item.data.slug}` : `OPS://${item.data.id.slice(0, 8).toUpperCase()}`;
+}
 
 // The public roster is intentionally small, so querying and classification
 // filtering stay local after the server has enforced visibility and column
-// selection. Ordinals are based on the full name-sorted list and never change
-// when the result set narrows.
-export function RegistryBrowser({ entries }: { entries: PublicRegistryEntry[] }) {
+// selection. Missions are merged in as one more classification ("Mission")
+// rather than a separate tab — they're records too, just backed by a
+// different table, so they share this one search/filter/list instead of a
+// parallel browsing surface. `RegistryEntryType` stays schema-only (it also
+// drives the admin entry-type <select>, where "mission" would be a bogus
+// option), so the extra classification lives only in this component's local
+// `Classification` union. Ordinals are based on the full name-sorted merged
+// list and never change when the result set narrows.
+export function RegistryBrowser({
+  entries,
+  missions,
+}: {
+  entries: PublicRegistryEntry[];
+  missions: MissionRow[];
+}) {
   const [query, setQuery] = useState("");
-  const [type, setType] = useState<RegistryEntryType | "all">("all");
+  const [type, setType] = useState<Classification | "all">("all");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchId = useId();
   const searchInput = useRef<HTMLInputElement>(null);
 
+  const items = useMemo<BrowsableItem[]>(() => {
+    const merged: BrowsableItem[] = [
+      ...entries.map((entry) => ({ kind: "entry" as const, key: `entry:${entry.id}`, data: entry })),
+      ...missions.map((mission) => ({ kind: "mission" as const, key: `mission:${mission.id}`, data: mission })),
+    ];
+    merged.sort((a, b) => itemName(a).localeCompare(itemName(b)));
+    return merged;
+  }, [entries, missions]);
+
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    return entries.filter(
-      (entry) =>
-        (type === "all" || entry.type === type) &&
-        (normalizedQuery === "" || entry.name.toLowerCase().includes(normalizedQuery)),
+    return items.filter(
+      (item) =>
+        (type === "all" || itemClassification(item) === type) &&
+        (normalizedQuery === "" || itemName(item).toLowerCase().includes(normalizedQuery)),
     );
-  }, [entries, query, type]);
+  }, [items, query, type]);
 
   const typeCounts = useMemo(() => {
     const counts = Object.fromEntries(
       REGISTRY_TYPES.map((entryType) => [entryType, 0]),
     ) as Record<RegistryEntryType, number>;
 
-    for (const entry of entries) counts[entry.type] += 1;
-    return counts;
-  }, [entries]);
+    let missionCount = 0;
+    for (const item of items) {
+      if (item.kind === "entry") counts[item.data.type] += 1;
+      else missionCount += 1;
+    }
+    return { ...counts, mission: missionCount };
+  }, [items]);
 
   const ordinalById = useMemo(
-    () => new Map(entries.map((entry, index) => [entry.id, index + 1])),
-    [entries],
+    () => new Map(items.map((item, index) => [item.key, index + 1])),
+    [items],
   );
 
   function clearQuery() {
@@ -91,8 +146,8 @@ export function RegistryBrowser({ entries }: { entries: PublicRegistryEntry[] })
               onChange={(event) => setQuery(event.target.value)}
               onFocus={() => setIsSearchFocused(true)}
               onBlur={() => setIsSearchFocused(false)}
-              placeholder="Query public records…"
-              aria-label="Search the public registry by name"
+              placeholder="Query public records or missions…"
+              aria-label="Search the public registry and mission log by name"
               className={`${styles.searchInput} h-12 border-steel-blue pl-10 pr-12 font-[family-name:var(--font-orbitron)] text-xs tracking-[0.04em]`}
             />
             {query ? (
@@ -152,20 +207,27 @@ export function RegistryBrowser({ entries }: { entries: PublicRegistryEntry[] })
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter registry by classification">
           <TypeChip
             label="All"
-            count={entries.length}
+            count={items.length}
             active={type === "all"}
             onClick={() => setType("all")}
           />
           {REGISTRY_TYPES.map((entryType) => (
             <TypeChip
               key={entryType}
-              type={entryType}
+              icon={<RegistryTypeIcon type={entryType} size={12} />}
               label={REGISTRY_TYPE_META[entryType].label}
               count={typeCounts[entryType]}
               active={type === entryType}
               onClick={() => setType((current) => (current === entryType ? "all" : entryType))}
             />
           ))}
+          <TypeChip
+            icon={<Crosshair size={12} aria-hidden="true" />}
+            label="Mission"
+            count={typeCounts.mission}
+            active={type === "mission"}
+            onClick={() => setType((current) => (current === "mission" ? "all" : "mission"))}
+          />
         </div>
       </section>
 
@@ -177,10 +239,10 @@ export function RegistryBrowser({ entries }: { entries: PublicRegistryEntry[] })
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          aria-label={`${filtered.length} of ${entries.length} records shown`}
+          aria-label={`${filtered.length} of ${items.length} records shown`}
           className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase tracking-[0.06em] text-signal-cyan"
         >
-          {String(filtered.length).padStart(2, "0")} / {String(entries.length).padStart(2, "0")} match
+          {String(filtered.length).padStart(2, "0")} / {String(items.length).padStart(2, "0")} match
         </span>
       </div>
 
@@ -188,14 +250,14 @@ export function RegistryBrowser({ entries }: { entries: PublicRegistryEntry[] })
         <div className="flex min-h-64 flex-col items-center justify-center gap-3 px-5 py-10 text-center">
           <BookUser size={30} className="text-muted-ink" aria-hidden="true" />
           <p className="font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.1em] text-case-file-white">
-            {entries.length === 0 ? "Archive index empty" : "Query returned zero records"}
+            {items.length === 0 ? "Archive index empty" : "Query returned zero records"}
           </p>
           <p className="max-w-sm text-pretty font-[family-name:var(--font-inter)] text-xs leading-relaxed text-muted-ink">
-            {entries.length === 0
+            {items.length === 0
               ? "No public records have been released to the archive."
               : "Reset the query buffer and classification channel to inspect the full index."}
           </p>
-          {entries.length > 0 ? (
+          {items.length > 0 ? (
             <Button variant="secondary" onClick={resetIndex} className="mt-2 px-4 py-2">
               <RotateCcw size={14} aria-hidden="true" /> Reset index
             </Button>
@@ -203,13 +265,14 @@ export function RegistryBrowser({ entries }: { entries: PublicRegistryEntry[] })
         </div>
       ) : (
         <ul>
-          {filtered.map((entry) => {
-            const ordinal = ordinalById.get(entry.id) ?? 0;
+          {filtered.map((item) => {
+            const ordinal = ordinalById.get(item.key) ?? 0;
+            const classificationLabel = item.kind === "entry" ? REGISTRY_TYPE_META[item.data.type].label : "Mission";
 
             return (
-              <li key={entry.id} className="border-b border-elevated-ledger last:border-b-0">
+              <li key={item.key} className="border-b border-elevated-ledger last:border-b-0">
                 <Link
-                  href={registryHref(entry.slug)}
+                  href={itemHref(item)}
                   className="group grid grid-cols-[3.5rem_minmax(0,1fr)_1.25rem] items-center gap-x-3 px-4 py-3 transition-colors duration-150 hover:bg-elevated-ledger focus-visible:bg-elevated-ledger sm:grid-cols-[3.5rem_2rem_minmax(0,1fr)_1.25rem] sm:px-5 lg:grid-cols-[3.5rem_2.25rem_minmax(11rem,0.85fr)_7rem_minmax(11rem,1.15fr)_1.25rem]"
                 >
                   <span
@@ -220,28 +283,33 @@ export function RegistryBrowser({ entries }: { entries: PublicRegistryEntry[] })
                   </span>
 
                   <span className="hidden size-8 items-center justify-center border border-elevated-ledger bg-void-navy text-steel-blue transition-colors duration-150 group-hover:border-steel-blue group-hover:text-signal-cyan sm:col-start-2 sm:row-span-2 sm:flex lg:col-start-2">
-                    <RegistryTypeIcon type={entry.type} size={16} />
+                    {item.kind === "entry" ? (
+                      <RegistryTypeIcon type={item.data.type} size={16} />
+                    ) : (
+                      <Crosshair size={16} aria-hidden="true" />
+                    )}
                   </span>
 
                   <div className="col-start-2 row-start-1 flex min-w-0 items-center gap-2 sm:col-start-3 lg:col-start-3">
                     <span className="min-w-0 flex-1 truncate font-[family-name:var(--font-orbitron)] text-xs font-semibold uppercase tracking-[0.05em] text-case-file-white transition-colors duration-150 group-hover:text-live-cyan">
-                      {entry.name}
+                      {itemName(item)}
                     </span>
                     <span className="shrink-0 border border-elevated-ledger px-1.5 py-0.5 font-[family-name:var(--font-chakra)] text-[0.5rem] font-semibold uppercase tracking-[0.08em] text-muted-ink lg:hidden">
-                      {REGISTRY_TYPE_META[entry.type].label}
+                      {classificationLabel}
                     </span>
+                    {item.kind === "mission" && <MissionStatusBadge status={item.data.status} />}
                   </div>
 
                   <span className="hidden font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink lg:col-start-4 lg:row-start-1 lg:block">
-                    {REGISTRY_TYPE_META[entry.type].label}
+                    {classificationLabel}
                   </span>
 
                   <div className="col-start-2 row-start-2 min-w-0 pt-1 sm:col-start-3 lg:col-start-5 lg:row-start-1 lg:pt-0">
                     <p className="truncate font-[family-name:var(--font-orbitron)] text-[0.625rem] tracking-[0.02em] text-muted-ink">
-                      {entry.description?.trim() || "No summary attached."}
+                      {itemDescription(item) || "No summary attached."}
                     </p>
                     <p className="mt-0.5 truncate font-[family-name:var(--font-jetbrains)] text-[0.5625rem] uppercase tracking-[0.03em] text-muted-ink">
-                      REG://{entry.slug}
+                      {itemIdLine(item)}
                     </p>
                   </div>
 
@@ -261,13 +329,13 @@ export function RegistryBrowser({ entries }: { entries: PublicRegistryEntry[] })
 }
 
 function TypeChip({
-  type,
+  icon,
   label,
   count,
   active,
   onClick,
 }: {
-  type?: RegistryEntryType;
+  icon?: React.ReactNode;
   label: string;
   count: number;
   active: boolean;
@@ -285,7 +353,7 @@ function TypeChip({
           : "border-elevated-ledger text-muted-ink hover:border-steel-blue hover:bg-void-navy hover:text-case-file-white"
       }`}
     >
-      {type ? <RegistryTypeIcon type={type} size={12} /> : null}
+      {icon}
       <span>{label}</span>
       <span className="font-[family-name:var(--font-jetbrains)] text-[0.5625rem]">{String(count).padStart(2, "0")}</span>
     </button>

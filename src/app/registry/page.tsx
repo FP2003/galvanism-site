@@ -3,18 +3,24 @@ import { AppShell } from "@/components/shell/app-shell";
 import { RegistryTerminalFrame } from "@/components/registry/registry-terminal-frame";
 import { requireUser } from "@/lib/auth";
 import { getPublicRegistryEntries } from "@/lib/registry-data";
+import { getMissionsForViewer } from "@/lib/mission-data";
 import { RegistryBrowser } from "./registry-browser";
 
 export const metadata: Metadata = { title: "Registry" };
 
-// Player-facing registry browse (Phase 8). Pure lore reading, not tied to a
-// character — no approved-character gate, same reasoning as the plain
-// /facilities browse list (only purchasing/training there needs a
-// character; browsing doesn't). getPublicRegistryEntries already excludes
-// gmNotes and hidden entries at the query layer.
+// Player-facing registry browse (Phase 8), now merging in the full mission
+// log (every status, read-only — the actionable board lives at /missions)
+// as one more classification alongside npc/location/faction/item/event,
+// since missions are records too and briefings link into /registry/slug —
+// the two are meant to read as one archive, not a separate tab. Pure lore
+// reading, not tied to a character — no approved-character gate, same
+// reasoning as the plain /facilities browse list (only purchasing/training
+// there needs a character; browsing doesn't). getPublicRegistryEntries
+// already excludes gmNotes and hidden entries at the query layer.
 export default async function RegistryPage() {
   await requireUser();
-  const entries = await getPublicRegistryEntries();
+  const [entries, missionList] = await Promise.all([getPublicRegistryEntries(), getMissionsForViewer()]);
+  const recordCount = entries.length + missionList.length;
 
   return (
     <AppShell>
@@ -22,7 +28,7 @@ export default async function RegistryPage() {
         <RegistryTerminalFrame
           variant="index"
           systemLabel="F.C.B. public archive"
-          meta={`${String(entries.length).padStart(2, "0")} ${entries.length === 1 ? "record" : "records"}`}
+          meta={`${String(recordCount).padStart(2, "0")} ${recordCount === 1 ? "record" : "records"}`}
           status="Read only"
         >
           <div className="border-b border-elevated-ledger px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -31,11 +37,11 @@ export default async function RegistryPage() {
             </h1>
             <p className="mt-3 max-w-2xl font-[family-name:var(--font-inter)] text-sm leading-relaxed text-muted-ink">
               Search released intelligence on known personnel, locations, factions,
-              assets, and recorded events.
+              assets, recorded events, and the full mission log.
             </p>
           </div>
 
-          <RegistryBrowser entries={entries} />
+          <RegistryBrowser entries={entries} missions={missionList} />
         </RegistryTerminalFrame>
       </div>
     </AppShell>
