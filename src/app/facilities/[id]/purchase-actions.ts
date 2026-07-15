@@ -342,6 +342,34 @@ export async function purchaseXpOffering(
     return { ok: true, message: `${offering.name}: spent ${offering.cost} XP.` };
   }
 
+  if (offering.offeringType === "descriptive") {
+    const spend = applyXpSpend(character.currencyXp, offering.cost);
+    if (!spend.ok) return { error: spend.error };
+
+    await db.batch([
+      db
+        .update(characters)
+        .set({ currencyXp: spend.value, updatedAt: new Date() })
+        .where(eq(characters.id, character.id)),
+      db.insert(xpLedger).values({
+        characterId: character.id,
+        description: `${offering.name} (${offering.facility.name})`,
+        delta: -offering.cost,
+        totalXpAfter: character.totalXp,
+        currencyXpAfter: spend.value,
+        createdByUserId: user.id,
+      }),
+    ]);
+
+    revalidatePath("/facilities");
+    revalidatePath(`/facilities/${offering.facilityId}`);
+    revalidatePath("/roster");
+    revalidatePath(`/roster/${character.slug}`);
+    revalidatePath("/");
+    revalidatePath(`/admin/players/${player.id}`);
+    return { ok: true, message: `${offering.name}: spent ${offering.cost} XP.` };
+  }
+
   const result = applyPurchase(player.credits, offering.cost);
   if (!result.ok) return { error: result.error };
   const maxKey = RESOURCE_MAX_KEY[offering.targetKey];

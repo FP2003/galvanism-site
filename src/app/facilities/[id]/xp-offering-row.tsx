@@ -2,16 +2,17 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Dumbbell, HeartPulse } from "lucide-react";
+import { Dumbbell, HeartPulse, Sparkles } from "lucide-react";
 import { FormMessage } from "@/components/ui/form";
 import { offeringTargetLabel, offeringCostCurrency } from "@/lib/facilities";
 import { purchaseXpOffering, type FormState } from "./purchase-actions";
 import type { FacilityXpOffering } from "@/lib/schema";
 
-// One training/refill offering row (Phase 6 Step 2) — a permanent stat bump
-// (priced in Currency XP) or a one-off resource refill (priced in Credits).
-// Text-based rather than GameCard-based (these aren't cards), but otherwise
-// mirrors ListingCard's price + action-button composition.
+// One training/refill/descriptive offering row (Phase 6 Step 2) — a permanent
+// stat bump or descriptive perk (both priced in Currency XP) or a one-off
+// resource refill (priced in Credits). Text-based rather than GameCard-based
+// (these aren't cards), but otherwise mirrors ListingCard's price +
+// action-button composition.
 export function XpOfferingRow({
   offering,
   currencyXp,
@@ -29,8 +30,18 @@ export function XpOfferingRow({
   const canAfford = balance >= offering.cost;
   const currencyLabel = currency === "xp" ? "XP" : "Cr";
   const label = offeringTargetLabel(offering.offeringType, offering.targetKey);
-  const Icon = offering.offeringType === "stat_bump" ? Dumbbell : HeartPulse;
-  const verb = offering.offeringType === "stat_bump" ? "Train" : "Treat";
+  const Icon =
+    offering.offeringType === "stat_bump"
+      ? Dumbbell
+      : offering.offeringType === "resource_refill"
+        ? HeartPulse
+        : Sparkles;
+  const verb =
+    offering.offeringType === "stat_bump"
+      ? "Train"
+      : offering.offeringType === "resource_refill"
+        ? "Treat"
+        : "Unlock";
 
   return (
     <li className="flex flex-col gap-2 border border-elevated-ledger p-3">
@@ -41,9 +52,11 @@ export function XpOfferingRow({
             <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
               {offering.name}
             </p>
-            <p className="font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
-              +{offering.amount} {label}
-            </p>
+            {offering.offeringType !== "descriptive" && (
+              <p className="font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+                +{offering.amount} {label}
+              </p>
+            )}
             {offering.description && (
               <p className="mt-1 max-w-prose text-xs text-muted-ink">{offering.description}</p>
             )}
