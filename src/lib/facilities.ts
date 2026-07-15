@@ -186,23 +186,30 @@ export function isCardLevelUnlocked(cardLevel: number, facilityLevel: number): b
 }
 
 // ---------------------------------------------------------------------------
-// XP offerings (Step 2). A facility's training catalog: each entry is either
-// a permanent stat bump (priced in Currency XP) or a one-off current-resource
-// refill (priced in Credits, like any other facility purchase). `targetKey`
-// matches a `characters` DB column, same convention as cardEffects.effectTarget
-// (lib/cards.ts) — reusing STAT_TARGETS for the bump side keeps the two
-// catalogs' stat keys/labels in lockstep.
+// XP offerings (Step 2). A facility's training catalog: each entry is a
+// permanent stat bump (priced in Currency XP), a one-off current-resource
+// refill (priced in Credits, like any other facility purchase), or a purely
+// descriptive entry (priced in Currency XP, touches no character column — the
+// DM manually honors the effect, e.g. a Tech Slot Upgrade perk letting a
+// player buy extra equip slots with XP). `targetKey` matches a `characters`
+// DB column, same convention as cardEffects.effectTarget (lib/cards.ts) —
+// reusing STAT_TARGETS for the bump side keeps the two catalogs' stat
+// keys/labels in lockstep. A descriptive offering has no target/amount at all.
 // ---------------------------------------------------------------------------
 export type XpOfferingType = (typeof xpOfferingType.enumValues)[number];
-export const XP_OFFERING_TYPES: XpOfferingType[] = ["stat_bump", "resource_refill"];
+export const XP_OFFERING_TYPES: XpOfferingType[] = [
+  "stat_bump",
+  "resource_refill",
+  "descriptive",
+];
 
 export type OfferingCurrency = "xp" | "credits";
 
 /** The currency an offering's `cost` is charged in — fixed by its type, not a
- *  per-row choice: permanent training costs XP, a resource top-up costs
- *  Credits like any other facility purchase. */
+ *  per-row choice: permanent training and descriptive offerings cost XP, a
+ *  resource top-up costs Credits like any other facility purchase. */
 export function offeringCostCurrency(type: XpOfferingType): OfferingCurrency {
-  return type === "stat_bump" ? "xp" : "credits";
+  return type === "resource_refill" ? "credits" : "xp";
 }
 
 export interface OfferingTarget {
@@ -226,14 +233,20 @@ export const RESOURCE_REFILL_TARGETS: OfferingTarget[] = [
 ];
 
 export function offeringTargetsFor(type: XpOfferingType): OfferingTarget[] {
-  return type === "stat_bump" ? STAT_BUMP_TARGETS : RESOURCE_REFILL_TARGETS;
+  if (type === "stat_bump") return STAT_BUMP_TARGETS;
+  if (type === "resource_refill") return RESOURCE_REFILL_TARGETS;
+  return [];
 }
 
+/** A descriptive offering has no target column to validate — `targetKey` is
+ *  always the empty string for it. */
 export function isValidOfferingTarget(type: XpOfferingType, targetKey: string): boolean {
+  if (type === "descriptive") return targetKey === "";
   return offeringTargetsFor(type).some((t) => t.key === targetKey);
 }
 
 export function offeringTargetLabel(type: XpOfferingType, targetKey: string): string {
+  if (type === "descriptive") return "";
   return offeringTargetsFor(type).find((t) => t.key === targetKey)?.label ?? targetKey;
 }
 

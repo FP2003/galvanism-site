@@ -291,19 +291,29 @@ describe("offeringTargetsFor / isValidOfferingTarget", () => {
     ]);
   });
 
+  it("lists no targets for descriptive", () => {
+    expect(offeringTargetsFor("descriptive")).toEqual([]);
+  });
+
   it("accepts a target that matches its offering type", () => {
     expect(isValidOfferingTarget("stat_bump", "statTech")).toBe(true);
     expect(isValidOfferingTarget("resource_refill", "hpCurrent")).toBe(true);
+    expect(isValidOfferingTarget("descriptive", "")).toBe(true);
   });
 
   it("rejects a target from the other offering type", () => {
     expect(isValidOfferingTarget("stat_bump", "hpCurrent")).toBe(false);
     expect(isValidOfferingTarget("resource_refill", "statTech")).toBe(false);
+    expect(isValidOfferingTarget("descriptive", "statTech")).toBe(false);
   });
 
   it("falls back to the raw key when a label isn't found", () => {
     expect(offeringTargetLabel("stat_bump", "statTech")).toBe("Tech");
     expect(offeringTargetLabel("stat_bump", "bogus")).toBe("bogus");
+  });
+
+  it("has no label for descriptive (no target to label)", () => {
+    expect(offeringTargetLabel("descriptive", "")).toBe("");
   });
 });
 
@@ -314,6 +324,10 @@ describe("offeringCostCurrency", () => {
 
   it("charges Credits for a resource refill", () => {
     expect(offeringCostCurrency("resource_refill")).toBe("credits");
+  });
+
+  it("charges XP for a descriptive offering", () => {
+    expect(offeringCostCurrency("descriptive")).toBe("xp");
   });
 });
 
