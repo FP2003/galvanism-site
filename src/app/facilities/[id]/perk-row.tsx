@@ -42,7 +42,7 @@ export function PerkRow({
 
   return (
     <li className="flex flex-col gap-2 border border-elevated-ledger p-3">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-1 items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
           <Sparkles size={16} className="mt-0.5 shrink-0 text-muted-ink" aria-hidden="true" />
           <div className="min-w-0">
