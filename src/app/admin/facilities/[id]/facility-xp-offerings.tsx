@@ -25,6 +25,7 @@ import type { FacilityXpOffering } from "@/lib/schema";
 const TYPE_LABELS: Record<XpOfferingType, string> = {
   stat_bump: "Stat bump",
   resource_refill: "Resource refill",
+  descriptive: "Descriptive",
 };
 
 // Admin training/refill catalog for one facility (Phase 6 Step 2) — a
@@ -47,9 +48,11 @@ export function FacilityXpOfferings({
     <div className="flex flex-col gap-4">
       <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
         A stat bump is priced in Currency XP; a resource refill is priced in
-        Credits. An offering with a Min Level above this facility&apos;s
-        current level ({facilityLevel}) stays hidden from players until the
-        facility is leveled up to match.
+        Credits. A descriptive offering is also priced in Currency XP but has
+        no target or amount — it&apos;s a flat XP charge for something you
+        apply by hand (e.g. a Tech Slot Upgrade). An offering with a Min Level
+        above this facility&apos;s current level ({facilityLevel}) stays
+        hidden from players until the facility is leveled up to match.
       </p>
       {offerings.length === 0 ? (
         <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
@@ -80,6 +83,7 @@ function OfferingFields({ offering }: { offering?: FacilityXpOffering }) {
   const [offeringType, setOfferingType] = useState<XpOfferingType>(offering?.offeringType ?? "stat_bump");
   const targets = offeringTargetsFor(offeringType);
   const currency = offeringCostCurrency(offeringType);
+  const isDescriptive = offeringType === "descriptive";
 
   return (
     <>
@@ -105,6 +109,7 @@ function OfferingFields({ offering }: { offering?: FacilityXpOffering }) {
           aria-label="Type"
           value={offeringType}
           onChange={(e) => setOfferingType(e.target.value as XpOfferingType)}
+          wrapperClassName={isDescriptive ? "col-span-2" : undefined}
         >
           {XP_OFFERING_TYPES.map((t) => (
             <option key={t} value={t}>
@@ -112,26 +117,30 @@ function OfferingFields({ offering }: { offering?: FacilityXpOffering }) {
             </option>
           ))}
         </Select>
-        <Select name="targetKey" aria-label="Target" defaultValue={offering?.targetKey}>
-          {targets.map((t) => (
-            <option key={t.key} value={t.key}>
-              {t.label}
-            </option>
-          ))}
-        </Select>
+        {!isDescriptive && (
+          <Select name="targetKey" aria-label="Target" defaultValue={offering?.targetKey}>
+            {targets.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
+        )}
       </div>
-      <div className="grid grid-cols-3 gap-2">
-        <div className="flex flex-col gap-1">
-          <span className={fieldLabelClass}>Amount</span>
-          <TextInput
-            name="amount"
-            type="number"
-            min={1}
-            inputMode="numeric"
-            aria-label="Amount"
-            defaultValue={offering?.amount ?? 1}
-          />
-        </div>
+      <div className={`grid gap-2 ${isDescriptive ? "grid-cols-2" : "grid-cols-3"}`}>
+        {!isDescriptive && (
+          <div className="flex flex-col gap-1">
+            <span className={fieldLabelClass}>Amount</span>
+            <TextInput
+              name="amount"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              aria-label="Amount"
+              defaultValue={offering?.amount ?? 1}
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           <span className={fieldLabelClass}>{currency === "xp" ? "XP Cost" : "Credit Cost"}</span>
           <TextInput
@@ -190,7 +199,9 @@ function OfferingRow({ offering }: { offering: FacilityXpOffering }) {
           )}
         </p>
         <p className="truncate font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
-          +{offering.amount} {label} · {offering.cost} {currencyLabel} · Min Lv {offering.minLevel}
+          {offering.offeringType === "descriptive"
+            ? `${offering.cost} ${currencyLabel} · Min Lv ${offering.minLevel}`
+            : `+${offering.amount} ${label} · ${offering.cost} ${currencyLabel} · Min Lv ${offering.minLevel}`}
         </p>
       </div>
       <button

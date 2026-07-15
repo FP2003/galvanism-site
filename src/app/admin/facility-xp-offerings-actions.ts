@@ -47,14 +47,17 @@ export async function addXpOffering(_prev: FormState, formData: FormData): Promi
 
   const offeringType = textField(formData, "offeringType") as XpOfferingType;
   if (!XP_OFFERING_TYPES.includes(offeringType)) return { error: "Pick an offering type." };
+  const isDescriptive = offeringType === "descriptive";
 
-  const targetKey = textField(formData, "targetKey");
+  const targetKey = isDescriptive ? "" : textField(formData, "targetKey");
   if (!isValidOfferingTarget(offeringType, targetKey)) {
     return { error: "Pick a target that matches the chosen offering type." };
   }
 
-  const amount = intField(formData, "amount", 0);
-  if (amount <= 0) return { error: "Amount must be a whole number greater than zero." };
+  const amount = isDescriptive ? 0 : intField(formData, "amount", 0);
+  if (!isDescriptive && amount <= 0) {
+    return { error: "Amount must be a whole number greater than zero." };
+  }
   const cost = intField(formData, "cost", 0);
   const currencyLabel = offeringCostCurrency(offeringType) === "xp" ? "XP" : "Credit";
   if (cost <= 0) return { error: `${currencyLabel} cost must be a whole number greater than zero.` };
@@ -96,14 +99,17 @@ export async function updateXpOffering(_prev: FormState, formData: FormData): Pr
 
   const offeringType = textField(formData, "offeringType") as XpOfferingType;
   if (!XP_OFFERING_TYPES.includes(offeringType)) return { error: "Pick an offering type." };
+  const isDescriptive = offeringType === "descriptive";
 
-  const targetKey = textField(formData, "targetKey");
+  const targetKey = isDescriptive ? "" : textField(formData, "targetKey");
   if (!isValidOfferingTarget(offeringType, targetKey)) {
     return { error: "Pick a target that matches the chosen offering type." };
   }
 
-  const amount = intField(formData, "amount", 0);
-  if (amount <= 0) return { error: "Amount must be a whole number greater than zero." };
+  const amount = isDescriptive ? 0 : intField(formData, "amount", 0);
+  if (!isDescriptive && amount <= 0) {
+    return { error: "Amount must be a whole number greater than zero." };
+  }
   const cost = intField(formData, "cost", 0);
   const currencyLabel = offeringCostCurrency(offeringType) === "xp" ? "XP" : "Credit";
   if (cost <= 0) return { error: `${currencyLabel} cost must be a whole number greater than zero.` };
