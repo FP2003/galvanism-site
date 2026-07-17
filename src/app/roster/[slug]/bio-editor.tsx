@@ -3,10 +3,11 @@
 import { useRef, useState, useTransition } from "react";
 import { ChevronDown, ChevronUp, Pencil, Save, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea, FormMessage } from "@/components/ui/form";
+import { Field, Textarea, TextInput, FormMessage } from "@/components/ui/form";
 import { Markdown } from "@/components/ui/markdown";
 import { Panel } from "@/components/ui/panel";
 import { RegistryLinkPicker } from "@/components/registry/registry-link-picker";
+import { TEXT_LIMITS } from "@/lib/game-rules";
 import { updateBio, type SheetState } from "@/app/roster/actions";
 
 /*
@@ -29,10 +30,12 @@ function firstLines(text: string, n: number): { head: string; hasMore: boolean }
 export function BioEditor({
   characterId,
   bio,
+  themeSongUrl,
   canEdit,
 }: {
   characterId: string;
   bio: string | null;
+  themeSongUrl: string | null;
   canEdit: boolean;
 }) {
   const [state, setState] = useState<SheetState>({});
@@ -91,6 +94,21 @@ export function BioEditor({
           <div>
             <RegistryLinkPicker textareaRef={bioRef} />
           </div>
+          <Field
+            label="Theme Song"
+            hint="YouTube link only — plays as audio on this case file. Leave blank to remove."
+          >
+            {(id) => (
+              <TextInput
+                id={id}
+                name="themeSongUrl"
+                type="url"
+                defaultValue={themeSongUrl ?? ""}
+                maxLength={TEXT_LIMITS.themeSongUrl}
+                placeholder="https://www.youtube.com/watch?v=…"
+              />
+            )}
+          </Field>
           <FormMessage state={state} />
           <div className="flex items-center gap-2">
             <Button type="submit" disabled={pending}>

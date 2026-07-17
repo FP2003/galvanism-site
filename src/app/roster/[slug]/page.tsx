@@ -15,6 +15,7 @@ import { getCharacterBySlug, getRosterViews } from "@/lib/characters";
 import { getCharacterCards, computeLoadout } from "@/lib/card-data";
 import { CARD_CATEGORY_META, cardAccent } from "@/lib/cards";
 import { agilityMovementBonus } from "@/lib/ledger";
+import { extractYouTubeVideoId } from "@/lib/youtube";
 import { regiment } from "@/lib/mock-data";
 import {
   stampStyle,
@@ -27,6 +28,7 @@ import { ResourceTracker } from "./resource-tracker";
 import { Loadout } from "./loadout";
 import { Portrait } from "./portrait";
 import { SendCredits } from "./send-credits";
+import { ThemeSongPlayer } from "./theme-song-player";
 
 export async function generateMetadata({
   params,
@@ -60,6 +62,9 @@ export default async function CaseFilePage({
 
   // A pending application is visible only to its owner and the DM.
   if (!op.approved && !canEdit) notFound();
+
+  // Guards legacy/corrupt data — canonical stored URLs always parse cleanly.
+  const themeVideoId = op.themeSongUrl ? extractYouTubeVideoId(op.themeSongUrl) : null;
 
   const db = getDb();
   const [ledger, xpHistory, ownedCards, roster] = await Promise.all([
@@ -172,6 +177,9 @@ export default async function CaseFilePage({
                 CREDITS <span className="text-signal-cyan">{op.credits}</span>
               </span>
             </div>
+            {themeVideoId && (
+              <ThemeSongPlayer videoId={themeVideoId} title={op.themeSongTitle} />
+            )}
           </div>
 
           <div className="shrink-0 self-start sm:self-center">
@@ -305,7 +313,12 @@ export default async function CaseFilePage({
 
           {/* Right column: biography + ledger */}
           <div className="flex flex-col gap-3 lg:col-span-2">
-            <BioEditor characterId={op.id} bio={op.bio} canEdit={canEdit} />
+            <BioEditor
+              characterId={op.id}
+              bio={op.bio}
+              themeSongUrl={op.themeSongUrl}
+              canEdit={canEdit}
+            />
 
             {(loadout.activeModifiers.length > 0 ||
               loadout.descriptiveEffects.length > 0) && (

@@ -45,6 +45,7 @@
 
   /* Motion */
   --animate-pulse-live: pulse-live 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite alternate;
+  --animate-eq-bar: eq-bar 1s ease-in-out infinite;
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
@@ -54,6 +55,20 @@
   }
   to {
     opacity: 0.35;
+  }
+}
+
+/* Theme-song EQ bars — transform-only, applied only while actually playing
+   (DESIGN.md §5: motion tied to real state). Peak scales with the volume
+   slider via --eq-peak. The reduced-motion block below neutralizes it
+   (0.001ms x 1 iteration -> snaps back to each bar's static inline transform). */
+@keyframes eq-bar {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(var(--eq-peak, 1));
   }
 }
 
