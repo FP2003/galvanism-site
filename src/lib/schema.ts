@@ -234,6 +234,12 @@ export const characters = pgTable(
     // Spinning HeroForge mini GIF shown on the case file + roster, stored in
     // Vercel Blob — a single portrait per character, not a gallery.
     portraitUrl: text("portrait_url"),
+    // Canonical YouTube watch URL (https://www.youtube.com/watch?v=<id>) for the
+    // case-file theme-song player — normalized/validated in lib/youtube.ts.
+    themeSongUrl: text("theme_song_url"),
+    // Video title captured best-effort from YouTube oEmbed at save time; null if
+    // the lookup failed. Display-only.
+    themeSongTitle: text("theme_song_title"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
