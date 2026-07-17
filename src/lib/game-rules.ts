@@ -55,6 +55,8 @@ export const TEXT_LIMITS = {
   registryName: 64,
   registryDescription: 4000,
   registryGmNotes: 4000,
+  themeSongUrl: 200,
+  themeSongTitle: 120,
 } as const;
 
 // Mission briefing photo attachments — bounded gallery, not an open-ended

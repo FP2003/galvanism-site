@@ -16,6 +16,7 @@ import {
 } from "@/lib/ledger";
 import { effectiveResourceMaxes } from "@/lib/card-data";
 import { TEXT_LIMITS } from "@/lib/game-rules";
+import { extractYouTubeVideoId, canonicalYouTubeUrl, fetchYouTubeOEmbedTitle } from "@/lib/youtube";
 import { isWeaponSubcategory, isModCategory, type WeaponSlotName } from "@/lib/cards";
 import {
   WEAPON_SLOTS,
@@ -74,9 +75,39 @@ export async function updateBio(
 
   const bio = String(formData.get("bio") ?? "").trim().slice(0, TEXT_LIMITS.bio);
 
+  // Theme song only changes when the submitting form actually carries the
+  // field, so any other caller of this action can't silently clear it.
+  let themeSongUrl = auth.character.themeSongUrl;
+  let themeSongTitle = auth.character.themeSongTitle;
+  if (formData.has("themeSongUrl")) {
+    const raw = String(formData.get("themeSongUrl") ?? "")
+      .trim()
+      .slice(0, TEXT_LIMITS.themeSongUrl);
+    if (!raw) {
+      themeSongUrl = null;
+      themeSongTitle = null;
+    } else {
+      const videoId = extractYouTubeVideoId(raw);
+      if (!videoId) {
+        return { error: "Theme song must be a YouTube link (youtube.com or youtu.be)." };
+      }
+      themeSongUrl = canonicalYouTubeUrl(videoId);
+      if (themeSongUrl !== auth.character.themeSongUrl) {
+        const oembed = await fetchYouTubeOEmbedTitle(themeSongUrl);
+        if (!oembed.ok) {
+          return {
+            error:
+              "That video can't be embedded — it may be private, removed, or have embedding disabled.",
+          };
+        }
+        themeSongTitle = oembed.title;
+      }
+    }
+  }
+
   await auth.db
     .update(characters)
-    .set({ bio: bio || null, updatedAt: new Date() })
+    .set({ bio: bio || null, themeSongUrl, themeSongTitle, updatedAt: new Date() })
     .where(eq(characters.id, characterId));
 
   revalidateCharacterPaths(auth.character.slug, auth.character.playerId);

@@ -40,6 +40,8 @@ export interface CharacterView {
   credits: number;
   bio: string | null;
   portraitUrl: string | null;
+  themeSongUrl: string | null;
+  themeSongTitle: string | null;
 }
 
 export function toCharacterView(
@@ -76,6 +78,8 @@ export function toCharacterView(
     credits: player.credits,
     bio: c.bio,
     portraitUrl: c.portraitUrl,
+    themeSongUrl: c.themeSongUrl,
+    themeSongTitle: c.themeSongTitle,
   };
 }
 
