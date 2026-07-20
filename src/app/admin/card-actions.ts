@@ -9,6 +9,7 @@ import {
   cardEffects,
   characterCards,
   characters,
+  characterSlotOverrides,
   players,
   creditLedger,
   type NewCard,
@@ -35,6 +36,7 @@ import {
 } from "@/lib/cards";
 import { validateWeaponFields, validateModFields } from "@/lib/weapons";
 import { parseSignedInt, type Result } from "@/lib/ledger";
+import { SLOT_LIMITED_CATEGORIES, isSlotLimitedCategory } from "@/lib/card-slots";
 
 /*
  * Card CRUD + assignment (Phase 3, admin only). The structured effect builder is
@@ -148,6 +150,13 @@ export async function createCard(
     return { error: "Price must be a non-negative whole number." };
   }
 
+  // Only meaningful for slot-limited categories (see isSlotLimitedCategory) —
+  // item/mod cards never consume a slot regardless, so the field always
+  // reads as true for them even if a tampered client sends "no".
+  const takesSlot = isSlotLimitedCategory(categoryRaw)
+    ? textField(formData, "takesSlot") !== "no"
+    : true;
+
   const descriptiveText =
     textField(formData, "descriptiveText", CARD_TEXT_LIMITS.descriptiveText) ||
     null;
@@ -243,6 +252,7 @@ export async function createCard(
     level,
     colorOverride,
     priceCredits,
+    takesSlot,
     descriptiveText,
     subcategory,
     handedness,
@@ -337,6 +347,10 @@ export async function updateCard(
     return { error: "Price must be a non-negative whole number." };
   }
 
+  const takesSlot = isSlotLimitedCategory(categoryRaw)
+    ? textField(formData, "takesSlot") !== "no"
+    : true;
+
   const descriptiveText =
     textField(formData, "descriptiveText", CARD_TEXT_LIMITS.descriptiveText) ||
     null;
@@ -422,6 +436,7 @@ export async function updateCard(
     level,
     colorOverride,
     priceCredits,
+    takesSlot,
     descriptiveText,
     subcategory,
     handedness,
@@ -636,4 +651,51 @@ export async function detachMod(
     revalidatePath(`/roster/${ref.slug}`);
   }
   return { ok: true, message: "Mod detached and returned to inventory." };
+}
+
+// Admin's direct per-category bonus-slot override (Phase 8) — a straight
+// overwrite, additive on top of (never replacing) any slots the character
+// has separately bought via a facility slot-upgrade offering. One field per
+// slot-limited category; each is upserted individually (this codebase's
+// onConflictDoUpdate precedents — ballots/actions.ts, admin/mission-actions.ts
+// — are both single-row upserts, so 7 individual ones in one batch is the
+// safe, unambiguous choice over a bulk multi-row upsert with per-row values).
+export async function setCharacterSlotOverrides(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  await requireAdmin();
+  const characterId = textField(formData, "characterId");
+  if (!characterId) return { error: "Missing character reference." };
+
+  const bonuses: Record<string, number> = {};
+  for (const category of SLOT_LIMITED_CATEGORIES) {
+    const raw = textField(formData, `bonus_${category}`);
+    const n = raw === "" ? 0 : Number(raw);
+    if (!Number.isInteger(n) || n < 0) {
+      return { error: "Bonus slots must be whole numbers of 0 or more." };
+    }
+    bonuses[category] = n;
+  }
+
+  const ref = await characterRefs(characterId);
+  if (!ref) return { error: "Character not found." };
+
+  const db = getDb();
+  const statements = SLOT_LIMITED_CATEGORIES.map((category) =>
+    db
+      .insert(characterSlotOverrides)
+      .values({ characterId, category, bonus: bonuses[category] })
+      .onConflictDoUpdate({
+        target: [characterSlotOverrides.characterId, characterSlotOverrides.category],
+        set: { bonus: bonuses[category], updatedAt: new Date() },
+      }),
+  );
+  // SLOT_LIMITED_CATEGORIES is statically non-empty; db.batch requires a
+  // provably non-empty tuple type, which .map() can't produce on its own.
+  await db.batch(statements as [(typeof statements)[number], ...(typeof statements)[number][]]);
+
+  revalidatePath(`/admin/players/${ref.playerId}`);
+  revalidatePath(`/roster/${ref.slug}`);
+  return { ok: true, message: "Slot overrides updated." };
 }

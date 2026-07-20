@@ -61,6 +61,8 @@ export async function addXpOffering(_prev: FormState, formData: FormData): Promi
   const cost = intField(formData, "cost", 0);
   const currencyLabel = offeringCostCurrency(offeringType) === "xp" ? "XP" : "Credit";
   if (cost <= 0) return { error: `${currencyLabel} cost must be a whole number greater than zero.` };
+  const costIncrement = intField(formData, "costIncrement", 0);
+  if (costIncrement < 0) return { error: "Cost increment must be a whole number of 0 or more." };
   const minLevel = intField(formData, "minLevel", 1);
   if (minLevel < 1) return { error: "Min level must be 1 or more." };
 
@@ -79,6 +81,7 @@ export async function addXpOffering(_prev: FormState, formData: FormData): Promi
     targetKey,
     amount,
     cost,
+    costIncrement,
     minLevel,
   };
   await db.insert(facilityXpOfferings).values(values);
@@ -113,13 +116,25 @@ export async function updateXpOffering(_prev: FormState, formData: FormData): Pr
   const cost = intField(formData, "cost", 0);
   const currencyLabel = offeringCostCurrency(offeringType) === "xp" ? "XP" : "Credit";
   if (cost <= 0) return { error: `${currencyLabel} cost must be a whole number greater than zero.` };
+  const costIncrement = intField(formData, "costIncrement", 0);
+  if (costIncrement < 0) return { error: "Cost increment must be a whole number of 0 or more." };
   const minLevel = intField(formData, "minLevel", 1);
   if (minLevel < 1) return { error: "Min level must be 1 or more." };
 
   const db = getDb();
   const [updated] = await db
     .update(facilityXpOfferings)
-    .set({ name, description, offeringType, targetKey, amount, cost, minLevel, updatedAt: new Date() })
+    .set({
+      name,
+      description,
+      offeringType,
+      targetKey,
+      amount,
+      cost,
+      costIncrement,
+      minLevel,
+      updatedAt: new Date(),
+    })
     .where(eq(facilityXpOfferings.id, offeringId))
     .returning({ facilityId: facilityXpOfferings.facilityId });
   if (!updated) return { error: "Offering not found." };

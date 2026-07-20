@@ -36,6 +36,7 @@ import {
 } from "@/lib/cards";
 import { createCard, updateCard, type FormState } from "@/app/admin/card-actions";
 import type { CardWithEffects } from "@/lib/schema";
+import { isSlotLimitedCategory } from "@/lib/card-slots";
 
 const TRIGGERS = ["on_equip", "on_use", "passive"] as const;
 const WEAPON_HANDEDNESS = ["one_handed", "two_handed"] as const;
@@ -217,6 +218,23 @@ export function CardForm({
                         {ITEM_SUBCATEGORY_META[s].label}
                       </option>
                     ))}
+                  </Select>
+                )}
+              </Field>
+            )}
+            {isSlotLimitedCategory(category) && (
+              <Field
+                label="Ability slot"
+                hint="Whether equipping this card spends ability-card slots."
+              >
+                {(id) => (
+                  <Select
+                    id={id}
+                    name="takesSlot"
+                    defaultValue={(card?.takesSlot ?? true) ? "yes" : "no"}
+                  >
+                    <option value="yes">Counts toward slot</option>
+                    <option value="no">Free (no slot cost)</option>
                   </Select>
                 )}
               </Field>

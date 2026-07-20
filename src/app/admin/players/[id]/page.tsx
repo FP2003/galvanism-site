@@ -10,13 +10,15 @@ import { getDb } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
 import { players, creditLedger, xpLedger } from "@/lib/schema";
 import { toCharacterView } from "@/lib/characters";
-import { getCardLibrary, getCharacterCards } from "@/lib/card-data";
+import { getCardLibrary, getCharacterCards, getCharacterSlotBonuses } from "@/lib/card-data";
 import { getRefundableRefCodes, getCharacterPerkContributions } from "@/lib/facility-data";
+import { emptySlotCountMap } from "@/lib/card-slots";
 import { PlayerForm } from "./player-form";
 import { CreditForm } from "./credit-form";
 import { XpForm } from "./xp-form";
 import { CharacterForm } from "./character-form";
 import { CardAssignment } from "./card-assignment";
+import { SlotOverrideForm } from "./slot-override-form";
 import { PerkPurchases } from "./perk-purchases";
 import { DeleteAccount } from "./delete-account";
 import { MissionPayoutForm } from "./mission-payout-form";
@@ -59,13 +61,14 @@ export default async function AdminPlayerPage({
     : [];
 
   // Card inventory + the shared library, only when there's a character to hold them.
-  const [cardLibrary, ownedCards, perkPurchases] = player.character
+  const [cardLibrary, ownedCards, perkPurchases, slotBonuses] = player.character
     ? await Promise.all([
         getCardLibrary(),
         getCharacterCards(player.character.id),
         getCharacterPerkContributions(player.character.id),
+        getCharacterSlotBonuses(player.character.id),
       ])
-    : [[], [], []];
+    : [[], [], [], { purchased: emptySlotCountMap(), override: emptySlotCountMap(), total: emptySlotCountMap() }];
   // Cards/perks with an unrefunded facility purchase (vs. admin-assigned for
   // free) — feeds the Refund buttons in CardAssignment/PerkPurchases below.
   const refundableRefCodes = await getRefundableRefCodes(player.id);
@@ -174,10 +177,15 @@ export default async function AdminPlayerPage({
             <Panel
               title="Card Loadout"
               meta={
-                <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
-                  {ownedCards.filter((o) => o.equipped).length} equipped ·{" "}
-                  {ownedCards.length} held
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="font-[family-name:var(--font-jetbrains)] text-[0.625rem] uppercase text-muted-ink">
+                    {ownedCards.filter((o) => o.equipped).length} equipped ·{" "}
+                    {ownedCards.length} held
+                  </span>
+                  <FormDialogTrigger label="Slot Overrides" title="Ability Slot Overrides">
+                    <SlotOverrideForm characterId={characterView.id} override={slotBonuses.override} />
+                  </FormDialogTrigger>
+                </div>
               }
             >
               <CardAssignment
@@ -185,6 +193,7 @@ export default async function AdminPlayerPage({
                 library={cardLibrary}
                 owned={ownedCards}
                 refundableCardIds={refundableRefCodes}
+                bonusByCategory={slotBonuses.total}
               />
             </Panel>
           )}

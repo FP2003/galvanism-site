@@ -24,6 +24,15 @@ import {
 import { setCardEquipped, setWeaponSlot, type SheetState } from "@/app/roster/actions";
 import { WEAPON_SLOTS, WEAPON_SLOT_META, isSlotLegalFor } from "@/lib/weapons";
 import type { WeaponSlotName } from "@/lib/cards";
+import {
+  SLOT_LIMITED_CATEGORIES,
+  isSlotLimitedCategory,
+  tallyEquippedByCategory,
+  canEquipInCategory,
+  categorySlotUsage,
+  sharedPoolRemaining,
+  type SlotCountMap,
+} from "@/lib/card-slots";
 
 /*
  * Admin card assignment (Phase 3). Attaches library cards to one character's
@@ -35,11 +44,13 @@ export function CardAssignment({
   library,
   owned,
   refundableCardIds,
+  bonusByCategory,
 }: {
   characterId: string;
   library: Card[];
   owned: OwnedCard[];
   refundableCardIds: Set<string>;
+  bonusByCategory: SlotCountMap;
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(
     assignCard,
@@ -48,6 +59,7 @@ export function CardAssignment({
 
   const ownedIds = new Set(owned.map((o) => o.card.id));
   const assignable = library.filter((c) => !ownedIds.has(c.id));
+  const equippedByCategory = tallyEquippedByCategory(owned);
 
   return (
     <div className="flex flex-col gap-5">
@@ -84,6 +96,8 @@ export function CardAssignment({
         </form>
       )}
 
+      <SlotUsage owned={owned} equippedByCategory={equippedByCategory} bonusByCategory={bonusByCategory} />
+
       {owned.length > 0 &&
         (() => {
           const { weapons, mods, rest } = partitionByWeapon(owned);
@@ -115,11 +129,66 @@ export function CardAssignment({
                   characterId={characterId}
                   owned={o}
                   refundable={refundableCardIds.has(o.card.id)}
+                  disabled={
+                    !o.equipped &&
+                    !canEquipInCategory(
+                      o.card.category,
+                      equippedByCategory,
+                      bonusByCategory,
+                      o.card.takesSlot,
+                    )
+                  }
                 />
               ))}
             </ul>
           );
         })()}
+    </div>
+  );
+}
+
+// Mirrors roster/[slug]/loadout.tsx's SlotUsage readout for the admin view —
+// kept as a separate component rather than a shared import, same convention
+// as WeaponRow/ModRow vs. the player-facing WeaponSlots/ModsSection (parallel
+// admin/player row implementations rather than cross-surface sharing).
+function SlotUsage({
+  owned,
+  equippedByCategory,
+  bonusByCategory,
+}: {
+  owned: OwnedCard[];
+  equippedByCategory: SlotCountMap;
+  bonusByCategory: SlotCountMap;
+}) {
+  const ownedCategories = new Set(
+    owned.filter((o) => isSlotLimitedCategory(o.card.category)).map((o) => o.card.category),
+  );
+  const visible = SLOT_LIMITED_CATEGORIES.filter(
+    (c) => ownedCategories.has(c) || bonusByCategory[c] > 0,
+  );
+  if (visible.length === 0) return null;
+
+  const usage = categorySlotUsage(equippedByCategory, bonusByCategory).filter((u) =>
+    visible.includes(u.category),
+  );
+  const remaining = sharedPoolRemaining(equippedByCategory, bonusByCategory);
+
+  return (
+    <div className="border border-elevated-ledger px-3 py-2">
+      <p className="font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+        Ability slots — shared pool: {remaining} of 3 free
+      </p>
+      <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+        {usage.map((u) => (
+          <li
+            key={u.category}
+            className="font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink"
+          >
+            {CARD_CATEGORY_META[u.category].label}: {u.used}/{u.cap}
+            {u.bonus > 0 ? ` (+${u.bonus})` : ""}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -326,10 +395,12 @@ function OwnedRow({
   characterId,
   owned,
   refundable,
+  disabled,
 }: {
   characterId: string;
   owned: OwnedCard;
   refundable: boolean;
+  disabled: boolean;
 }) {
   const [, equipAction] = useActionState<SheetState, FormData>(
     setCardEquipped,
@@ -366,7 +437,11 @@ function OwnedRow({
         <input type="hidden" name="characterId" value={characterId} />
         <input type="hidden" name="assignmentId" value={owned.assignmentId} />
         <input type="hidden" name="equipped" value={String(!owned.equipped)} />
-        <EquipToggleButton equipped={owned.equipped} />
+        <EquipToggleButton
+          equipped={owned.equipped}
+          disabled={disabled}
+          title={disabled ? "No free slot for this card's category." : undefined}
+        />
       </form>
 
       {refundable && <RefundIconButton assignmentId={owned.assignmentId} title={card.title} />}

@@ -26,6 +26,7 @@ const TYPE_LABELS: Record<XpOfferingType, string> = {
   stat_bump: "Stat bump",
   resource_refill: "Resource refill",
   descriptive: "Descriptive",
+  slot_upgrade: "Slot upgrade",
 };
 
 // Admin training/refill catalog for one facility (Phase 6 Step 2) — a
@@ -50,9 +51,13 @@ export function FacilityXpOfferings({
         A stat bump is priced in Currency XP; a resource refill is priced in
         Credits. A descriptive offering is also priced in Currency XP but has
         no target or amount — it&apos;s a flat XP charge for something you
-        apply by hand (e.g. a Tech Slot Upgrade). An offering with a Min Level
-        above this facility&apos;s current level ({facilityLevel}) stays
-        hidden from players until the facility is leveled up to match.
+        apply by hand. A slot upgrade is priced in Currency XP and grants a
+        real, reserved ability-card equip slot for the chosen card category
+        (e.g. Tech) — each character can buy it repeatedly, and Cost Increment
+        raises that character&apos;s own next price by that amount every time
+        they do. An offering with a Min Level above this facility&apos;s
+        current level ({facilityLevel}) stays hidden from players until the
+        facility is leveled up to match.
       </p>
       {offerings.length === 0 ? (
         <p className="font-[family-name:var(--font-inter)] text-xs text-muted-ink">
@@ -84,6 +89,7 @@ function OfferingFields({ offering }: { offering?: FacilityXpOffering }) {
   const targets = offeringTargetsFor(offeringType);
   const currency = offeringCostCurrency(offeringType);
   const isDescriptive = offeringType === "descriptive";
+  const isSlotUpgrade = offeringType === "slot_upgrade";
 
   return (
     <>
@@ -127,7 +133,11 @@ function OfferingFields({ offering }: { offering?: FacilityXpOffering }) {
           </Select>
         )}
       </div>
-      <div className={`grid gap-2 ${isDescriptive ? "grid-cols-2" : "grid-cols-3"}`}>
+      <div
+        className={`grid gap-2 ${
+          isDescriptive ? "grid-cols-2" : isSlotUpgrade ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"
+        }`}
+      >
         {!isDescriptive && (
           <div className="flex flex-col gap-1">
             <span className={fieldLabelClass}>Amount</span>
@@ -152,6 +162,19 @@ function OfferingFields({ offering }: { offering?: FacilityXpOffering }) {
             defaultValue={offering?.cost ?? (currency === "xp" ? 50 : 100)}
           />
         </div>
+        {isSlotUpgrade && (
+          <div className="flex flex-col gap-1">
+            <span className={fieldLabelClass}>Cost Increment</span>
+            <TextInput
+              name="costIncrement"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              aria-label="Cost increment"
+              defaultValue={offering?.costIncrement ?? 0}
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-1">
           <span className={fieldLabelClass}>Min Level</span>
           <TextInput
@@ -201,7 +224,11 @@ function OfferingRow({ offering }: { offering: FacilityXpOffering }) {
         <p className="truncate font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
           {offering.offeringType === "descriptive"
             ? `${offering.cost} ${currencyLabel} · Min Lv ${offering.minLevel}`
-            : `+${offering.amount} ${label} · ${offering.cost} ${currencyLabel} · Min Lv ${offering.minLevel}`}
+            : offering.offeringType === "slot_upgrade"
+              ? `+${offering.amount} ${label} slot(s) · ${offering.cost} ${currencyLabel} base` +
+                (offering.costIncrement > 0 ? ` (+${offering.costIncrement}/purchase)` : "") +
+                ` · Min Lv ${offering.minLevel}`
+              : `+${offering.amount} ${label} · ${offering.cost} ${currencyLabel} · Min Lv ${offering.minLevel}`}
         </p>
       </div>
       <button
