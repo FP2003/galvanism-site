@@ -11,7 +11,7 @@ import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
 import { getFacility, getPerkContributionPools, getSlotPurchaseCounts } from "@/lib/facility-data";
 import { getCharacterCards } from "@/lib/card-data";
-import { facilityListingState } from "@/lib/facilities";
+import { facilityListingRemaining } from "@/lib/facilities";
 import { nextSlotUpgradeCost } from "@/lib/card-slots";
 import { ListingCard } from "./listing-card";
 import { XpOfferingRow } from "./xp-offering-row";
@@ -71,12 +71,14 @@ export default async function FacilityDetailPage({
   const player = viewer?.kind === "approved" ? viewer.player : null;
   const character = viewer?.kind === "approved" ? viewer.character : null;
 
-  // Claimed stock remains on the shelf: its buyer sees Owned (and can expose
-  // the same-page refund), while other players see Bought until rotation.
+  // Claimed stock remains on the shelf: a buyer sees their own claim as
+  // Owned (and can expose the same-page refund), while other players see
+  // reduced remaining stock, down to Sold Out once every unit is claimed.
   const listings = facility.listings.filter((l) => l.card.priceCredits != null);
-  const availableListingCount = facility.listings.filter(
-    (l) => l.card.priceCredits != null && l.purchasedByCharacterId == null,
-  ).length;
+  const availableListingCount = listings.reduce(
+    (sum, l) => sum + facilityListingRemaining(l.quantityTotal, l.quantitySold),
+    0,
+  );
   const hasShop = facility.listings.length > 0 || facility.restockRules.length > 0;
   const availableOfferings = facility.xpOfferings.filter(
     (o) => o.active && facility.level >= o.minLevel,
@@ -205,17 +207,9 @@ export default async function FacilityDetailPage({
                           listingId={listing.id}
                           card={listing.card}
                           priceCredits={listing.card.priceCredits!}
-                          alreadyOwned={
-                            ownedCardIds.has(listing.cardId) ||
-                            listing.purchasedByCharacterId === character?.id
-                          }
-                          alreadyBought={
-                            !isAdmin &&
-                            facilityListingState(
-                              listing.purchasedByCharacterId,
-                              character!.id,
-                            ) === "bought"
-                          }
+                          alreadyOwned={ownedCardIds.has(listing.cardId)}
+                          remaining={facilityListingRemaining(listing.quantityTotal, listing.quantitySold)}
+                          quantityTotal={listing.quantityTotal}
                           canAfford={player ? player.credits >= listing.card.priceCredits! : false}
                           previewOnly={isAdmin}
                         />

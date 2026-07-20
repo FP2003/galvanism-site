@@ -6,6 +6,7 @@ import { ShoppingCart, Check, Undo2 } from "lucide-react";
 import { GameCard } from "@/components/cards/game-card";
 import { FormMessage } from "@/components/ui/form";
 import { purchaseListing, refundListing, type FormState } from "./purchase-actions";
+import { facilityListingState } from "@/lib/facilities";
 import type { CardWithEffects } from "@/lib/schema";
 
 // One facility listing (Phase 6, absorbing Phase 4's shop listing). Price +
@@ -18,7 +19,8 @@ export function ListingCard({
   card,
   priceCredits,
   alreadyOwned,
-  alreadyBought,
+  remaining,
+  quantityTotal,
   canAfford,
   previewOnly,
 }: {
@@ -26,7 +28,8 @@ export function ListingCard({
   card: CardWithEffects;
   priceCredits: number;
   alreadyOwned: boolean;
-  alreadyBought: boolean;
+  remaining: number;
+  quantityTotal: number;
   canAfford: boolean;
   previewOnly?: boolean;
 }) {
@@ -38,6 +41,7 @@ export function ListingCard({
   // reappear once you've left the page. The server action re-checks its own
   // grace period too; this is just the matching client-side gate.
   const justBought = buyState.ok === true;
+  const state = facilityListingState(remaining, alreadyOwned);
 
   return (
     <div className="flex flex-col gap-2">
@@ -47,6 +51,11 @@ export function ListingCard({
           {priceCredits.toLocaleString()}
           <span className="ml-0.5 text-[0.5625rem] uppercase text-muted-ink">Cr</span>
         </span>
+        {quantityTotal > 1 && (
+          <span className="absolute bottom-1.5 left-2 z-10 font-[family-name:var(--font-jetbrains)] text-[0.625rem] font-bold text-muted-ink">
+            {Math.max(remaining, 0)}/{quantityTotal} left
+          </span>
+        )}
       </div>
       {previewOnly ? (
         <button
@@ -68,11 +77,7 @@ export function ListingCard({
         <>
           <form action={buyAction}>
             <input type="hidden" name="listingId" value={listingId} />
-            <BuyButton
-              alreadyOwned={alreadyOwned}
-              alreadyBought={alreadyBought}
-              canAfford={canAfford}
-            />
+            <BuyButton state={state} canAfford={canAfford} />
           </form>
           <FormMessage state={buyState} />
         </>
@@ -82,21 +87,20 @@ export function ListingCard({
 }
 
 function BuyButton({
-  alreadyOwned,
-  alreadyBought,
+  state,
   canAfford,
 }: {
-  alreadyOwned: boolean;
-  alreadyBought: boolean;
+  state: ReturnType<typeof facilityListingState>;
   canAfford: boolean;
 }) {
   const { pending } = useFormStatus();
-  const disabled = pending || alreadyOwned || alreadyBought || !canAfford;
-  const stateClasses = alreadyOwned
-    ? "border-signal-cyan bg-signal-cyan/10 text-signal-cyan"
-    : alreadyBought
-      ? "border-elevated-ledger bg-elevated-ledger/40 text-muted-ink"
-      : "border-steel-blue text-signal-cyan hover:bg-elevated-ledger hover:text-live-cyan disabled:border-elevated-ledger disabled:text-muted-ink";
+  const disabled = pending || state !== "available" || !canAfford;
+  const stateClasses =
+    state === "owned"
+      ? "border-signal-cyan bg-signal-cyan/10 text-signal-cyan"
+      : state === "sold_out"
+        ? "border-elevated-ledger bg-elevated-ledger/40 text-muted-ink"
+        : "border-steel-blue text-signal-cyan hover:bg-elevated-ledger hover:text-live-cyan disabled:border-elevated-ledger disabled:text-muted-ink";
 
   return (
     <button
@@ -104,13 +108,13 @@ function BuyButton({
       disabled={disabled}
       className={`flex w-full items-center justify-center gap-1.5 border px-3 py-2 font-[family-name:var(--font-chakra)] text-xs font-semibold uppercase tracking-[0.08em] transition-colors disabled:cursor-not-allowed pointer-coarse:min-h-11 ${stateClasses}`}
     >
-      {alreadyOwned ? (
+      {state === "owned" ? (
         <>
           <Check size={13} aria-hidden="true" /> Owned
         </>
-      ) : alreadyBought ? (
+      ) : state === "sold_out" ? (
         <>
-          <Check size={13} aria-hidden="true" /> Bought
+          <Check size={13} aria-hidden="true" /> Sold Out
         </>
       ) : (
         <>

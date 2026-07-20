@@ -7,6 +7,7 @@ import { getDb } from "@/lib/db";
 import {
   facilities,
   facilityListings,
+  facilityListingPurchases,
   facilityXpOfferings,
   facilityPerks,
   facilityPerkContributions,
@@ -34,6 +35,7 @@ import {
   applyPerkContribution,
   isPerkFunded,
   isCardLevelUnlocked,
+  facilityListingRemaining,
 } from "@/lib/facilities";
 
 export type FormState = { ok?: boolean; error?: string; message?: string };
@@ -50,12 +52,15 @@ function textField(formData: FormData, key: string): string {
 const SELF_REFUND_WINDOW_MS = 15 * 60 * 1000;
 
 // Instant facility purchase (Phase 6, absorbing Phase 4's requisitions
-// purchase, no DM-approval step): atomically claims this appearance of the
-// listing, debits the buyer, appends a credit-ledger row, and grants the card
-// unequipped. The data-modifying CTEs all depend on the listing claim, and the
-// final guard deliberately fails the statement unless every mutation landed;
-// this makes two simultaneous buyers race on one conditional UPDATE, with
-// exactly one winner and no partial charge. A restock clears the claim.
+// purchase, no DM-approval step): atomically claims one unit of this
+// listing's stock, debits the buyer, appends a credit-ledger row, and grants
+// the card unequipped. The data-modifying CTEs all depend on the stock claim,
+// and the final guard deliberately fails the statement unless every mutation
+// landed — this makes two simultaneous buyers racing for the last unit race
+// on one guarded UPDATE (`quantity_sold < quantity_total` against the same
+// row), with exactly one winner and no partial charge, same mechanism the
+// old single-buyer claim used against `purchased_by_character_id is null`.
+// A restock (or a self-serve refund) frees claimed units back up.
 export async function purchaseListing(
   _prev: FormState,
   formData: FormData,
@@ -92,7 +97,7 @@ export async function purchaseListing(
     ),
   });
   if (already) return { error: "You already own this item." };
-  if (listing.purchasedByCharacterId) {
+  if (facilityListingRemaining(listing.quantityTotal, listing.quantitySold) <= 0) {
     return { error: "This item is no longer in stock. It may return in a future rotation." };
   }
 
@@ -104,22 +109,26 @@ export async function purchaseListing(
     await db.execute(sql`
       with claimed as (
         update facility_listings
-        set purchased_by_character_id = ${character.id}, purchased_at = now()
+        set quantity_sold = quantity_sold + 1
         where id = ${listing.id}
           and card_id = ${listing.cardId}
-          and purchased_by_character_id is null
-        returning card_id
+          and quantity_sold < quantity_total
+        returning id
+      ), recorded as (
+        insert into facility_listing_purchases (listing_id, character_id)
+        select ${listing.id}, ${character.id}
+        from claimed
+        returning id
       ), debited as (
         update players
         set credits = credits - ${listing.card.priceCredits}, updated_at = now()
         where id = ${player.id}
           and credits >= ${listing.card.priceCredits}
-          and exists (select 1 from claimed)
+          and exists (select 1 from recorded)
         returning credits
       ), granted as (
         insert into character_cards (character_id, card_id, equipped)
-        select ${character.id}, claimed.card_id, false
-        from claimed
+        select ${character.id}, ${listing.cardId}, false
         where exists (select 1 from debited)
         returning id
       ), ledgered as (
@@ -202,7 +211,16 @@ export async function refundListing(
     ),
   });
   if (!owned) return { error: "You don't own this item." };
-  if (listing.purchasedByCharacterId !== character.id) {
+  // The same card can be listed at more than one facility at once, so
+  // owning the card alone doesn't say it came from *this* listing — confirm
+  // this character actually holds a claimed unit here before releasing it.
+  const claim = await db.query.facilityListingPurchases.findFirst({
+    where: and(
+      eq(facilityListingPurchases.listingId, listing.id),
+      eq(facilityListingPurchases.characterId, character.id),
+    ),
+  });
+  if (!claim) {
     return { error: "This listing has already changed and can no longer be refunded here." };
   }
   if (Date.now() - owned.acquiredAt.getTime() > SELF_REFUND_WINDOW_MS) {
@@ -217,15 +235,17 @@ export async function refundListing(
     const description = `Refund: ${listing.card.title} (${listing.facility.name})`;
     await db.execute(sql`
       with released as (
+        delete from facility_listing_purchases
+        where listing_id = ${listing.id} and character_id = ${character.id}
+        returning id
+      ), unclaimed as (
         update facility_listings
-        set purchased_by_character_id = null, purchased_at = null
-        where id = ${listing.id}
-          and card_id = ${listing.cardId}
-          and purchased_by_character_id = ${character.id}
+        set quantity_sold = quantity_sold - 1
+        where id = ${listing.id} and quantity_sold > 0 and exists (select 1 from released)
         returning id
       ), removed as (
         delete from character_cards
-        where id = ${owned.id} and exists (select 1 from released)
+        where id = ${owned.id} and exists (select 1 from unclaimed)
         returning id
       ), credited as (
         update players
