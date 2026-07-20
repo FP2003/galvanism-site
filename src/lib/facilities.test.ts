@@ -4,6 +4,7 @@ import {
   applyPerkContribution,
   isPerkFunded,
   facilityListingState,
+  facilityListingRemaining,
   pickWeightedRule,
   pickRandomCard,
   pickRandomCards,
@@ -92,17 +93,27 @@ describe("isPerkFunded", () => {
   });
 });
 
+describe("facilityListingRemaining", () => {
+  it("subtracts purchases from total stock", () => {
+    expect(facilityListingRemaining(3, 1)).toBe(2);
+  });
+
+  it("never goes negative", () => {
+    expect(facilityListingRemaining(3, 5)).toBe(0);
+  });
+});
+
 describe("facilityListingState", () => {
   it("makes unclaimed stock available", () => {
-    expect(facilityListingState(null, "character-a")).toBe("available");
+    expect(facilityListingState(3, false)).toBe("available");
   });
 
-  it("shows a claimed listing as owned to its buyer", () => {
-    expect(facilityListingState("character-a", "character-a")).toBe("owned");
+  it("shows a claimed unit as owned to its buyer regardless of remaining stock", () => {
+    expect(facilityListingState(2, true)).toBe("owned");
   });
 
-  it("shows a claimed listing as bought to another player", () => {
-    expect(facilityListingState("character-a", "character-b")).toBe("bought");
+  it("shows sold out once no units remain and the viewer doesn't own one", () => {
+    expect(facilityListingState(0, false)).toBe("sold_out");
   });
 });
 

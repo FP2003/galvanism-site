@@ -3,6 +3,7 @@ import { getDb } from "./db";
 import {
   facilities,
   facilityListings,
+  facilityListingPurchases,
   facilityRestockRules,
   facilityXpOfferings,
   facilityPerks,
@@ -361,14 +362,15 @@ export async function restockFacility(facilityId: string): Promise<RestockOutcom
     try {
       const existingRow = existingBySlot.get(slot.slotIndex);
       if (existingRow) {
+        // The slot's card is changing, so any claims on its old card are
+        // stale — clear them so the newly rolled card starts fully in stock
+        // (rotation listings always keep quantityTotal at its default of 1).
+        await db
+          .delete(facilityListingPurchases)
+          .where(eq(facilityListingPurchases.listingId, existingRow.id));
         await db
           .update(facilityListings)
-          .set({
-            cardId: slot.cardId,
-            purchasedByCharacterId: null,
-            purchasedAt: null,
-            addedAt: new Date(),
-          })
+          .set({ cardId: slot.cardId, quantitySold: 0, addedAt: new Date() })
           .where(eq(facilityListings.id, existingRow.id));
       } else {
         const row: NewFacilityListing = {

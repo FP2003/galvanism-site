@@ -54,19 +54,26 @@ export function isPerkFunded(totalContributed: number, priceCredits: number): bo
   return totalContributed >= priceCredits;
 }
 
-export type FacilityListingState = "available" | "owned" | "bought";
+export type FacilityListingState = "available" | "owned" | "sold_out";
 
-/**
- * Player-facing state for one appearance of a card in facility stock. The
- * buyer sees their claimed listing as Owned; everyone else sees it as Bought
- * until restock clears `purchasedByCharacterId`.
- */
+/** How many units of a listing's stock are still unclaimed. Never negative,
+ *  even if a listing's quantityTotal was lowered below its purchase count
+ *  (updateListingQuantity guards against that going forward, but this stays
+ *  defensive for any row that predates the guard). */
+export function facilityListingRemaining(quantityTotal: number, purchaseCount: number): number {
+  return Math.max(0, quantityTotal - purchaseCount);
+}
+
+/** Player-facing state for one listing. The buyer sees their own claimed
+ *  unit as Owned; everyone else sees Available while stock remains, or Sold
+ *  Out once every unit is claimed — a restock (or a self-serve refund)
+ *  frees units back up. */
 export function facilityListingState(
-  purchasedByCharacterId: string | null,
-  viewerCharacterId: string,
+  remaining: number,
+  alreadyOwned: boolean,
 ): FacilityListingState {
-  if (purchasedByCharacterId == null) return "available";
-  return purchasedByCharacterId === viewerCharacterId ? "owned" : "bought";
+  if (alreadyOwned) return "owned";
+  return remaining > 0 ? "available" : "sold_out";
 }
 
 export interface RestockRule {
