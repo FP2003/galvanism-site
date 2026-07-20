@@ -295,16 +295,30 @@ describe("offeringTargetsFor / isValidOfferingTarget", () => {
     expect(offeringTargetsFor("descriptive")).toEqual([]);
   });
 
+  it("lists the slot-limited card categories for slot_upgrade", () => {
+    expect(offeringTargetsFor("slot_upgrade").map((t) => t.key)).toEqual([
+      "combat",
+      "defense",
+      "mod",
+      "movement",
+      "resilience",
+      "tech",
+      "ability",
+    ]);
+  });
+
   it("accepts a target that matches its offering type", () => {
     expect(isValidOfferingTarget("stat_bump", "statTech")).toBe(true);
     expect(isValidOfferingTarget("resource_refill", "hpCurrent")).toBe(true);
     expect(isValidOfferingTarget("descriptive", "")).toBe(true);
+    expect(isValidOfferingTarget("slot_upgrade", "tech")).toBe(true);
   });
 
   it("rejects a target from the other offering type", () => {
     expect(isValidOfferingTarget("stat_bump", "hpCurrent")).toBe(false);
     expect(isValidOfferingTarget("resource_refill", "statTech")).toBe(false);
     expect(isValidOfferingTarget("descriptive", "statTech")).toBe(false);
+    expect(isValidOfferingTarget("slot_upgrade", "item")).toBe(false);
   });
 
   it("falls back to the raw key when a label isn't found", () => {
@@ -328,6 +342,10 @@ describe("offeringCostCurrency", () => {
 
   it("charges XP for a descriptive offering", () => {
     expect(offeringCostCurrency("descriptive")).toBe("xp");
+  });
+
+  it("charges XP for a slot upgrade", () => {
+    expect(offeringCostCurrency("slot_upgrade")).toBe("xp");
   });
 });
 

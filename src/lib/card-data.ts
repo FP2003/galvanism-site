@@ -5,6 +5,8 @@ import {
   cardEffects,
   characterCards,
   characters,
+  characterSlotPurchases,
+  characterSlotOverrides,
   type CardWithEffects,
 } from "./schema";
 import type { CharacterView } from "./characters";
@@ -19,6 +21,8 @@ import {
 } from "./cards";
 import type { WeaponSlotName } from "./cards";
 import { agilityMovementBonus, clampResource, movementMeters, resilienceHpBonus } from "./ledger";
+import { emptySlotCountMap, mergeSlotCountMaps, isSlotLimitedCategory } from "./card-slots";
+import type { SlotCountMap } from "./card-slots";
 
 /*
  * Card read model (Phase 3). DB access + the character loadout projection. The
@@ -384,4 +388,44 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     activeModifiers,
     descriptiveEffects,
   };
+}
+
+export interface SlotBonusBreakdown {
+  purchased: SlotCountMap;
+  override: SlotCountMap;
+  total: SlotCountMap;
+}
+
+/**
+ * A character's ability-card slot bonuses (Phase 8): slots banked via
+ * facility slot-upgrade purchases (characterSlotPurchases) plus any admin
+ * manual override (characterSlotOverrides), summed separately so callers can
+ * tell them apart — `.override` alone seeds the admin override form (it must
+ * not include purchased slots, or an edit would double-count them), while
+ * `.total` (the additive merge of both) feeds the equip-capacity check and
+ * every slot-usage display.
+ */
+export async function getCharacterSlotBonuses(characterId: string): Promise<SlotBonusBreakdown> {
+  const db = getDb();
+  const [purchaseRows, overrideRows] = await Promise.all([
+    db.query.characterSlotPurchases.findMany({
+      where: eq(characterSlotPurchases.characterId, characterId),
+      columns: { category: true, slotsGranted: true },
+    }),
+    db.query.characterSlotOverrides.findMany({
+      where: eq(characterSlotOverrides.characterId, characterId),
+      columns: { category: true, bonus: true },
+    }),
+  ]);
+
+  const purchased = emptySlotCountMap();
+  for (const r of purchaseRows) {
+    if (isSlotLimitedCategory(r.category)) purchased[r.category] += r.slotsGranted;
+  }
+  const override = emptySlotCountMap();
+  for (const r of overrideRows) {
+    if (isSlotLimitedCategory(r.category)) override[r.category] += r.bonus;
+  }
+
+  return { purchased, override, total: mergeSlotCountMaps(purchased, override) };
 }

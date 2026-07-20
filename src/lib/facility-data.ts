@@ -8,6 +8,7 @@ import {
   facilityPerks,
   facilityPerkContributions,
   facilityOngoingEntries,
+  characterSlotPurchases,
   creditLedger,
   cards,
   cardEffects,
@@ -115,6 +116,34 @@ export async function getPerkContributionPools(perkIds: string[]): Promise<Map<s
       .sort((a, b) => b.amount - a.amount);
   }
   return pools;
+}
+
+/** How many times this character has already bought each of the given
+ *  slot_upgrade offerings — feeds nextSlotUpgradeCost (lib/card-slots.ts) so
+ *  the facility page can display and charge this character's actual next
+ *  price, not the offering's flat base cost. Always returns an entry for
+ *  every requested id, even one with zero prior purchases, same convention
+ *  as getPerkContributionPools. */
+export async function getSlotPurchaseCounts(
+  characterId: string,
+  offeringIds: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>(offeringIds.map((id) => [id, 0]));
+  if (offeringIds.length === 0) return counts;
+
+  const db = getDb();
+  const rows = await db.query.characterSlotPurchases.findMany({
+    where: and(
+      eq(characterSlotPurchases.characterId, characterId),
+      inArray(characterSlotPurchases.offeringId, offeringIds),
+    ),
+    columns: { offeringId: true },
+  });
+  for (const r of rows) {
+    if (!r.offeringId) continue;
+    counts.set(r.offeringId, (counts.get(r.offeringId) ?? 0) + 1);
+  }
+  return counts;
 }
 
 /** Every refCode for this player whose most recent credit_ledger row is still
