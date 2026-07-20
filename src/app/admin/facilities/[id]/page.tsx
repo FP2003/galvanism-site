@@ -80,6 +80,18 @@ export default async function AdminFacilityDetailPage({
             <Panel title="Ongoing">
               <FacilityOngoing facilityId={facility.id} entries={facility.ongoingEntries} />
             </Panel>
+
+            <Panel title="XP Offerings">
+              <FacilityXpOfferings
+                facilityId={facility.id}
+                facilityLevel={facility.level}
+                offerings={facility.xpOfferings}
+              />
+            </Panel>
+
+            <Panel title="Perks">
+              <FacilityPerks facilityId={facility.id} facilityLevel={facility.level} perks={facility.perks} />
+            </Panel>
           </div>
 
           <div className="flex flex-col gap-6">
@@ -118,18 +130,6 @@ export default async function AdminFacilityDetailPage({
 
             <Panel title="Restock Rules">
               <RestockRules facilityId={facility.id} facilityLevel={facility.level} rules={facility.restockRules} />
-            </Panel>
-
-            <Panel title="XP Offerings">
-              <FacilityXpOfferings
-                facilityId={facility.id}
-                facilityLevel={facility.level}
-                offerings={facility.xpOfferings}
-              />
-            </Panel>
-
-            <Panel title="Perks">
-              <FacilityPerks facilityId={facility.id} facilityLevel={facility.level} perks={facility.perks} />
             </Panel>
           </div>
         </div>
