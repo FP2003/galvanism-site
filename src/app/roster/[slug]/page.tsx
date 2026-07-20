@@ -206,7 +206,7 @@ export default async function CaseFilePage({
                   energy={loadout.resources.energy}
                   ammo={loadout.resources.ammo}
                   energyRegen={op.energyRegen}
-                  movementBase={op.movementBase + agilityMovementBonus(op.stats.agility)}
+                  movementBase={op.movementBase + agilityMovementBonus(loadout.effectiveStats.agility)}
                   movementEpSpent={op.movementEpSpent}
                 />
               ) : (
