@@ -232,6 +232,20 @@
       "when": 1784324969358,
       "tag": "0032_ancient_mother_askani",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1784540933710,
+      "tag": "0033_condemned_nicolaos",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1784542708110,
+      "tag": "0034_dear_hammerhead",
+      "breakpoints": true
     }
   ]
 }

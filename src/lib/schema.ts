@@ -110,14 +110,19 @@ export const facilityKind = pgEnum("facility_kind", ["station", "field"]);
 // Phase 6 Step 2 — an XP offering is a permanent stat bump (targets one of
 // the 6 stat columns), a one-off refill of a current resource (targets
 // hpCurrent/energyCurrent/ammoCurrent, clamped to its — possibly card-boosted
-// — max), or purely descriptive (charges XP but touches no character column —
-// the DM manually honors the effect, e.g. a perk-funded Tech Slot Upgrade
-// letting a player buy extra equip slots). See lib/facilities.ts
-// offeringTargetsFor.
+// — max), purely descriptive (charges XP but touches no character column —
+// the DM manually honors the effect, e.g. the Communication Center's "Called
+// Extraction time reduction"), or a slot upgrade (targets one of the
+// slot-limited card categories in lib/card-slots.ts — a real mechanical
+// effect, unlike descriptive: each purchase grants a reserved equip slot for
+// that category and is individually repeatable per character at an
+// escalating price, see facilityXpOfferings.costIncrement). See
+// lib/facilities.ts offeringTargetsFor.
 export const xpOfferingType = pgEnum("xp_offering_type", [
   "stat_bump",
   "resource_refill",
   "descriptive",
+  "slot_upgrade",
 ]);
 
 // Phase 5 — Mission enums (info/roadmap.md §Phase 5). "failed" only happens via
@@ -273,6 +278,8 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   perkContributions: many(facilityPerkContributions),
   purchasedFacilityListings: many(facilityListings),
   ballotVotes: many(ballotVotes),
+  slotPurchases: many(characterSlotPurchases),
+  slotOverrides: many(characterSlotOverrides),
 }));
 
 // Append-only record of every credit change (Phase 2 — the player's read-only
@@ -362,6 +369,14 @@ export const cards = pgTable("cards", {
   description: text("description"),
   level: integer("level").notNull().default(1), // Roman-numeral pip
   colorOverride: text("color_override"), // hex for one-off custom cards; null = category preset
+
+  // Phase 8 — whether equipping this card consumes one of the character's
+  // shared ability-card slots (lib/card-slots.ts). Defaults true; an admin
+  // flips it off for flavor cards in an otherwise slot-limited category
+  // (e.g. a cosmetic "Bulletproof Vest" defense card) so it can be equipped
+  // for free. Irrelevant for item/firearm_mod/melee_mod cards, which never
+  // consume a slot regardless of this flag (see isSlotLimitedCategory).
+  takesSlot: boolean("takes_slot").notNull().default(true),
 
   // Phase 6 — global sale price shown at facilities. Null = not for sale; a
   // card can't be added to a facility listing until this is set (enforced in
@@ -608,19 +623,26 @@ export const facilityRestockRules = pgTable(
   (t) => [index("facility_restock_rules_facility_idx").on(t.facilityId)],
 );
 
-// A facility's XP-training catalog entry (Phase 6 Step 2). `targetKey` matches
-// a `characters` DB column, same convention as `cardEffects.effectTarget`
-// (see offeringTargetsFor in lib/facilities.ts) — a stat key for a stat_bump,
-// or a *Current resource key for a resource_refill. `minLevel` gates player
-// visibility/purchase against the facility's own level (facility.level >=
-// minLevel), independent of when the row was created — an admin can pre-stage
-// a higher-tier offering before the facility is leveled up to unlock it.
-// `active` retires an offering without deleting it, keeping historical
-// xp_ledger/credit_ledger rows (which store no FK back here) meaningful.
-// `cost` is charged in Currency XP for a stat_bump but Credits for a
-// resource_refill — the currency is derived from `offeringType`, not chosen
-// per row (see offeringCostCurrency in lib/facilities.ts): permanent training
-// costs XP, a patch-up at Medical Bay costs Credits like any other purchase.
+// A facility's XP-training catalog entry (Phase 6 Step 2). `targetKey`
+// matches a `characters` DB column, same convention as
+// `cardEffects.effectTarget` (see offeringTargetsFor in lib/facilities.ts) —
+// a stat key for a stat_bump, or a *Current resource key for a
+// resource_refill. For a slot_upgrade, `targetKey` instead holds a
+// `cardCategory` enum value (the category the purchased slot is reserved
+// for) — it's not a `characters` column for that type. `minLevel` gates
+// player visibility/purchase against the facility's own level (facility.level
+// >= minLevel), independent of when the row was created — an admin can
+// pre-stage a higher-tier offering before the facility is leveled up to
+// unlock it. `active` retires an offering without deleting it, keeping
+// historical xp_ledger/credit_ledger rows (which store no FK back here)
+// meaningful. `cost` is charged in Currency XP for a stat_bump, slot_upgrade,
+// or descriptive offering, but Credits for a resource_refill — the currency
+// is derived from `offeringType`, not chosen per row (see
+// offeringCostCurrency in lib/facilities.ts). `costIncrement` is only
+// meaningful for slot_upgrade (default 0 elsewhere): each purchase by a given
+// character of the same offering raises that character's next price for it
+// by this amount (see nextSlotUpgradeCost in lib/card-slots.ts and
+// characterSlotPurchases below) — a flat, repeatable price otherwise.
 export const facilityXpOfferings = pgTable(
   "facility_xp_offerings",
   {
@@ -634,6 +656,7 @@ export const facilityXpOfferings = pgTable(
     targetKey: text("target_key").notNull(),
     amount: integer("amount").notNull(),
     cost: integer("cost").notNull(),
+    costIncrement: integer("cost_increment").notNull().default(0),
     minLevel: integer("min_level").notNull().default(1),
     active: boolean("active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -641,6 +664,62 @@ export const facilityXpOfferings = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("facility_xp_offerings_facility_idx").on(t.facilityId)],
+);
+
+// One row per character purchase of a slot_upgrade offering (append-only
+// ledger, same convention as xpLedger/facilityPerkContributions — offerings
+// are otherwise repeatable with no ownership row, but a slot_upgrade needs a
+// durable count to (a) price each character's next purchase of the same
+// offering via nextSlotUpgradeCost and (b) know how many bonus slots they've
+// actually banked). `category`/`slotsGranted`/`costPaid` snapshot the
+// offering's targetKey/amount/escalated-price at purchase time so editing or
+// deleting the offering later never rewrites history. `offeringId` is
+// nullable with `set null` (not cascade) for the same reason `xpLedger`/
+// `creditLedger` keep no FK back to their source row — deleting the offering
+// must never delete a player's already-granted slots.
+export const characterSlotPurchases = pgTable(
+  "character_slot_purchases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    offeringId: uuid("offering_id").references(() => facilityXpOfferings.id, {
+      onDelete: "set null",
+    }),
+    category: cardCategory("category").notNull(),
+    slotsGranted: integer("slots_granted").notNull(),
+    costPaid: integer("cost_paid").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("character_slot_purchases_character_idx").on(t.characterId, t.createdAt),
+    index("character_slot_purchases_offering_idx").on(t.characterId, t.offeringId),
+  ],
+);
+
+// Admin's direct per-category bonus-slot override for a character (Phase 8) —
+// a straight column-style overwrite, not a ledger, same convention as the
+// admin's direct base-stat edits (app/admin/actions.ts updateCharacter). Adds
+// on top of (never replaces) any slots the character has separately bought
+// via characterSlotPurchases, so a DM can grant a one-off narrative bonus
+// without needing a facility offering to exist. One row per (character,
+// category); absent rows mean a bonus of 0.
+export const characterSlotOverrides = pgTable(
+  "character_slot_overrides",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    category: cardCategory("category").notNull(),
+    bonus: integer("bonus").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("character_slot_overrides_unique").on(t.characterId, t.category),
+  ],
 );
 
 // A facility's descriptive-perk catalog entry (Phase 6 Step 3), e.g. the
@@ -727,10 +806,29 @@ export const facilitiesRelations = relations(facilities, ({ many }) => ({
   ongoingEntries: many(facilityOngoingEntries),
 }));
 
-export const facilityXpOfferingsRelations = relations(facilityXpOfferings, ({ one }) => ({
+export const facilityXpOfferingsRelations = relations(facilityXpOfferings, ({ one, many }) => ({
   facility: one(facilities, {
     fields: [facilityXpOfferings.facilityId],
     references: [facilities.id],
+  }),
+  slotPurchases: many(characterSlotPurchases),
+}));
+
+export const characterSlotPurchasesRelations = relations(characterSlotPurchases, ({ one }) => ({
+  character: one(characters, {
+    fields: [characterSlotPurchases.characterId],
+    references: [characters.id],
+  }),
+  offering: one(facilityXpOfferings, {
+    fields: [characterSlotPurchases.offeringId],
+    references: [facilityXpOfferings.id],
+  }),
+}));
+
+export const characterSlotOverridesRelations = relations(characterSlotOverrides, ({ one }) => ({
+  character: one(characters, {
+    fields: [characterSlotOverrides.characterId],
+    references: [characters.id],
   }),
 }));
 
@@ -1083,6 +1181,10 @@ export type FacilityRestockRule = typeof facilityRestockRules.$inferSelect;
 export type NewFacilityRestockRule = typeof facilityRestockRules.$inferInsert;
 export type FacilityXpOffering = typeof facilityXpOfferings.$inferSelect;
 export type NewFacilityXpOffering = typeof facilityXpOfferings.$inferInsert;
+export type CharacterSlotPurchase = typeof characterSlotPurchases.$inferSelect;
+export type NewCharacterSlotPurchase = typeof characterSlotPurchases.$inferInsert;
+export type CharacterSlotOverride = typeof characterSlotOverrides.$inferSelect;
+export type NewCharacterSlotOverride = typeof characterSlotOverrides.$inferInsert;
 export type FacilityPerk = typeof facilityPerks.$inferSelect;
 export type NewFacilityPerk = typeof facilityPerks.$inferInsert;
 export type FacilityPerkContribution = typeof facilityPerkContributions.$inferSelect;

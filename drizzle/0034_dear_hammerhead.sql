@@ -1,0 +1,1 @@
+ALTER TABLE "cards" ADD COLUMN "takes_slot" boolean DEFAULT true NOT NULL;
