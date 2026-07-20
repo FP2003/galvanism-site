@@ -246,6 +246,20 @@
       "when": 1784542708110,
       "tag": "0034_dear_hammerhead",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1784575481364,
+      "tag": "0035_typical_ted_forrester",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784575511416,
+      "tag": "0036_handy_misty_knight",
+      "breakpoints": true
     }
   ]
 }

@@ -276,7 +276,7 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   xpLedger: many(xpLedger),
   missionAssignments: many(missionAssignments),
   perkContributions: many(facilityPerkContributions),
-  purchasedFacilityListings: many(facilityListings),
+  listingPurchases: many(facilityListingPurchases),
   ballotVotes: many(ballotVotes),
   slotPurchases: many(characterSlotPurchases),
   slotOverrides: many(characterSlotOverrides),
@@ -558,14 +558,25 @@ export const facilities = pgTable("facilities", {
 // ones; `slotIndex` is set iff source = "rotation" and identifies which of
 // the facility's rotatingSlotCount slots this row occupies — a restock
 // replaces that slot's row in place rather than deleting + reinserting.
-// `purchasedByCharacterId` claims one particular appearance of the card in
-// stock. The buyer sees it as Owned and other characters see it as Bought. A
-// rotation clears the claim, making the newly rolled appearance available
-// again (including when the same card is rolled twice in a row).
+// `quantityTotal` is how many units of this appearance are for sale, and
+// `quantitySold` is a running count of how many have been claimed so far —
+// kept as a plain counter (rather than deriving it with a COUNT over
+// facilityListingPurchases on every read) specifically so a purchase's claim
+// can be a single guarded `UPDATE ... WHERE quantitySold < quantityTotal` on
+// this row, the same safe-under-concurrency shape the old single-buyer claim
+// used, just generalized from a boolean to a range check — two racing buyers
+// for the last unit still serialize correctly with exactly one winner
+// (Postgres re-checks the WHERE clause against the fresh row once the first
+// UPDATE's row lock clears). `quantityTotal` defaults to 1, which is every
+// rotation listing's fixed value; only manual listings ever set it above 1.
+// A rotation resets both counters and clears every claim on its slot, making
+// the newly rolled appearance fully available again (including when the same
+// card is rolled twice in a row).
 // Unique on (facilityId, cardId): a facility never lists the same card twice
-// regardless of source. Unique on (facilityId, slotIndex) where not null: at
-// most one row per rotation slot, same partial-unique-index shape as
-// characterCards.weaponSlot.
+// regardless of source — extra stock is modeled as a higher quantityTotal on
+// one row, not a second row. Unique on (facilityId, slotIndex) where not
+// null: at most one row per rotation slot, same partial-unique-index shape
+// as characterCards.weaponSlot.
 export const facilityListings = pgTable(
   "facility_listings",
   {
@@ -576,11 +587,8 @@ export const facilityListings = pgTable(
     cardId: uuid("card_id")
       .notNull()
       .references(() => cards.id, { onDelete: "cascade" }),
-    purchasedByCharacterId: uuid("purchased_by_character_id").references(
-      () => characters.id,
-      { onDelete: "set null" },
-    ),
-    purchasedAt: timestamp("purchased_at", { withTimezone: true }),
+    quantityTotal: integer("quantity_total").notNull().default(1),
+    quantitySold: integer("quantity_sold").notNull().default(0),
     source: listingSource("source").notNull().default("manual"),
     slotIndex: integer("slot_index"),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -590,11 +598,41 @@ export const facilityListings = pgTable(
   },
   (t) => [
     index("facility_listings_facility_idx").on(t.facilityId),
-    index("facility_listings_purchased_by_idx").on(t.purchasedByCharacterId),
     uniqueIndex("facility_listings_facility_card_unique").on(t.facilityId, t.cardId),
     uniqueIndex("facility_listings_facility_slot_unique")
       .on(t.facilityId, t.slotIndex)
       .where(sql`${t.slotIndex} is not null`),
+  ],
+);
+
+// Which character claimed which unit of a listing's stock — used only to
+// route a self-serve refund back to the right listing (the same card can be
+// listed at more than one facility at once, so owning the card alone doesn't
+// say which listing it came from) and for admin/audit visibility. Capacity
+// itself is enforced by facilityListings.quantitySold, not by counting these
+// rows, so this table is never read on the hot purchase-claim path. Unique
+// on (listingId, characterId): a character can't double-claim the same
+// listing (defense in depth alongside characterCards' own global per-card
+// uniqueness). Deleting the row (a self-serve refund, or a restock reusing
+// the slot) is paired with decrementing quantitySold by one.
+export const facilityListingPurchases = pgTable(
+  "facility_listing_purchases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    listingId: uuid("listing_id")
+      .notNull()
+      .references(() => facilityListings.id, { onDelete: "cascade" }),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    purchasedAt: timestamp("purchased_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("facility_listing_purchases_listing_idx").on(t.listingId),
+    index("facility_listing_purchases_character_idx").on(t.characterId),
+    uniqueIndex("facility_listing_purchases_unique").on(t.listingId, t.characterId),
   ],
 );
 
@@ -861,14 +899,22 @@ export const facilityOngoingEntriesRelations = relations(facilityOngoingEntries,
   }),
 }));
 
-export const facilityListingsRelations = relations(facilityListings, ({ one }) => ({
+export const facilityListingsRelations = relations(facilityListings, ({ one, many }) => ({
   facility: one(facilities, {
     fields: [facilityListings.facilityId],
     references: [facilities.id],
   }),
   card: one(cards, { fields: [facilityListings.cardId], references: [cards.id] }),
-  purchasedBy: one(characters, {
-    fields: [facilityListings.purchasedByCharacterId],
+  purchases: many(facilityListingPurchases),
+}));
+
+export const facilityListingPurchasesRelations = relations(facilityListingPurchases, ({ one }) => ({
+  listing: one(facilityListings, {
+    fields: [facilityListingPurchases.listingId],
+    references: [facilityListings.id],
+  }),
+  character: one(characters, {
+    fields: [facilityListingPurchases.characterId],
     references: [characters.id],
   }),
 }));
