@@ -26,7 +26,6 @@ import { WEAPON_SLOTS, WEAPON_SLOT_META, isSlotLegalFor } from "@/lib/weapons";
 import type { WeaponSlotName } from "@/lib/cards";
 import {
   SLOT_LIMITED_CATEGORIES,
-  isSlotLimitedCategory,
   tallyEquippedByCategory,
   canEquipInCategory,
   categorySlotUsage,
@@ -96,7 +95,7 @@ export function CardAssignment({
         </form>
       )}
 
-      <SlotUsage owned={owned} equippedByCategory={equippedByCategory} bonusByCategory={bonusByCategory} />
+      <SlotUsage equippedByCategory={equippedByCategory} bonusByCategory={bonusByCategory} />
 
       {owned.length > 0 &&
         (() => {
@@ -152,24 +151,17 @@ export function CardAssignment({
 // convention as WeaponRow/ModRow vs. the player-facing WeaponSlots/ModsSection
 // (parallel admin/player row implementations rather than cross-surface sharing).
 function SlotUsage({
-  owned,
   equippedByCategory,
   bonusByCategory,
 }: {
-  owned: OwnedCard[];
   equippedByCategory: SlotCountMap;
   bonusByCategory: SlotCountMap;
 }) {
-  // Cards flagged "Free (no slot cost)" never spend a slot (lib/card-slots.ts
-  // takesSlot), so a category holding only those shouldn't surface here — it'd
-  // show a "0 equipped" tile that spends slots it never actually does.
-  const ownedCategories = new Set(
-    owned
-      .filter((o) => isSlotLimitedCategory(o.card.category) && o.card.takesSlot)
-      .map((o) => o.card.category),
-  );
+  // Only categories with something currently equipped, or a bonus reserved
+  // for them — an unequipped card sitting in inventory shouldn't surface a
+  // "0 equipped" tile.
   const visible = SLOT_LIMITED_CATEGORIES.filter(
-    (c) => ownedCategories.has(c) || bonusByCategory[c] > 0,
+    (c) => equippedByCategory[c] > 0 || bonusByCategory[c] > 0,
   );
   if (visible.length === 0) return null;
 
