@@ -37,7 +37,7 @@ export default async function RegistryEntryPage({
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1100px] px-3 py-5 sm:px-6 sm:py-7 lg:py-9">
+      <div className="mx-auto max-w-[1500px] px-3 py-5 sm:px-6 sm:py-7 lg:py-9">
         <RegistryTerminalFrame
           variant="record"
           systemLabel="F.C.B. public archive"
