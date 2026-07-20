@@ -122,28 +122,32 @@ async function withEffectiveResources(
 
   return views.map((view) => {
     const effects = effectsByCharacter.get(view.id);
-    // Resilience's +2 HP/point rule applies even with no cards equipped.
-    const hpMaxBase = view.hp.max + resilienceHpBonus(view.stats.resilience);
     if (!effects || effects.length === 0) {
+      // Resilience's +2 HP/point rule applies even with no cards equipped.
+      const hpMax = view.hp.max + resilienceHpBonus(view.stats.resilience);
       return {
         ...view,
-        hp: { current: clampResource(view.hp.current, hpMaxBase), max: hpMaxBase },
+        hp: { current: clampResource(view.hp.current, hpMax), max: hpMax },
       };
     }
 
     const mods = accumulateModifiers(effects);
     const { effective } = applyModifiers(
       {
-        hpMax: hpMaxBase,
+        hpMax: view.hp.max,
         energyMax: view.energy.max,
         ammoMax: view.ammo.max,
+        statResilience: view.stats.resilience,
       },
       mods,
     );
+    // Resilience's +2 HP/point rule uses the effective (post-card) Resilience,
+    // so a statResilience card bonus correctly raises HP too.
+    const hpMax = effective.hpMax + resilienceHpBonus(effective.statResilience);
 
     return {
       ...view,
-      hp: { current: clampResource(view.hp.current, effective.hpMax), max: effective.hpMax },
+      hp: { current: clampResource(view.hp.current, hpMax), max: hpMax },
       energy: {
         current: clampResource(view.energy.current, effective.energyMax),
         max: effective.energyMax,

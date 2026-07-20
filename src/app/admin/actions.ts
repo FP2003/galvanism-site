@@ -241,14 +241,16 @@ export async function updateCharacter(
   const newStatResilience = parsed.values.statResilience ?? 0;
   const [previousEffectiveMax, nextEffectiveMax] = await Promise.all([
     effectiveResourceMaxes(characterId, {
-      hpMax: existing.hpMax + resilienceHpBonus(existing.statResilience),
+      hpMax: existing.hpMax,
       energyMax: existing.energyMax,
       ammoMax: existing.ammoMax,
+      statResilience: existing.statResilience,
     }),
     effectiveResourceMaxes(characterId, {
-      hpMax: (parsed.values.hpMax ?? 0) + resilienceHpBonus(newStatResilience),
+      hpMax: parsed.values.hpMax ?? 0,
       energyMax: parsed.values.energyMax ?? 0,
       ammoMax: parsed.values.ammoMax ?? 0,
+      statResilience: newStatResilience,
     }),
   ]);
   parsed.values.hpCurrent = adjustCurrentForMaxChange(

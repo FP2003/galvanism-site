@@ -191,7 +191,7 @@ function installedModEffects(
  */
 export async function effectiveResourceMaxes(
   characterId: string,
-  base: { hpMax: number; energyMax: number; ammoMax: number },
+  base: { hpMax: number; energyMax: number; ammoMax: number; statResilience: number },
 ): Promise<{ hpMax: number; energyMax: number; ammoMax: number }> {
   const owned = await getCharacterCards(characterId);
   const equipped = owned.filter((o) => o.equipped);
@@ -200,11 +200,18 @@ export async function effectiveResourceMaxes(
     ...installedModEffects(equipped, owned),
   ]);
   const { effective } = applyModifiers(
-    { hpMax: base.hpMax, energyMax: base.energyMax, ammoMax: base.ammoMax },
+    {
+      hpMax: base.hpMax,
+      energyMax: base.energyMax,
+      ammoMax: base.ammoMax,
+      statResilience: base.statResilience,
+    },
     mods,
   );
   return {
-    hpMax: effective.hpMax,
+    // Resilience's +2 HP/point rule uses the effective (post-card) Resilience,
+    // so a statResilience card bonus correctly raises HP too.
+    hpMax: effective.hpMax + resilienceHpBonus(effective.statResilience),
     energyMax: effective.energyMax,
     ammoMax: effective.ammoMax,
   };
@@ -264,7 +271,10 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
   const equipped = owned.filter((o) => o.equipped);
   const inventory = owned.filter((o) => !o.equipped);
 
-  // Base map in characters-column keys, matching what effects target.
+  // Base map in characters-column keys, matching what effects target. The
+  // Resilience -> HP and Agility -> Movement derived-stat rules are folded in
+  // AFTER modifiers apply (below), from the effective stat, so a card's own
+  // statResilience/statAgility bonus correctly raises HP/Movement too.
   const base: Record<string, number> = {
     statTech: view.stats.tech,
     statPrecision: view.stats.precision,
@@ -272,9 +282,7 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     statImmunity: view.stats.immunity,
     statResilience: view.stats.resilience,
     statAgility: view.stats.agility,
-    // Resilience's +2 HP/point rule is folded into the base here, ahead of
-    // card resource_modifier deltas — same order as game-rules docs it.
-    hpMax: view.hp.max + resilienceHpBonus(view.stats.resilience),
+    hpMax: view.hp.max,
     energyMax: view.energy.max,
     ammoMax: view.ammo.max,
   };
@@ -284,6 +292,7 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     ...installedModEffects(equipped, owned),
   ]);
   const { effective, deltas } = applyModifiers(base, mods);
+  effective.hpMax += resilienceHpBonus(effective.statResilience);
 
   const effectiveStats = {} as Record<StatKey, number>;
   const statDeltas = {} as Record<StatKey, number>;
@@ -315,9 +324,9 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
     },
   };
 
-  // Agility's +1 movement per 2 points rule is folded into the base before
-  // Energy-committed movement is computed.
-  const movementBase = view.movementBase + agilityMovementBonus(view.stats.agility);
+  // Agility's +1 movement per 2 points rule uses the effective (post-card)
+  // Agility, so a card's statAgility bonus correctly raises Movement too.
+  const movementBase = view.movementBase + agilityMovementBonus(effective.statAgility);
   const movement = {
     current: movementMeters(movementBase, view.movementEpSpent),
     max: movementMeters(movementBase, view.movementEpSpent + resources.energy.current),

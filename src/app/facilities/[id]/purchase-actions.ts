@@ -318,9 +318,10 @@ export async function purchaseXpOffering(
     if (offering.targetKey === "statResilience") {
       const hpDelta = resilienceHpBonus(newStat) - resilienceHpBonus(currentValue);
       const maxes = await effectiveResourceMaxes(character.id, {
-        hpMax: character.hpMax + resilienceHpBonus(newStat),
+        hpMax: character.hpMax,
         energyMax: character.energyMax,
         ammoMax: character.ammoMax,
+        statResilience: newStat,
       });
       updates.hpCurrent = clampResource(character.hpCurrent + hpDelta, maxes.hpMax);
     }
@@ -418,9 +419,10 @@ export async function purchaseXpOffering(
   if (!result.ok) return { error: result.error };
   const maxKey = RESOURCE_MAX_KEY[offering.targetKey];
   const maxes = await effectiveResourceMaxes(character.id, {
-    hpMax: character.hpMax + resilienceHpBonus(character.statResilience),
+    hpMax: character.hpMax,
     energyMax: character.energyMax,
     ammoMax: character.ammoMax,
+    statResilience: character.statResilience,
   });
   const newValue = applyResourceRefill(currentValue, maxes[maxKey], offering.amount);
 

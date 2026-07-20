@@ -12,7 +12,6 @@ import {
   clampResource,
   clampTempHp,
   parseSignedInt,
-  resilienceHpBonus,
 } from "@/lib/ledger";
 import { effectiveResourceMaxes, getCharacterCards, getCharacterSlotBonuses } from "@/lib/card-data";
 import { TEXT_LIMITS } from "@/lib/game-rules";
@@ -135,9 +134,10 @@ export async function updateResources(
   };
 
   const max = await effectiveResourceMaxes(characterId, {
-    hpMax: c.hpMax + resilienceHpBonus(c.statResilience),
+    hpMax: c.hpMax,
     energyMax: c.energyMax,
     ammoMax: c.ammoMax,
+    statResilience: c.statResilience,
   });
 
   // Energy regen is a flat rate, not a fillable pool — no effective max to
