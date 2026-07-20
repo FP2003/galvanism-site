@@ -46,7 +46,8 @@ export function Loadout({
   const { weapons, mods, rest } = partitionByWeapon(owned);
   const { byHost } = groupInstalledMods(mods);
   const equipped = rest.filter((o) => o.equipped);
-  const inventory = rest.filter((o) => !o.equipped);
+  const unslottedWeapons = weapons.filter((w) => !w.weaponSlot);
+  const inventory = [...rest.filter((o) => !o.equipped), ...unslottedWeapons];
   const equippedByCategory = tallyEquippedByCategory(owned);
 
   if (owned.length === 0) {
@@ -92,6 +93,7 @@ export function Loadout({
           canEdit={canEdit}
           equippedByCategory={equippedByCategory}
           bonusByCategory={bonusByCategory}
+          modsByHost={byHost}
         />
       )}
       {canEdit && mods.length > 0 && (
@@ -189,44 +191,17 @@ function WeaponSlots({
           );
         })}
       </ul>
-
-      {unslotted.length > 0 && (
-        <div className="mt-4">
-          <h4 className="mb-2 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.1em] text-muted-ink">
-            Unslotted
-          </h4>
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {unslotted.map((w) => {
-              const installed = modsByHost.get(w.assignmentId) ?? [];
-              const legalSlots =
-                w.card.subcategory && w.card.handedness
-                  ? WEAPON_SLOTS.filter((slot) =>
-                      isSlotLegalFor(
-                        {
-                          subcategory: w.card.subcategory as "rifle" | "pistol" | "melee",
-                          handedness: w.card.handedness!,
-                        },
-                        slot,
-                      ),
-                    )
-                  : [];
-              return (
-                <li key={w.assignmentId} className="flex flex-col gap-2">
-                  <GameCard card={w.card} mods={installed.map((m) => m.card)} />
-                  {canEdit && legalSlots.length > 0 && (
-                    <UnslottedEquipForm
-                      characterId={characterId}
-                      assignmentId={w.assignmentId}
-                      legalSlots={legalSlots}
-                    />
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
     </div>
+  );
+}
+
+function legalWeaponSlots(card: OwnedCard["card"]): WeaponSlotName[] {
+  if (!card.subcategory || !card.handedness) return [];
+  return WEAPON_SLOTS.filter((slot) =>
+    isSlotLegalFor(
+      { subcategory: card.subcategory as "rifle" | "pistol" | "melee", handedness: card.handedness! },
+      slot,
+    ),
   );
 }
 
@@ -432,6 +407,7 @@ function CardGroup({
   equippedByCategory,
   bonusByCategory,
   emptyNote,
+  modsByHost,
 }: {
   heading: string;
   cards: OwnedCard[];
@@ -440,6 +416,7 @@ function CardGroup({
   equippedByCategory: SlotCountMap;
   bonusByCategory: SlotCountMap;
   emptyNote?: string;
+  modsByHost?: Map<string, OwnedCard[]>;
 }) {
   return (
     <div>
@@ -452,6 +429,25 @@ function CardGroup({
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {cards.map((o) => {
+            // Unslotted weapons (weaponSlot null) live here alongside regular
+            // inventory items, but they equip via a slot picker rather than
+            // the plain boolean toggle — setWeaponSlot, not setCardEquipped.
+            if (o.card.subcategory && isWeaponSubcategory(o.card.subcategory)) {
+              const legalSlots = legalWeaponSlots(o.card);
+              const installed = modsByHost?.get(o.assignmentId) ?? [];
+              return (
+                <li key={o.assignmentId} className="flex flex-col gap-2">
+                  <GameCard card={o.card} mods={installed.map((m) => m.card)} />
+                  {canEdit && legalSlots.length > 0 && (
+                    <UnslottedEquipForm
+                      characterId={characterId}
+                      assignmentId={o.assignmentId}
+                      legalSlots={legalSlots}
+                    />
+                  )}
+                </li>
+              );
+            }
             const canEquip =
               o.equipped ||
               canEquipInCategory(
