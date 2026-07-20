@@ -19,9 +19,10 @@ import {
  * admin overrides, see lib/card-slots.ts). Each category tile reuses the
  * same hex badge as the physical card design (HexBadge/iconForCategory) so
  * the breakdown reads as "the cards' own symbols", not a generic icon set.
- * Only shown for categories the character actually owns a card in, or has a
- * bonus for — avoids listing all 7 categories on an operator who's never
- * touched half of them.
+ * Only shown for categories with something currently equipped, or a bonus
+ * reserved for them — an unequipped card sitting in inventory shouldn't
+ * surface a "0 equipped" tile, and listing all 7 categories on an operator
+ * who's never touched half of them would just be noise.
  *
  * A category's `cap` (BASE_ABILITY_SLOTS + its bonus) is only a real,
  * category-exclusive ceiling once that category actually has a bonus — the
@@ -39,14 +40,8 @@ export function AbilitySlots({
   bonusByCategory: SlotCountMap;
 }) {
   const equippedByCategory = tallyEquippedByCategory(owned);
-  // Cards flagged "Free (no slot cost)" never spend a slot (lib/card-slots.ts
-  // takesSlot), so a category holding only those shouldn't surface here —
-  // it'd show a "0 equipped" tile that spends slots it never actually does.
-  const ownedCategories = new Set(
-    owned.filter((o) => o.card.takesSlot).map((o) => o.card.category),
-  );
   const visible = SLOT_LIMITED_CATEGORIES.filter(
-    (c) => ownedCategories.has(c) || bonusByCategory[c] > 0,
+    (c) => equippedByCategory[c] > 0 || bonusByCategory[c] > 0,
   );
   if (visible.length === 0) return null;
 
