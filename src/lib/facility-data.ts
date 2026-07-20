@@ -190,7 +190,8 @@ export async function findRefundablePurchase(playerId: string, refCode: string) 
 
 /** Unresolved ongoing entries across every facility, newest first, joined to
  *  their facility name — feeds the command dashboard's "Facility Processes"
- *  panel (replacing the mock fixture). */
+ *  panel (replacing the mock fixture). `facilityId` lets that panel link
+ *  each row straight through to /facilities/[id]. */
 export async function getUnresolvedOngoingEntries(limit = 5) {
   const db = getDb();
   const rows = await db.query.facilityOngoingEntries.findMany({
@@ -199,7 +200,61 @@ export async function getUnresolvedOngoingEntries(limit = 5) {
     orderBy: [desc(facilityOngoingEntries.createdAt)],
     limit,
   });
-  return rows.map((r) => ({ facility: r.facility.name, label: r.label }));
+  return rows.map((r) => ({ facilityId: r.facilityId, facility: r.facility.name, label: r.label }));
+}
+
+export interface FacilityUpgradeProgress {
+  facilityId: string;
+  facilityName: string;
+  level: number;
+  totalCost: number;
+  totalContributed: number;
+  fundedCount: number;
+  perkCount: number;
+}
+
+/** Station facilities whose next level-up has received at least one perk
+ *  contribution, ranked by funding progress — feeds the command dashboard's
+ *  "Facility Processes" panel, listed underneath the Ongoing entries. Mirrors
+ *  the totalCost/totalContributed/fundedCount math in the facility detail
+ *  page's LevelProgress panel (app/facilities/[id]/page.tsx), just rolled up
+ *  across every station facility instead of one. */
+export async function getFacilityUpgradesInProgress(): Promise<FacilityUpgradeProgress[]> {
+  const db = getDb();
+  const stationFacilities = await db.query.facilities.findMany({
+    where: eq(facilities.kind, "station"),
+    with: { perks: { where: eq(facilityPerks.active, true) } },
+  });
+
+  const byFacility = stationFacilities
+    .map((facility) => ({
+      facility,
+      availablePerks: facility.perks.filter((p) => p.minLevel <= facility.level),
+    }))
+    .filter((f) => f.availablePerks.length > 0);
+
+  const pools = await getPerkContributionPools(
+    byFacility.flatMap((f) => f.availablePerks.map((p) => p.id)),
+  );
+
+  const progress: FacilityUpgradeProgress[] = [];
+  for (const { facility, availablePerks } of byFacility) {
+    const totalContributed = availablePerks.reduce(
+      (sum, p) => sum + Math.min(pools.get(p.id)!.total, p.priceCredits),
+      0,
+    );
+    if (totalContributed === 0) continue;
+    progress.push({
+      facilityId: facility.id,
+      facilityName: facility.name,
+      level: facility.level,
+      totalCost: availablePerks.reduce((sum, p) => sum + p.priceCredits, 0),
+      totalContributed,
+      fundedCount: availablePerks.filter((p) => p.fundedAt != null).length,
+      perkCount: availablePerks.length,
+    });
+  }
+  return progress.sort((a, b) => b.totalContributed / b.totalCost - a.totalContributed / a.totalCost);
 }
 
 /** Library cards with a price set, at or below this facility's level, that
