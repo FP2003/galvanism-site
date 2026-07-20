@@ -14,16 +14,17 @@ import {
   parseSignedInt,
   resilienceHpBonus,
 } from "@/lib/ledger";
-import { effectiveResourceMaxes } from "@/lib/card-data";
+import { effectiveResourceMaxes, getCharacterCards, getCharacterSlotBonuses } from "@/lib/card-data";
 import { TEXT_LIMITS } from "@/lib/game-rules";
 import { extractYouTubeVideoId, canonicalYouTubeUrl, fetchYouTubeOEmbedTitle } from "@/lib/youtube";
-import { isWeaponSubcategory, isModCategory, type WeaponSlotName } from "@/lib/cards";
+import { isWeaponSubcategory, isModCategory, CARD_CATEGORY_META, type WeaponSlotName } from "@/lib/cards";
 import {
   WEAPON_SLOTS,
   resolveWeaponSlotAssignment,
   modCategoryForWeapon,
   type OccupiedSlots,
 } from "@/lib/weapons";
+import { isSlotLimitedCategory, tallyEquippedByCategory, canEquipInCategory } from "@/lib/card-slots";
 
 /*
  * Player self-service on the Case File (Phase 2): a player edits their own bio
@@ -334,6 +335,35 @@ export async function setCardEquipped(
   if (!assignment) return { error: "Card not found in this inventory." };
   if (isModCategory(assignment.card.category)) {
     return { error: "Mods are installed on weapons, not equipped." };
+  }
+
+  // Capacity is only ever checked on the false->true transition — unequipping
+  // is always allowed, and a category with no slot-limit (item, and the mod
+  // categories rejected above), or a card individually flagged takesSlot:
+  // false, never needs a check at all.
+  if (
+    equipped &&
+    !assignment.equipped &&
+    assignment.card.takesSlot &&
+    isSlotLimitedCategory(assignment.card.category)
+  ) {
+    const [owned, bonuses] = await Promise.all([
+      getCharacterCards(characterId),
+      getCharacterSlotBonuses(characterId),
+    ]);
+    const equippedByCategory = tallyEquippedByCategory(owned);
+    if (
+      !canEquipInCategory(
+        assignment.card.category,
+        equippedByCategory,
+        bonuses.total,
+        assignment.card.takesSlot,
+      )
+    ) {
+      return {
+        error: `No free ${CARD_CATEGORY_META[assignment.card.category].label} slot — equip capacity reached.`,
+      };
+    }
   }
 
   const [row] = await auth.db

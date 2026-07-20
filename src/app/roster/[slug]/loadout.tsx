@@ -19,7 +19,15 @@ import {
   isSlotLegalFor,
   modCategoryForWeapon,
 } from "@/lib/weapons";
-import { isWeaponSubcategory, type WeaponSlotName } from "@/lib/cards";
+import { isWeaponSubcategory, CARD_CATEGORY_META, type WeaponSlotName } from "@/lib/cards";
+import {
+  SLOT_LIMITED_CATEGORIES,
+  tallyEquippedByCategory,
+  canEquipInCategory,
+  categorySlotUsage,
+  sharedPoolRemaining,
+  type SlotCountMap,
+} from "@/lib/card-slots";
 
 /*
  * Case File loadout (Phase 3). Shows the operator's equipped cards as full card
@@ -31,15 +39,18 @@ export function Loadout({
   characterId,
   owned,
   canEdit,
+  bonusByCategory,
 }: {
   characterId: string;
   owned: OwnedCard[];
   canEdit: boolean;
+  bonusByCategory: SlotCountMap;
 }) {
   const { weapons, mods, rest } = partitionByWeapon(owned);
   const { byHost } = groupInstalledMods(mods);
   const equipped = rest.filter((o) => o.equipped);
   const inventory = rest.filter((o) => !o.equipped);
+  const equippedByCategory = tallyEquippedByCategory(owned);
 
   if (owned.length === 0) {
     return (
@@ -67,11 +78,14 @@ export function Loadout({
           canEdit={canEdit}
         />
       )}
+      <SlotUsage rest={rest} equippedByCategory={equippedByCategory} bonusByCategory={bonusByCategory} />
       <CardGroup
         heading="Equipped"
         cards={equipped}
         characterId={characterId}
         canEdit={canEdit}
+        equippedByCategory={equippedByCategory}
+        bonusByCategory={bonusByCategory}
         emptyNote={canEdit ? "Nothing equipped. Equip a card below." : "Nothing equipped."}
       />
       {canEdit && inventory.length > 0 && (
@@ -80,6 +94,8 @@ export function Loadout({
           cards={inventory}
           characterId={characterId}
           canEdit={canEdit}
+          equippedByCategory={equippedByCategory}
+          bonusByCategory={bonusByCategory}
         />
       )}
       {canEdit && mods.length > 0 && (
@@ -412,17 +428,69 @@ function SlotSubmitButton({ label }: { label: string }) {
   );
 }
 
+// Ability-card slot usage (Phase 8) — one shared pool of slots plus a
+// per-category reserved bonus from facility purchases/admin overrides (see
+// lib/card-slots.ts). Only shown for categories the character actually owns
+// a card in, or has a bonus for, to avoid listing all 7 categories on an
+// operator who's never touched half of them.
+function SlotUsage({
+  rest,
+  equippedByCategory,
+  bonusByCategory,
+}: {
+  rest: OwnedCard[];
+  equippedByCategory: SlotCountMap;
+  bonusByCategory: SlotCountMap;
+}) {
+  const ownedCategories = new Set(rest.map((o) => o.card.category));
+  const visible = SLOT_LIMITED_CATEGORIES.filter(
+    (c) => ownedCategories.has(c) || bonusByCategory[c] > 0,
+  );
+  if (visible.length === 0) return null;
+
+  const usage = categorySlotUsage(equippedByCategory, bonusByCategory).filter((u) =>
+    visible.includes(u.category),
+  );
+  const remaining = sharedPoolRemaining(equippedByCategory, bonusByCategory);
+
+  return (
+    <div>
+      <h3 className="mb-3 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
+        Ability Slots
+      </h3>
+      <p className="mb-2 font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
+        Shared pool: {remaining} of 3 free
+      </p>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1">
+        {usage.map((u) => (
+          <li
+            key={u.category}
+            className="font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink"
+          >
+            {CARD_CATEGORY_META[u.category].label}: {u.used}/{u.cap}
+            {u.bonus > 0 ? ` (+${u.bonus})` : ""}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function CardGroup({
   heading,
   cards,
   characterId,
   canEdit,
+  equippedByCategory,
+  bonusByCategory,
   emptyNote,
 }: {
   heading: string;
   cards: OwnedCard[];
   characterId: string;
   canEdit: boolean;
+  equippedByCategory: SlotCountMap;
+  bonusByCategory: SlotCountMap;
   emptyNote?: string;
 }) {
   return (
@@ -435,18 +503,29 @@ function CardGroup({
         <p className="text-xs text-muted-ink">{emptyNote}</p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {cards.map((o) => (
-            <li key={o.assignmentId} className="flex flex-col gap-2">
-              <GameCard card={o.card} />
-              {canEdit && (
-                <EquipForm
-                  characterId={characterId}
-                  assignmentId={o.assignmentId}
-                  equipped={o.equipped}
-                />
-              )}
-            </li>
-          ))}
+          {cards.map((o) => {
+            const canEquip =
+              o.equipped ||
+              canEquipInCategory(
+                o.card.category,
+                equippedByCategory,
+                bonusByCategory,
+                o.card.takesSlot,
+              );
+            return (
+              <li key={o.assignmentId} className="flex flex-col gap-2">
+                <GameCard card={o.card} />
+                {canEdit && (
+                  <EquipForm
+                    characterId={characterId}
+                    assignmentId={o.assignmentId}
+                    equipped={o.equipped}
+                    disabled={!canEquip}
+                  />
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -457,10 +536,12 @@ function EquipForm({
   characterId,
   assignmentId,
   equipped,
+  disabled,
 }: {
   characterId: string;
   assignmentId: string;
   equipped: boolean;
+  disabled: boolean;
 }) {
   const [, formAction] = useActionState<SheetState, FormData>(
     setCardEquipped,
@@ -471,7 +552,12 @@ function EquipForm({
       <input type="hidden" name="characterId" value={characterId} />
       <input type="hidden" name="assignmentId" value={assignmentId} />
       <input type="hidden" name="equipped" value={String(!equipped)} />
-      <EquipToggleButton equipped={equipped} fullWidth />
+      <EquipToggleButton
+        equipped={equipped}
+        fullWidth
+        disabled={disabled}
+        title={disabled ? "No free slot for this card's category." : undefined}
+      />
     </form>
   );
 }

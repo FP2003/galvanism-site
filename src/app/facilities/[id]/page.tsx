@@ -9,9 +9,10 @@ import { ButtonLink } from "@/components/ui/button";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
-import { getFacility, getPerkContributionPools } from "@/lib/facility-data";
+import { getFacility, getPerkContributionPools, getSlotPurchaseCounts } from "@/lib/facility-data";
 import { getCharacterCards } from "@/lib/card-data";
 import { facilityListingState } from "@/lib/facilities";
+import { nextSlotUpgradeCost } from "@/lib/card-slots";
 import { ListingCard } from "./listing-card";
 import { XpOfferingRow } from "./xp-offering-row";
 import { PerkRow } from "./perk-row";
@@ -84,11 +85,21 @@ export default async function FacilityDetailPage({
   const unresolvedEntries = facility.ongoingEntries.filter((e) => !e.resolved);
   const showLevelProgress = facility.kind === "station" && availablePerks.length > 0;
 
-  const [owned, perkPools] = await Promise.all([
+  const slotUpgradeOfferingIds = availableOfferings
+    .filter((o) => o.offeringType === "slot_upgrade")
+    .map((o) => o.id);
+
+  const [owned, perkPools, slotPurchaseCounts] = await Promise.all([
     character ? getCharacterCards(character.id) : Promise.resolve([]),
     getPerkContributionPools(availablePerks.map((p) => p.id)),
+    character ? getSlotPurchaseCounts(character.id, slotUpgradeOfferingIds) : Promise.resolve(new Map()),
   ]);
   const ownedCardIds = new Set(owned.map((o) => o.card.id));
+
+  function offeringCost(offering: (typeof availableOfferings)[number]): number {
+    if (offering.offeringType !== "slot_upgrade") return offering.cost;
+    return nextSlotUpgradeCost(offering.cost, offering.costIncrement, slotPurchaseCounts.get(offering.id) ?? 0);
+  }
 
   const totalCost = availablePerks.reduce((sum, p) => sum + p.priceCredits, 0);
   const totalContributed = availablePerks.reduce(
@@ -231,6 +242,7 @@ export default async function FacilityDetailPage({
                     <XpOfferingRow
                       key={offering.id}
                       offering={offering}
+                      cost={offeringCost(offering)}
                       currencyXp={character?.currencyXp ?? 0}
                       credits={player?.credits ?? 0}
                       previewOnly={isAdmin}

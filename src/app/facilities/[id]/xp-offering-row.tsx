@@ -2,24 +2,30 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { Dumbbell, HeartPulse, Sparkles } from "lucide-react";
+import { Dumbbell, HeartPulse, LayoutGrid, Sparkles } from "lucide-react";
 import { FormMessage } from "@/components/ui/form";
 import { offeringTargetLabel, offeringCostCurrency } from "@/lib/facilities";
 import { purchaseXpOffering, type FormState } from "./purchase-actions";
 import type { FacilityXpOffering } from "@/lib/schema";
 
-// One training/refill/descriptive offering row (Phase 6 Step 2) — a permanent
-// stat bump or descriptive perk (both priced in Currency XP) or a one-off
-// resource refill (priced in Credits). Text-based rather than GameCard-based
-// (these aren't cards), but otherwise mirrors ListingCard's price +
-// action-button composition.
+// One training/refill/descriptive/slot-upgrade offering row (Phase 6 Step 2,
+// Phase 8) — a permanent stat bump, descriptive perk, or slot upgrade (all
+// priced in Currency XP) or a one-off resource refill (priced in Credits).
+// Text-based rather than GameCard-based (these aren't cards), but otherwise
+// mirrors ListingCard's price + action-button composition. `cost` is passed
+// in rather than read off `offering.cost` directly because a slot_upgrade's
+// real price is this specific character's escalated price (see
+// nextSlotUpgradeCost), computed by the parent page — every other offering
+// type just passes its flat `offering.cost` through unchanged.
 export function XpOfferingRow({
   offering,
+  cost,
   currencyXp,
   credits,
   previewOnly,
 }: {
   offering: FacilityXpOffering;
+  cost: number;
   currencyXp: number;
   credits: number;
   previewOnly?: boolean;
@@ -27,7 +33,7 @@ export function XpOfferingRow({
   const [state, formAction] = useActionState<FormState, FormData>(purchaseXpOffering, {});
   const currency = offeringCostCurrency(offering.offeringType);
   const balance = currency === "xp" ? currencyXp : credits;
-  const canAfford = balance >= offering.cost;
+  const canAfford = balance >= cost;
   const currencyLabel = currency === "xp" ? "XP" : "Cr";
   const label = offeringTargetLabel(offering.offeringType, offering.targetKey);
   const Icon =
@@ -35,13 +41,17 @@ export function XpOfferingRow({
       ? Dumbbell
       : offering.offeringType === "resource_refill"
         ? HeartPulse
-        : Sparkles;
+        : offering.offeringType === "slot_upgrade"
+          ? LayoutGrid
+          : Sparkles;
   const verb =
     offering.offeringType === "stat_bump"
       ? "Train"
       : offering.offeringType === "resource_refill"
         ? "Treat"
-        : "Unlock";
+        : offering.offeringType === "slot_upgrade"
+          ? "Upgrade"
+          : "Unlock";
 
   return (
     <li className="flex flex-col gap-2 border border-elevated-ledger p-3">
@@ -55,6 +65,7 @@ export function XpOfferingRow({
             {offering.offeringType !== "descriptive" && (
               <p className="font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
                 +{offering.amount} {label}
+                {offering.offeringType === "slot_upgrade" ? " slot(s)" : ""}
               </p>
             )}
             {offering.description && (
@@ -63,7 +74,7 @@ export function XpOfferingRow({
           </div>
         </div>
         <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-xs font-bold text-signal-cyan">
-          {offering.cost.toLocaleString()}
+          {cost.toLocaleString()}
           <span className="ml-0.5 text-[0.5625rem] uppercase text-muted-ink">{currencyLabel}</span>
         </span>
       </div>

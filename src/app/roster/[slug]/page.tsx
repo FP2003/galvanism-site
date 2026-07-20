@@ -12,7 +12,7 @@ import { getDb } from "@/lib/db";
 import { creditLedger, xpLedger } from "@/lib/schema";
 import { HistoryPanel, type HistoryRow } from "@/components/ledger/history-table";
 import { getCharacterBySlug, getRosterViews } from "@/lib/characters";
-import { getCharacterCards, computeLoadout } from "@/lib/card-data";
+import { getCharacterCards, computeLoadout, getCharacterSlotBonuses } from "@/lib/card-data";
 import { CARD_CATEGORY_META, cardAccent } from "@/lib/cards";
 import { agilityMovementBonus } from "@/lib/ledger";
 import { extractYouTubeVideoId } from "@/lib/youtube";
@@ -67,7 +67,7 @@ export default async function CaseFilePage({
   const themeVideoId = op.themeSongUrl ? extractYouTubeVideoId(op.themeSongUrl) : null;
 
   const db = getDb();
-  const [ledger, xpHistory, ownedCards, roster] = await Promise.all([
+  const [ledger, xpHistory, ownedCards, roster, slotBonuses] = await Promise.all([
     db.query.creditLedger.findMany({
       where: eq(creditLedger.playerId, op.playerId),
       orderBy: [desc(creditLedger.createdAt)],
@@ -82,6 +82,7 @@ export default async function CaseFilePage({
     // Only the owner sees the Send Credits panel, so skip this fetch for
     // everyone else viewing the case file.
     isOwner ? getRosterViews() : Promise.resolve([]),
+    getCharacterSlotBonuses(op.id),
   ]);
   const transferRecipients = roster
     .filter((c) => c.id !== op.id)
@@ -384,6 +385,7 @@ export default async function CaseFilePage({
                 characterId={op.id}
                 owned={loadout.owned}
                 canEdit={canEdit}
+                bonusByCategory={slotBonuses.total}
               />
             </Panel>
 

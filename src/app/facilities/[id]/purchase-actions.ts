@@ -10,16 +10,23 @@ import {
   facilityXpOfferings,
   facilityPerks,
   facilityPerkContributions,
+  characterSlotPurchases,
   players,
   characters,
   creditLedger,
   xpLedger,
   characterCards,
 } from "@/lib/schema";
+import type { CardCategory } from "@/lib/cards";
 import { getViewerCharacterState } from "@/lib/characters";
 import { effectiveResourceMaxes } from "@/lib/card-data";
-import { findRefundablePurchase, getPerkContributionPools } from "@/lib/facility-data";
+import {
+  findRefundablePurchase,
+  getPerkContributionPools,
+  getSlotPurchaseCounts,
+} from "@/lib/facility-data";
 import { applyXpSpend, clampResource, parseSignedInt, resilienceHpBonus } from "@/lib/ledger";
+import { nextSlotUpgradeCost } from "@/lib/card-slots";
 import {
   applyPurchase,
   applyStatBump,
@@ -368,6 +375,43 @@ export async function purchaseXpOffering(
     revalidatePath("/");
     revalidatePath(`/admin/players/${player.id}`);
     return { ok: true, message: `${offering.name}: spent ${offering.cost} XP.` };
+  }
+
+  if (offering.offeringType === "slot_upgrade") {
+    const counts = await getSlotPurchaseCounts(character.id, [offering.id]);
+    const cost = nextSlotUpgradeCost(offering.cost, offering.costIncrement, counts.get(offering.id) ?? 0);
+    const spend = applyXpSpend(character.currencyXp, cost);
+    if (!spend.ok) return { error: spend.error };
+
+    await db.batch([
+      db
+        .update(characters)
+        .set({ currencyXp: spend.value, updatedAt: new Date() })
+        .where(eq(characters.id, character.id)),
+      db.insert(xpLedger).values({
+        characterId: character.id,
+        description: `${offering.name} (${offering.facility.name})`,
+        delta: -cost,
+        totalXpAfter: character.totalXp,
+        currencyXpAfter: spend.value,
+        createdByUserId: user.id,
+      }),
+      db.insert(characterSlotPurchases).values({
+        characterId: character.id,
+        offeringId: offering.id,
+        category: offering.targetKey as CardCategory,
+        slotsGranted: offering.amount,
+        costPaid: cost,
+      }),
+    ]);
+
+    revalidatePath("/facilities");
+    revalidatePath(`/facilities/${offering.facilityId}`);
+    revalidatePath("/roster");
+    revalidatePath(`/roster/${character.slug}`);
+    revalidatePath("/");
+    revalidatePath(`/admin/players/${player.id}`);
+    return { ok: true, message: `${offering.name}: spent ${cost} XP.` };
   }
 
   const result = applyPurchase(player.credits, offering.cost);
