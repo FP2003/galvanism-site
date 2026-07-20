@@ -2,12 +2,18 @@
 
 import { useActionState, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus, RefreshCw, X } from "lucide-react";
+import { Check, Plus, RefreshCw, X } from "lucide-react";
 import { Select, TextInput, FormMessage, fieldLabelClass } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { CARD_CATEGORIES, CARD_CATEGORY_META, type CardCategory } from "@/lib/cards";
-import { addListing, removeListing, replaceCategoryListings, type FormState } from "@/app/admin/facility-actions";
+import {
+  addListing,
+  removeListing,
+  replaceCategoryListings,
+  updateListingQuantity,
+  type FormState,
+} from "@/app/admin/facility-actions";
 import type { Card, FacilityListing } from "@/lib/schema";
 
 // Admin listing management for one facility (Phase 6, absorbing Phase 4's
@@ -63,6 +69,16 @@ export function FacilityListingManagement({
             </option>
           ))}
         </Select>
+        <TextInput
+          name="quantity"
+          type="number"
+          min={1}
+          inputMode="numeric"
+          aria-label="Quantity"
+          defaultValue={1}
+          disabled={eligibleCards.length === 0}
+          className="sm:w-20"
+        />
         <AddListingButton disabled={eligibleCards.length === 0} />
       </form>
       <FormMessage state={addState} />
@@ -118,27 +134,61 @@ function AddListingButton({ disabled }: { disabled: boolean }) {
 
 function ListingRow({ listing }: { listing: FacilityListing & { card: Card } }) {
   const [, removeAction] = useActionState<FormState, FormData>(removeListing, {});
+  const [quantityState, quantityAction] = useActionState<FormState, FormData>(updateListingQuantity, {});
   const { card } = listing;
 
   return (
-    <li className="flex items-center gap-3 py-3">
-      <span className="size-2.5 shrink-0 bg-muted-ink" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
-          {card.title}
-        </p>
-        <p className="truncate font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
-          {CARD_CATEGORY_META[card.category].label} · {card.priceCredits?.toLocaleString()} Cr ·{" "}
-          {listing.source === "rotation"
-            ? `Rotation · Slot ${(listing.slotIndex ?? 0) + 1}`
-            : "Manual"}
-        </p>
+    <li className="flex flex-col gap-2 py-3">
+      <div className="flex items-center gap-3">
+        <span className="size-2.5 shrink-0 bg-muted-ink" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-[family-name:var(--font-chakra)] text-sm font-semibold uppercase tracking-[0.03em] text-case-file-white">
+            {card.title}
+          </p>
+          <p className="truncate font-[family-name:var(--font-inter)] text-[0.6875rem] text-muted-ink">
+            {CARD_CATEGORY_META[card.category].label} · {card.priceCredits?.toLocaleString()} Cr ·{" "}
+            {listing.source === "rotation"
+              ? `Rotation · Slot ${(listing.slotIndex ?? 0) + 1}`
+              : "Manual"}{" "}
+            · {listing.quantitySold}/{listing.quantityTotal} sold
+          </p>
+        </div>
+        {listing.source === "manual" && (
+          <form action={quantityAction} className="flex shrink-0 items-center gap-1.5">
+            <input type="hidden" name="listingId" value={listing.id} />
+            <TextInput
+              name="quantity"
+              type="number"
+              min={Math.max(1, listing.quantitySold)}
+              inputMode="numeric"
+              aria-label={`Quantity for ${card.title}`}
+              defaultValue={listing.quantityTotal}
+              className="w-16 px-2 py-1.5 text-xs"
+            />
+            <UpdateQuantityButton label={`Save quantity for ${card.title}`} />
+          </form>
+        )}
+        <form action={removeAction}>
+          <input type="hidden" name="listingId" value={listing.id} />
+          <RemoveListingButton label={`Remove ${card.title}`} />
+        </form>
       </div>
-      <form action={removeAction}>
-        <input type="hidden" name="listingId" value={listing.id} />
-        <RemoveListingButton label={`Remove ${card.title}`} />
-      </form>
+      <FormMessage state={quantityState} />
     </li>
+  );
+}
+
+function UpdateQuantityButton({ label }: { label: string }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      aria-label={label}
+      disabled={pending}
+      className="flex size-8 shrink-0 items-center justify-center border border-elevated-ledger text-muted-ink transition-colors hover:border-signal-cyan hover:text-signal-cyan disabled:opacity-60 pointer-coarse:size-11"
+    >
+      <Check size={14} aria-hidden="true" />
+    </button>
   );
 }
 

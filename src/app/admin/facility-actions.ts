@@ -205,6 +205,8 @@ export async function addListing(_prev: FormState, formData: FormData): Promise<
   const facilityId = textField(formData, "facilityId");
   const cardId = textField(formData, "cardId");
   if (!facilityId || !cardId) return { error: "Pick a card to list." };
+  const quantityTotal = intField(formData, "quantity", 1);
+  if (quantityTotal < 1) return { error: "Quantity must be 1 or more." };
 
   const db = getDb();
   const [facility, card] = await Promise.all([
@@ -223,12 +225,45 @@ export async function addListing(_prev: FormState, formData: FormData): Promise<
     return { error: "This card's level is above what this facility has unlocked." };
   }
 
-  const values: NewFacilityListing = { facilityId, cardId, source: "manual" };
+  const values: NewFacilityListing = { facilityId, cardId, source: "manual", quantityTotal };
   await db.insert(facilityListings).values(values).onConflictDoNothing();
 
   revalidatePath(`/admin/facilities/${facilityId}`);
   revalidatePath(`/facilities/${facilityId}`);
   return { ok: true, message: `${card.title} added to the facility.` };
+}
+
+// Adjusts an existing listing's stock size — an admin restocking after a
+// sellout, or trimming a listing they over-provisioned. Can't shrink below
+// what's already sold (that stock is gone; the fix for over-selling history
+// is a refund, not a quantity edit).
+export async function updateListingQuantity(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
+  const listingId = textField(formData, "listingId");
+  if (!listingId) return { error: "Missing listing reference." };
+  const quantityTotal = intField(formData, "quantity", NaN);
+  if (!Number.isInteger(quantityTotal) || quantityTotal < 1) {
+    return { error: "Quantity must be a whole number of 1 or more." };
+  }
+
+  const db = getDb();
+  const listing = await db.query.facilityListings.findFirst({
+    where: eq(facilityListings.id, listingId),
+    columns: { facilityId: true, quantitySold: true },
+  });
+  if (!listing) return { error: "Listing not found." };
+  if (quantityTotal < listing.quantitySold) {
+    return { error: `Can't set quantity below the ${listing.quantitySold} already sold.` };
+  }
+
+  await db
+    .update(facilityListings)
+    .set({ quantityTotal })
+    .where(eq(facilityListings.id, listingId));
+
+  revalidatePath(`/admin/facilities/${listing.facilityId}`);
+  revalidatePath(`/facilities/${listing.facilityId}`);
+  return { ok: true, message: "Quantity updated." };
 }
 
 // Removes a listing regardless of source — an admin can pull a rotation-
