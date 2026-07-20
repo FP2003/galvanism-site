@@ -47,8 +47,21 @@ export interface DashboardMission {
 // (e.g. "Ammo Resupply: 2 days"), matching the real `facility_ongoing_entries`
 // row (src/lib/schema.ts) shape returned by getUnresolvedOngoingEntries.
 export interface DashboardFacilityProcess {
+  facilityId: string;
   facility: string;
   label: string;
+}
+
+// A facility's next level-up, once it's received at least one perk
+// contribution — matches getFacilityUpgradesInProgress (lib/facility-data.ts).
+export interface DashboardFacilityUpgrade {
+  facilityId: string;
+  facilityName: string;
+  level: number;
+  totalCost: number;
+  totalContributed: number;
+  fundedCount: number;
+  perkCount: number;
 }
 
 // The subset of a ballot the dashboard renders — already tallied, matching
@@ -73,11 +86,13 @@ export function CommandDashboard({
   operators,
   missions,
   facilityProcesses,
+  facilityUpgrades,
   ballots,
 }: {
   operators: DashboardOperator[];
   missions: DashboardMission[];
   facilityProcesses: DashboardFacilityProcess[];
+  facilityUpgrades: DashboardFacilityUpgrade[];
   ballots: DashboardBallot[];
 }) {
   const activeCount = operators.filter((o) => o.status === "active").length;
@@ -249,29 +264,70 @@ export function CommandDashboard({
 
       {/* Row B: Facility processes + Open ballot + Station readout */}
       <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-12">
-        {/* Facility processes — the "Ongoing" readout */}
+        {/* Facility processes — the "Ongoing" readout, plus any in-progress
+            perk-funded level-ups underneath */}
         <div className="lg:col-span-4">
           <Panel title="Facility Processes" className="h-full" bodyClassName="p-0">
-            {facilityProcesses.length === 0 ? (
+            {facilityProcesses.length === 0 && facilityUpgrades.length === 0 ? (
               <p className="px-5 py-8 text-center font-[family-name:var(--font-inter)] text-sm text-muted-ink">
                 No ongoing processes.
               </p>
             ) : (
               <ul>
                 {facilityProcesses.map((p, i) => (
-                  <li
-                    key={`${p.facility}-${i}`}
-                    className="flex items-center gap-3 border-b border-elevated-ledger px-5 py-3 last:border-b-0"
-                  >
-                    <div className="min-w-0">
-                      <StatusLabel tone="live" pulse>
-                        Ongoing
-                      </StatusLabel>
-                      <p className="mt-1 truncate text-sm text-case-file-white">
-                        <span className="text-muted-ink">{p.facility}:</span>{" "}
-                        {p.label}
-                      </p>
-                    </div>
+                  <li key={`${p.facilityId}-${i}`}>
+                    <Link
+                      href={`/facilities/${p.facilityId}`}
+                      className="group flex items-center gap-3 border-b border-elevated-ledger px-5 py-3 transition-colors duration-150 hover:bg-elevated-ledger"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <StatusLabel tone="live" pulse>
+                          Ongoing
+                        </StatusLabel>
+                        <p className="mt-1 truncate text-sm text-case-file-white">
+                          <span className="text-muted-ink">{p.facility}:</span>{" "}
+                          {p.label}
+                        </p>
+                      </div>
+                      <ChevronRight
+                        size={16}
+                        className="shrink-0 text-muted-ink transition-colors group-hover:text-signal-cyan"
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  </li>
+                ))}
+                {facilityUpgrades.map((u) => (
+                  <li key={u.facilityId}>
+                    <Link
+                      href={`/facilities/${u.facilityId}`}
+                      className="group flex items-center gap-3 border-b border-elevated-ledger px-5 py-3 transition-colors duration-150 last:border-b-0 hover:bg-elevated-ledger"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <StatusLabel tone="neutral">Upgrading</StatusLabel>
+                          <span className="shrink-0 font-[family-name:var(--font-jetbrains)] text-[0.625rem] text-muted-ink">
+                            {u.fundedCount}/{u.perkCount} perks
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate text-sm text-case-file-white">
+                          <span className="text-muted-ink">{u.facilityName}:</span> Level{" "}
+                          {u.level + 1}
+                        </p>
+                        <Meter
+                          value={u.totalContributed}
+                          max={u.totalCost}
+                          tone="live"
+                          className="mt-1.5"
+                          label={`${u.facilityName} progress toward Level ${u.level + 1}: ${u.totalContributed} of ${u.totalCost} Cr`}
+                        />
+                      </div>
+                      <ChevronRight
+                        size={16}
+                        className="shrink-0 text-muted-ink transition-colors group-hover:text-signal-cyan"
+                        aria-hidden="true"
+                      />
+                    </Link>
                   </li>
                 ))}
               </ul>
