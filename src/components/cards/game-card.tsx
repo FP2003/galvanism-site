@@ -55,6 +55,46 @@ const ICONS: Record<string, LucideIcon> = {
   melee_mod: Anvil,
 };
 
+/** Resolves a `CardCategoryMeta.icon` key to its Lucide component, falling
+ *  back to Sparkles for an unrecognised key — shared with anything that
+ *  needs a category's symbol outside a full GameCard (e.g. the case file's
+ *  Ability Slots breakdown). */
+export function iconForCategory(icon: string): LucideIcon {
+  return ICONS[icon] ?? Sparkles;
+}
+
+const HEX_CLIP = "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)";
+
+/** The hex icon badge from a GameCard's header, as its own component so the
+ *  same symbol can appear elsewhere at a different size/color (e.g. the case
+ *  file's Ability Slots breakdown) without re-deriving the clip-path. */
+export function HexBadge({
+  icon: Icon,
+  size = 44,
+  background,
+  className = "",
+}: {
+  icon: LucideIcon;
+  size?: number;
+  background?: string;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`grid shrink-0 place-items-center bg-void-navy text-case-file-white ${className}`}
+      style={{
+        width: size,
+        height: size,
+        clipPath: HEX_CLIP,
+        ...(background ? { backgroundColor: background } : {}),
+      }}
+      aria-hidden="true"
+    >
+      <Icon size={Math.round(size * 0.45)} strokeWidth={1.75} />
+    </span>
+  );
+}
+
 // Item cards additionally key off subcategory for a more specific icon.
 const SUBCATEGORY_ICONS: Record<ItemSubcategory, LucideIcon> = {
   medical: Syringe,
@@ -106,7 +146,7 @@ export function GameCard({
   const isMod = isModCategory(card.category);
   const Icon = isItemWithSubcategory
     ? SUBCATEGORY_ICONS[card.subcategory!]
-    : ICONS[meta.icon] ?? Sparkles;
+    : iconForCategory(meta.icon);
   const isWeapon = isWeaponSubcategory(card.subcategory);
 
   return (
@@ -119,16 +159,7 @@ export function GameCard({
        *  48 chars) grows downward in place instead of recentering the row
        *  and dragging the menu down with it. */}
       <div className="flex items-start gap-2.5">
-        <span
-          className="grid size-11 shrink-0 place-items-center bg-void-navy text-case-file-white"
-          style={{
-            clipPath:
-              "polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%)",
-          }}
-          aria-hidden="true"
-        >
-          <Icon size={20} strokeWidth={1.75} />
-        </span>
+        <HexBadge icon={Icon} />
         <h3 className="min-w-0 flex-1 text-pretty pt-1 text-sm font-bold uppercase leading-tight tracking-[0.04em] break-words">
           {card.title}
         </h3>
