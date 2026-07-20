@@ -12,6 +12,7 @@ import {
   movementMeters,
   parseSignedInt,
   resilienceHpBonus,
+  resilienceImmunityBonus,
   validateAttributeAllocation,
   MAX_CREDITS,
   MAX_XP,
@@ -212,6 +213,24 @@ describe("resilienceHpBonus", () => {
 
   it("floors fractional Resilience", () => {
     expect(resilienceHpBonus(3.9)).toBe(6);
+  });
+});
+
+describe("resilienceImmunityBonus", () => {
+  it("adds 1 Immunity per Resilience point", () => {
+    expect(resilienceImmunityBonus(3)).toBe(3);
+  });
+
+  it("returns 0 for no Resilience", () => {
+    expect(resilienceImmunityBonus(0)).toBe(0);
+  });
+
+  it("floors negative Resilience to 0", () => {
+    expect(resilienceImmunityBonus(-2)).toBe(0);
+  });
+
+  it("floors fractional Resilience", () => {
+    expect(resilienceImmunityBonus(3.9)).toBe(3);
   });
 });
 

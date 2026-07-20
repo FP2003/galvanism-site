@@ -164,6 +164,13 @@ export function agilityMovementBonus(agility: number): number {
   return Math.floor(Math.max(0, Math.floor(agility)) / 2);
 }
 
+/** +1 Immunity per point of Resilience. Computed, never stored on its own —
+ *  folded into statImmunity wherever the effective stat is assembled, same
+ *  convention as {@link resilienceHpBonus}. */
+export function resilienceImmunityBonus(resilience: number): number {
+  return Math.max(0, Math.floor(resilience));
+}
+
 /** Effective movement in meters: a free base plus METERS_PER_EP per Energy
  *  point currently committed to it. Computed, never stored on its own. */
 export function movementMeters(base: number, epSpent: number): number {

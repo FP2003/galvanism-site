@@ -25,7 +25,7 @@ export const POINT_BUY_ATTRIBUTES = [
   { key: "statTech", label: "Tech", note: "ATK / DEF modifier" },
   { key: "statPrecision", label: "Precision", note: "Melee + ranged accuracy" },
   { key: "statStrength", label: "Strength", note: "Melee bonus damage" },
-  { key: "statResilience", label: "Resilience", note: "Condition resist / +HP" },
+  { key: "statResilience", label: "Resilience", note: "Condition resist / +HP / +Immunity" },
   { key: "statAgility", label: "Agility", note: "Melee DEF rolls" },
 ] as const;
 

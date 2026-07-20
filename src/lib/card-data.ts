@@ -20,7 +20,13 @@ import {
   isModCategory,
 } from "./cards";
 import type { WeaponSlotName } from "./cards";
-import { agilityMovementBonus, clampResource, movementMeters, resilienceHpBonus } from "./ledger";
+import {
+  agilityMovementBonus,
+  clampResource,
+  movementMeters,
+  resilienceHpBonus,
+  resilienceImmunityBonus,
+} from "./ledger";
 import { emptySlotCountMap, mergeSlotCountMaps, isSlotLimitedCategory } from "./card-slots";
 import type { SlotCountMap } from "./card-slots";
 
@@ -272,9 +278,10 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
   const inventory = owned.filter((o) => !o.equipped);
 
   // Base map in characters-column keys, matching what effects target. The
-  // Resilience -> HP and Agility -> Movement derived-stat rules are folded in
-  // AFTER modifiers apply (below), from the effective stat, so a card's own
-  // statResilience/statAgility bonus correctly raises HP/Movement too.
+  // Resilience -> HP, Resilience -> Immunity, and Agility -> Movement
+  // derived-stat rules are folded in AFTER modifiers apply (below), from the
+  // effective stat, so a card's own statResilience/statAgility bonus
+  // correctly raises HP/Immunity/Movement too.
   const base: Record<string, number> = {
     statTech: view.stats.tech,
     statPrecision: view.stats.precision,
@@ -293,6 +300,9 @@ export function computeLoadout(view: CharacterView, owned: OwnedCard[]): Loadout
   ]);
   const { effective, deltas } = applyModifiers(base, mods);
   effective.hpMax += resilienceHpBonus(effective.statResilience);
+  const immunityBonus = resilienceImmunityBonus(effective.statResilience);
+  effective.statImmunity += immunityBonus;
+  deltas.statImmunity = (deltas.statImmunity ?? 0) + immunityBonus;
 
   const effectiveStats = {} as Record<StatKey, number>;
   const statDeltas = {} as Record<StatKey, number>;
