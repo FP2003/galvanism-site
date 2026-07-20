@@ -26,6 +26,7 @@ import {
 import { BioEditor } from "./bio-editor";
 import { ResourceTracker } from "./resource-tracker";
 import { Loadout } from "./loadout";
+import { AbilitySlots } from "./ability-slots";
 import { Portrait } from "./portrait";
 import { SendCredits } from "./send-credits";
 import { ThemeSongPlayer } from "./theme-song-player";
@@ -300,6 +301,8 @@ export default async function CaseFilePage({
                 ))}
               </StatGroup>
             </Panel>
+
+            <AbilitySlots owned={loadout.owned} bonusByCategory={slotBonuses.total} />
 
             {isOwner && (
               <Panel title="Send Credits">

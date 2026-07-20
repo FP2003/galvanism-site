@@ -147,10 +147,10 @@ export function CardAssignment({
   );
 }
 
-// Mirrors roster/[slug]/loadout.tsx's SlotUsage readout for the admin view —
-// kept as a separate component rather than a shared import, same convention
-// as WeaponRow/ModRow vs. the player-facing WeaponSlots/ModsSection (parallel
-// admin/player row implementations rather than cross-surface sharing).
+// Mirrors roster/[slug]/ability-slots.tsx's category breakdown for the admin
+// view — kept as a separate component rather than a shared import, same
+// convention as WeaponRow/ModRow vs. the player-facing WeaponSlots/ModsSection
+// (parallel admin/player row implementations rather than cross-surface sharing).
 function SlotUsage({
   owned,
   equippedByCategory,
@@ -160,8 +160,13 @@ function SlotUsage({
   equippedByCategory: SlotCountMap;
   bonusByCategory: SlotCountMap;
 }) {
+  // Cards flagged "Free (no slot cost)" never spend a slot (lib/card-slots.ts
+  // takesSlot), so a category holding only those shouldn't surface here — it'd
+  // show a "0 equipped" tile that spends slots it never actually does.
   const ownedCategories = new Set(
-    owned.filter((o) => isSlotLimitedCategory(o.card.category)).map((o) => o.card.category),
+    owned
+      .filter((o) => isSlotLimitedCategory(o.card.category) && o.card.takesSlot)
+      .map((o) => o.card.category),
   );
   const visible = SLOT_LIMITED_CATEGORIES.filter(
     (c) => ownedCategories.has(c) || bonusByCategory[c] > 0,
@@ -176,7 +181,7 @@ function SlotUsage({
   return (
     <div className="border border-elevated-ledger px-3 py-2">
       <p className="font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
-        Ability slots — shared pool: {remaining} of 3 free
+        Ability slots — Base: {remaining} of 3 free
       </p>
       <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
         {usage.map((u) => (

@@ -19,13 +19,10 @@ import {
   isSlotLegalFor,
   modCategoryForWeapon,
 } from "@/lib/weapons";
-import { isWeaponSubcategory, CARD_CATEGORY_META, type WeaponSlotName } from "@/lib/cards";
+import { isWeaponSubcategory, type WeaponSlotName } from "@/lib/cards";
 import {
-  SLOT_LIMITED_CATEGORIES,
   tallyEquippedByCategory,
   canEquipInCategory,
-  categorySlotUsage,
-  sharedPoolRemaining,
   type SlotCountMap,
 } from "@/lib/card-slots";
 
@@ -78,7 +75,6 @@ export function Loadout({
           canEdit={canEdit}
         />
       )}
-      <SlotUsage rest={rest} equippedByCategory={equippedByCategory} bonusByCategory={bonusByCategory} />
       <CardGroup
         heading="Equipped"
         cards={equipped}
@@ -425,54 +421,6 @@ function SlotSubmitButton({ label }: { label: string }) {
     >
       {pending ? "…" : label}
     </button>
-  );
-}
-
-// Ability-card slot usage (Phase 8) — one shared pool of slots plus a
-// per-category reserved bonus from facility purchases/admin overrides (see
-// lib/card-slots.ts). Only shown for categories the character actually owns
-// a card in, or has a bonus for, to avoid listing all 7 categories on an
-// operator who's never touched half of them.
-function SlotUsage({
-  rest,
-  equippedByCategory,
-  bonusByCategory,
-}: {
-  rest: OwnedCard[];
-  equippedByCategory: SlotCountMap;
-  bonusByCategory: SlotCountMap;
-}) {
-  const ownedCategories = new Set(rest.map((o) => o.card.category));
-  const visible = SLOT_LIMITED_CATEGORIES.filter(
-    (c) => ownedCategories.has(c) || bonusByCategory[c] > 0,
-  );
-  if (visible.length === 0) return null;
-
-  const usage = categorySlotUsage(equippedByCategory, bonusByCategory).filter((u) =>
-    visible.includes(u.category),
-  );
-  const remaining = sharedPoolRemaining(equippedByCategory, bonusByCategory);
-
-  return (
-    <div>
-      <h3 className="mb-3 font-[family-name:var(--font-chakra)] text-[0.625rem] font-semibold uppercase tracking-[0.12em] text-signal-cyan">
-        Ability Slots
-      </h3>
-      <p className="mb-2 font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink">
-        Shared pool: {remaining} of 3 free
-      </p>
-      <ul className="flex flex-wrap gap-x-4 gap-y-1">
-        {usage.map((u) => (
-          <li
-            key={u.category}
-            className="font-[family-name:var(--font-jetbrains)] text-[0.6875rem] text-muted-ink"
-          >
-            {CARD_CATEGORY_META[u.category].label}: {u.used}/{u.cap}
-            {u.bonus > 0 ? ` (+${u.bonus})` : ""}
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }
 
