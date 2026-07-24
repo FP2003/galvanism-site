@@ -14,6 +14,7 @@ import {
   isValidOfferingTarget,
   offeringTargetLabel,
   offeringCostCurrency,
+  nextEscalatingOfferingCost,
   applyStatBump,
   applyResourceRefill,
   type RestockRule,
@@ -343,20 +344,42 @@ describe("offeringTargetsFor / isValidOfferingTarget", () => {
 });
 
 describe("offeringCostCurrency", () => {
-  it("charges XP for a stat bump", () => {
-    expect(offeringCostCurrency("stat_bump")).toBe("xp");
+  it("charges XP for a stat bump regardless of costCurrency", () => {
+    expect(offeringCostCurrency({ offeringType: "stat_bump", costCurrency: "credits" })).toBe("xp");
   });
 
-  it("charges Credits for a resource refill", () => {
-    expect(offeringCostCurrency("resource_refill")).toBe("credits");
+  it("charges Credits for a resource refill regardless of costCurrency", () => {
+    expect(offeringCostCurrency({ offeringType: "resource_refill", costCurrency: "xp" })).toBe(
+      "credits",
+    );
   });
 
-  it("charges XP for a descriptive offering", () => {
-    expect(offeringCostCurrency("descriptive")).toBe("xp");
+  it("charges XP for a slot upgrade regardless of costCurrency", () => {
+    expect(offeringCostCurrency({ offeringType: "slot_upgrade", costCurrency: "credits" })).toBe(
+      "xp",
+    );
   });
 
-  it("charges XP for a slot upgrade", () => {
-    expect(offeringCostCurrency("slot_upgrade")).toBe("xp");
+  it("honors the per-row costCurrency for a descriptive offering", () => {
+    expect(offeringCostCurrency({ offeringType: "descriptive", costCurrency: "xp" })).toBe("xp");
+    expect(offeringCostCurrency({ offeringType: "descriptive", costCurrency: "credits" })).toBe(
+      "credits",
+    );
+  });
+});
+
+describe("nextEscalatingOfferingCost", () => {
+  it("charges the base price with zero prior purchases", () => {
+    expect(nextEscalatingOfferingCost(30, 15, 0)).toBe(30);
+  });
+
+  it("escalates by one increment per prior purchase", () => {
+    expect(nextEscalatingOfferingCost(30, 15, 1)).toBe(45);
+    expect(nextEscalatingOfferingCost(30, 15, 2)).toBe(60);
+  });
+
+  it("stays flat when the increment is 0", () => {
+    expect(nextEscalatingOfferingCost(50, 0, 3)).toBe(50);
   });
 });
 

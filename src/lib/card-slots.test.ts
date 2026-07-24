@@ -9,7 +9,6 @@ import {
   canEquipInCategory,
   categorySlotUsage,
   sharedPoolRemaining,
-  nextSlotUpgradeCost,
   type SlotCountMap,
 } from "./card-slots";
 
@@ -144,20 +143,5 @@ describe("sharedPoolRemaining", () => {
   it("floors at 0 rather than going negative", () => {
     const equipped = bonus({ combat: 5 });
     expect(sharedPoolRemaining(equipped, emptySlotCountMap())).toBe(0);
-  });
-});
-
-describe("nextSlotUpgradeCost", () => {
-  it("charges the base price with zero prior purchases", () => {
-    expect(nextSlotUpgradeCost(30, 15, 0)).toBe(30);
-  });
-
-  it("escalates by one increment per prior purchase", () => {
-    expect(nextSlotUpgradeCost(30, 15, 1)).toBe(45);
-    expect(nextSlotUpgradeCost(30, 15, 2)).toBe(60);
-  });
-
-  it("stays flat when the increment is 0", () => {
-    expect(nextSlotUpgradeCost(50, 0, 3)).toBe(50);
   });
 });

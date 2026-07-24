@@ -133,16 +133,3 @@ export function sharedPoolRemaining(equipped: SlotCountMap, bonus: SlotCountMap)
   return Math.max(0, totalCap - sum(equipped));
 }
 
-/**
- * The escalating per-character, per-offering price of a facility slot-upgrade
- * purchase: the base price plus one increment for every prior purchase of
- * this exact offering by this character. `costIncrement` of 0 gives a flat,
- * repeatable price (same as any other XP offering).
- */
-export function nextSlotUpgradeCost(
-  basePrice: number,
-  costIncrement: number,
-  priorPurchases: number,
-): number {
-  return basePrice + costIncrement * Math.max(0, Math.floor(priorPurchases));
-}

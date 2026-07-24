@@ -10,6 +10,7 @@ import {
   facilityPerkContributions,
   facilityOngoingEntries,
   characterSlotPurchases,
+  characterOfferingPurchases,
   creditLedger,
   cards,
   cardEffects,
@@ -120,8 +121,8 @@ export async function getPerkContributionPools(perkIds: string[]): Promise<Map<s
 }
 
 /** How many times this character has already bought each of the given
- *  slot_upgrade offerings — feeds nextSlotUpgradeCost (lib/card-slots.ts) so
- *  the facility page can display and charge this character's actual next
+ *  slot_upgrade offerings — feeds nextEscalatingOfferingCost (lib/facilities.ts)
+ *  so the facility page can display and charge this character's actual next
  *  price, not the offering's flat base cost. Always returns an entry for
  *  every requested id, even one with zero prior purchases, same convention
  *  as getPerkContributionPools. */
@@ -137,6 +138,33 @@ export async function getSlotPurchaseCounts(
     where: and(
       eq(characterSlotPurchases.characterId, characterId),
       inArray(characterSlotPurchases.offeringId, offeringIds),
+    ),
+    columns: { offeringId: true },
+  });
+  for (const r of rows) {
+    if (!r.offeringId) continue;
+    counts.set(r.offeringId, (counts.get(r.offeringId) ?? 0) + 1);
+  }
+  return counts;
+}
+
+/** Same shape and purpose as getSlotPurchaseCounts, but for descriptive
+ *  offerings — reads characterOfferingPurchases instead of
+ *  characterSlotPurchases (descriptive offerings grant no game mechanic, so
+ *  they get their own purchase-count ledger rather than sharing the
+ *  slot-upgrade one). */
+export async function getOfferingPurchaseCounts(
+  characterId: string,
+  offeringIds: string[],
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>(offeringIds.map((id) => [id, 0]));
+  if (offeringIds.length === 0) return counts;
+
+  const db = getDb();
+  const rows = await db.query.characterOfferingPurchases.findMany({
+    where: and(
+      eq(characterOfferingPurchases.characterId, characterId),
+      inArray(characterOfferingPurchases.offeringId, offeringIds),
     ),
     columns: { offeringId: true },
   });
