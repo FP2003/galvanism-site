@@ -12,6 +12,7 @@ import {
   facilityPerks,
   facilityPerkContributions,
   characterSlotPurchases,
+  characterOfferingPurchases,
   players,
   characters,
   creditLedger,
@@ -25,9 +26,9 @@ import {
   findRefundablePurchase,
   getPerkContributionPools,
   getSlotPurchaseCounts,
+  getOfferingPurchaseCounts,
 } from "@/lib/facility-data";
 import { applyXpSpend, clampResource, parseSignedInt, resilienceHpBonus } from "@/lib/ledger";
-import { nextSlotUpgradeCost } from "@/lib/card-slots";
 import {
   applyPurchase,
   applyStatBump,
@@ -36,6 +37,8 @@ import {
   isPerkFunded,
   isCardLevelUnlocked,
   facilityListingRemaining,
+  offeringCostCurrency,
+  nextEscalatingOfferingCost,
 } from "@/lib/facilities";
 
 export type FormState = { ok?: boolean; error?: string; message?: string };
@@ -371,21 +374,66 @@ export async function purchaseXpOffering(
   }
 
   if (offering.offeringType === "descriptive") {
-    const spend = applyXpSpend(character.currencyXp, offering.cost);
-    if (!spend.ok) return { error: spend.error };
+    const counts = await getOfferingPurchaseCounts(character.id, [offering.id]);
+    const cost = nextEscalatingOfferingCost(
+      offering.cost,
+      offering.costIncrement,
+      counts.get(offering.id) ?? 0,
+    );
+    const currency = offeringCostCurrency(offering);
+
+    if (currency === "xp") {
+      const spend = applyXpSpend(character.currencyXp, cost);
+      if (!spend.ok) return { error: spend.error };
+
+      await db.batch([
+        db
+          .update(characters)
+          .set({ currencyXp: spend.value, updatedAt: new Date() })
+          .where(eq(characters.id, character.id)),
+        db.insert(xpLedger).values({
+          characterId: character.id,
+          description: `${offering.name} (${offering.facility.name})`,
+          delta: -cost,
+          totalXpAfter: character.totalXp,
+          currencyXpAfter: spend.value,
+          createdByUserId: user.id,
+        }),
+        db.insert(characterOfferingPurchases).values({
+          characterId: character.id,
+          offeringId: offering.id,
+          costPaid: cost,
+        }),
+      ]);
+
+      revalidatePath("/facilities");
+      revalidatePath(`/facilities/${offering.facilityId}`);
+      revalidatePath("/roster");
+      revalidatePath(`/roster/${character.slug}`);
+      revalidatePath("/");
+      revalidatePath(`/admin/players/${player.id}`);
+      return { ok: true, message: `${offering.name}: spent ${cost} XP.` };
+    }
+
+    const result = applyPurchase(player.credits, cost);
+    if (!result.ok) return { error: result.error };
 
     await db.batch([
       db
-        .update(characters)
-        .set({ currencyXp: spend.value, updatedAt: new Date() })
-        .where(eq(characters.id, character.id)),
-      db.insert(xpLedger).values({
-        characterId: character.id,
+        .update(players)
+        .set({ credits: result.value, updatedAt: new Date() })
+        .where(eq(players.id, player.id)),
+      db.insert(creditLedger).values({
+        playerId: player.id,
         description: `${offering.name} (${offering.facility.name})`,
-        delta: -offering.cost,
-        totalXpAfter: character.totalXp,
-        currencyXpAfter: spend.value,
+        delta: -cost,
+        balanceAfter: result.value,
         createdByUserId: user.id,
+      }),
+      db.insert(characterOfferingPurchases).values({
+        characterId: character.id,
+        offeringId: offering.id,
+        costPaid: cost,
       }),
     ]);
 
@@ -395,12 +443,12 @@ export async function purchaseXpOffering(
     revalidatePath(`/roster/${character.slug}`);
     revalidatePath("/");
     revalidatePath(`/admin/players/${player.id}`);
-    return { ok: true, message: `${offering.name}: spent ${offering.cost} XP.` };
+    return { ok: true, message: `${offering.name}: spent ${cost} Cr.` };
   }
 
   if (offering.offeringType === "slot_upgrade") {
     const counts = await getSlotPurchaseCounts(character.id, [offering.id]);
-    const cost = nextSlotUpgradeCost(offering.cost, offering.costIncrement, counts.get(offering.id) ?? 0);
+    const cost = nextEscalatingOfferingCost(offering.cost, offering.costIncrement, counts.get(offering.id) ?? 0);
     const spend = applyXpSpend(character.currencyXp, cost);
     if (!spend.ok) return { error: spend.error };
 
