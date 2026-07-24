@@ -125,6 +125,12 @@ export const xpOfferingType = pgEnum("xp_offering_type", [
   "slot_upgrade",
 ]);
 
+// The currency an offering's `cost` is charged in. Fixed by type for
+// stat_bump/resource_refill/slot_upgrade (see offeringCostCurrency in
+// lib/facilities.ts, which the server actions enforce regardless of any
+// submitted value); a per-row admin choice for descriptive offerings only.
+export const offeringCurrency = pgEnum("offering_currency", ["xp", "credits"]);
+
 // Phase 5 — Mission enums (info/roadmap.md §Phase 5). "failed" only happens via
 // an Urgent deadline hitting zero without the mission completing first.
 export const missionStatus = pgEnum("mission_status", [
@@ -280,6 +286,7 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   ballotVotes: many(ballotVotes),
   slotPurchases: many(characterSlotPurchases),
   slotOverrides: many(characterSlotOverrides),
+  offeringPurchases: many(characterOfferingPurchases),
 }));
 
 // Append-only record of every credit change (Phase 2 — the player's read-only
@@ -673,14 +680,16 @@ export const facilityRestockRules = pgTable(
 // pre-stage a higher-tier offering before the facility is leveled up to
 // unlock it. `active` retires an offering without deleting it, keeping
 // historical xp_ledger/credit_ledger rows (which store no FK back here)
-// meaningful. `cost` is charged in Currency XP for a stat_bump, slot_upgrade,
-// or descriptive offering, but Credits for a resource_refill — the currency
-// is derived from `offeringType`, not chosen per row (see
-// offeringCostCurrency in lib/facilities.ts). `costIncrement` is only
-// meaningful for slot_upgrade (default 0 elsewhere): each purchase by a given
-// character of the same offering raises that character's next price for it
-// by this amount (see nextSlotUpgradeCost in lib/card-slots.ts and
-// characterSlotPurchases below) — a flat, repeatable price otherwise.
+// meaningful. `costCurrency` is fixed by `offeringType` for stat_bump,
+// resource_refill, and slot_upgrade (XP, Credits, XP respectively — enforced
+// server-side regardless of any submitted value); a descriptive offering is
+// the one type where the admin picks the currency per row (see
+// offeringCostCurrency in lib/facilities.ts). `costIncrement` is meaningful
+// for slot_upgrade and descriptive (default 0 elsewhere, meaning a flat,
+// repeatable price): each purchase by a given character of the same offering
+// raises that character's next price for it by this amount (see
+// nextEscalatingOfferingCost in lib/facilities.ts, characterSlotPurchases
+// below for slot_upgrade, characterOfferingPurchases for descriptive).
 export const facilityXpOfferings = pgTable(
   "facility_xp_offerings",
   {
@@ -694,6 +703,7 @@ export const facilityXpOfferings = pgTable(
     targetKey: text("target_key").notNull(),
     amount: integer("amount").notNull(),
     cost: integer("cost").notNull(),
+    costCurrency: offeringCurrency("cost_currency").notNull().default("xp"),
     costIncrement: integer("cost_increment").notNull().default(0),
     minLevel: integer("min_level").notNull().default(1),
     active: boolean("active").notNull().default(true),
@@ -708,8 +718,8 @@ export const facilityXpOfferings = pgTable(
 // ledger, same convention as xpLedger/facilityPerkContributions — offerings
 // are otherwise repeatable with no ownership row, but a slot_upgrade needs a
 // durable count to (a) price each character's next purchase of the same
-// offering via nextSlotUpgradeCost and (b) know how many bonus slots they've
-// actually banked). `category`/`slotsGranted`/`costPaid` snapshot the
+// offering via nextEscalatingOfferingCost and (b) know how many bonus slots
+// they've actually banked). `category`/`slotsGranted`/`costPaid` snapshot the
 // offering's targetKey/amount/escalated-price at purchase time so editing or
 // deleting the offering later never rewrites history. `offeringId` is
 // nullable with `set null` (not cascade) for the same reason `xpLedger`/
@@ -733,6 +743,33 @@ export const characterSlotPurchases = pgTable(
   (t) => [
     index("character_slot_purchases_character_idx").on(t.characterId, t.createdAt),
     index("character_slot_purchases_offering_idx").on(t.characterId, t.offeringId),
+  ],
+);
+
+// One row per character purchase of a descriptive offering (append-only
+// ledger, same convention/shape as characterSlotPurchases minus the
+// slot-grant columns — descriptive offerings touch no character column or
+// game mechanic, so this table exists purely to durably count prior
+// purchases for nextEscalatingOfferingCost). Always logged, even when the
+// offering's costIncrement is currently 0, so turning escalation on later
+// still counts a character's earlier purchases fairly. `offeringId` is
+// nullable with `set null`, same reasoning as characterSlotPurchases.
+export const characterOfferingPurchases = pgTable(
+  "character_offering_purchases",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    characterId: uuid("character_id")
+      .notNull()
+      .references(() => characters.id, { onDelete: "cascade" }),
+    offeringId: uuid("offering_id").references(() => facilityXpOfferings.id, {
+      onDelete: "set null",
+    }),
+    costPaid: integer("cost_paid").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("character_offering_purchases_character_idx").on(t.characterId, t.createdAt),
+    index("character_offering_purchases_offering_idx").on(t.characterId, t.offeringId),
   ],
 );
 
@@ -850,6 +887,7 @@ export const facilityXpOfferingsRelations = relations(facilityXpOfferings, ({ on
     references: [facilities.id],
   }),
   slotPurchases: many(characterSlotPurchases),
+  offeringPurchases: many(characterOfferingPurchases),
 }));
 
 export const characterSlotPurchasesRelations = relations(characterSlotPurchases, ({ one }) => ({
@@ -862,6 +900,20 @@ export const characterSlotPurchasesRelations = relations(characterSlotPurchases,
     references: [facilityXpOfferings.id],
   }),
 }));
+
+export const characterOfferingPurchasesRelations = relations(
+  characterOfferingPurchases,
+  ({ one }) => ({
+    character: one(characters, {
+      fields: [characterOfferingPurchases.characterId],
+      references: [characters.id],
+    }),
+    offering: one(facilityXpOfferings, {
+      fields: [characterOfferingPurchases.offeringId],
+      references: [facilityXpOfferings.id],
+    }),
+  }),
+);
 
 export const characterSlotOverridesRelations = relations(characterSlotOverrides, ({ one }) => ({
   character: one(characters, {
@@ -1231,6 +1283,8 @@ export type CharacterSlotPurchase = typeof characterSlotPurchases.$inferSelect;
 export type NewCharacterSlotPurchase = typeof characterSlotPurchases.$inferInsert;
 export type CharacterSlotOverride = typeof characterSlotOverrides.$inferSelect;
 export type NewCharacterSlotOverride = typeof characterSlotOverrides.$inferInsert;
+export type CharacterOfferingPurchase = typeof characterOfferingPurchases.$inferSelect;
+export type NewCharacterOfferingPurchase = typeof characterOfferingPurchases.$inferInsert;
 export type FacilityPerk = typeof facilityPerks.$inferSelect;
 export type NewFacilityPerk = typeof facilityPerks.$inferInsert;
 export type FacilityPerkContribution = typeof facilityPerkContributions.$inferSelect;
