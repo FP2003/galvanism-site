@@ -9,10 +9,14 @@ import { ButtonLink } from "@/components/ui/button";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { requireUser } from "@/lib/auth";
 import { getViewerCharacterState } from "@/lib/characters";
-import { getFacility, getPerkContributionPools, getSlotPurchaseCounts } from "@/lib/facility-data";
+import {
+  getFacility,
+  getPerkContributionPools,
+  getSlotPurchaseCounts,
+  getOfferingPurchaseCounts,
+} from "@/lib/facility-data";
 import { getCharacterCards } from "@/lib/card-data";
-import { facilityListingRemaining } from "@/lib/facilities";
-import { nextSlotUpgradeCost } from "@/lib/card-slots";
+import { facilityListingRemaining, nextEscalatingOfferingCost } from "@/lib/facilities";
 import { ListingCard } from "./listing-card";
 import { XpOfferingRow } from "./xp-offering-row";
 import { PerkRow } from "./perk-row";
@@ -90,17 +94,34 @@ export default async function FacilityDetailPage({
   const slotUpgradeOfferingIds = availableOfferings
     .filter((o) => o.offeringType === "slot_upgrade")
     .map((o) => o.id);
+  const descriptiveOfferingIds = availableOfferings
+    .filter((o) => o.offeringType === "descriptive")
+    .map((o) => o.id);
 
-  const [owned, perkPools, slotPurchaseCounts] = await Promise.all([
+  const [owned, perkPools, slotPurchaseCounts, descriptivePurchaseCounts] = await Promise.all([
     character ? getCharacterCards(character.id) : Promise.resolve([]),
     getPerkContributionPools(availablePerks.map((p) => p.id)),
     character ? getSlotPurchaseCounts(character.id, slotUpgradeOfferingIds) : Promise.resolve(new Map()),
+    character ? getOfferingPurchaseCounts(character.id, descriptiveOfferingIds) : Promise.resolve(new Map()),
   ]);
   const ownedCardIds = new Set(owned.map((o) => o.card.id));
 
   function offeringCost(offering: (typeof availableOfferings)[number]): number {
-    if (offering.offeringType !== "slot_upgrade") return offering.cost;
-    return nextSlotUpgradeCost(offering.cost, offering.costIncrement, slotPurchaseCounts.get(offering.id) ?? 0);
+    if (offering.offeringType === "slot_upgrade") {
+      return nextEscalatingOfferingCost(
+        offering.cost,
+        offering.costIncrement,
+        slotPurchaseCounts.get(offering.id) ?? 0,
+      );
+    }
+    if (offering.offeringType === "descriptive") {
+      return nextEscalatingOfferingCost(
+        offering.cost,
+        offering.costIncrement,
+        descriptivePurchaseCounts.get(offering.id) ?? 0,
+      );
+    }
+    return offering.cost;
   }
 
   const totalCost = availablePerks.reduce((sum, p) => sum + p.priceCredits, 0);

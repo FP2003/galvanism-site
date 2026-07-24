@@ -81,7 +81,7 @@ export default async function AdminFacilityDetailPage({
               <FacilityOngoing facilityId={facility.id} entries={facility.ongoingEntries} />
             </Panel>
 
-            <Panel title="XP Offerings">
+            <Panel title="Training Offerings">
               <FacilityXpOfferings
                 facilityId={facility.id}
                 facilityLevel={facility.level}

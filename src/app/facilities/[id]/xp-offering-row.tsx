@@ -9,14 +9,15 @@ import { purchaseXpOffering, type FormState } from "./purchase-actions";
 import type { FacilityXpOffering } from "@/lib/schema";
 
 // One training/refill/descriptive/slot-upgrade offering row (Phase 6 Step 2,
-// Phase 8) — a permanent stat bump, descriptive perk, or slot upgrade (all
-// priced in Currency XP) or a one-off resource refill (priced in Credits).
-// Text-based rather than GameCard-based (these aren't cards), but otherwise
-// mirrors ListingCard's price + action-button composition. `cost` is passed
-// in rather than read off `offering.cost` directly because a slot_upgrade's
+// Phase 8) — a permanent stat bump or slot upgrade (priced in Currency XP), a
+// one-off resource refill (priced in Credits), or a descriptive perk (either
+// currency, the admin's choice per row). Text-based rather than GameCard
+// -based (these aren't cards), but otherwise mirrors ListingCard's price +
+// action-button composition. `cost` is passed in rather than read off
+// `offering.cost` directly because a slot_upgrade's or descriptive offering's
 // real price is this specific character's escalated price (see
-// nextSlotUpgradeCost), computed by the parent page — every other offering
-// type just passes its flat `offering.cost` through unchanged.
+// nextEscalatingOfferingCost), computed by the parent page — stat_bump and
+// resource_refill just pass their flat `offering.cost` through unchanged.
 export function XpOfferingRow({
   offering,
   cost,
@@ -31,7 +32,7 @@ export function XpOfferingRow({
   previewOnly?: boolean;
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(purchaseXpOffering, {});
-  const currency = offeringCostCurrency(offering.offeringType);
+  const currency = offeringCostCurrency(offering);
   const balance = currency === "xp" ? currencyXp : credits;
   const canAfford = balance >= cost;
   const currencyLabel = currency === "xp" ? "XP" : "Cr";
