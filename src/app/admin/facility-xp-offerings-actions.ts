@@ -8,8 +8,8 @@ import { facilities, facilityXpOfferings, type NewFacilityXpOffering } from "@/l
 import {
   XP_OFFERING_TYPES,
   isValidOfferingTarget,
-  offeringCostCurrency,
   type XpOfferingType,
+  type OfferingCurrency,
 } from "@/lib/facilities";
 
 /*
@@ -31,6 +31,17 @@ function intField(formData: FormData, key: string, fallback: number): number {
   if (raw === "") return fallback;
   const n = Number(raw);
   return Number.isFinite(n) ? Math.floor(n) : fallback;
+}
+
+// Currency is fixed by type for stat_bump/resource_refill/slot_upgrade
+// (server-enforced regardless of any submitted value) — a descriptive
+// offering is the one type where the admin's form choice is honored.
+function resolveCostCurrency(offeringType: XpOfferingType, formData: FormData): OfferingCurrency {
+  if (offeringType === "resource_refill") return "credits";
+  if (offeringType === "descriptive") {
+    return textField(formData, "costCurrency") === "credits" ? "credits" : "xp";
+  }
+  return "xp";
 }
 
 const NAME_MAX = 64;
@@ -58,8 +69,9 @@ export async function addXpOffering(_prev: FormState, formData: FormData): Promi
   if (!isDescriptive && amount <= 0) {
     return { error: "Amount must be a whole number greater than zero." };
   }
+  const costCurrency = resolveCostCurrency(offeringType, formData);
   const cost = intField(formData, "cost", 0);
-  const currencyLabel = offeringCostCurrency(offeringType) === "xp" ? "XP" : "Credit";
+  const currencyLabel = costCurrency === "xp" ? "XP" : "Credit";
   if (cost <= 0) return { error: `${currencyLabel} cost must be a whole number greater than zero.` };
   const costIncrement = intField(formData, "costIncrement", 0);
   if (costIncrement < 0) return { error: "Cost increment must be a whole number of 0 or more." };
@@ -81,6 +93,7 @@ export async function addXpOffering(_prev: FormState, formData: FormData): Promi
     targetKey,
     amount,
     cost,
+    costCurrency,
     costIncrement,
     minLevel,
   };
@@ -113,8 +126,9 @@ export async function updateXpOffering(_prev: FormState, formData: FormData): Pr
   if (!isDescriptive && amount <= 0) {
     return { error: "Amount must be a whole number greater than zero." };
   }
+  const costCurrency = resolveCostCurrency(offeringType, formData);
   const cost = intField(formData, "cost", 0);
-  const currencyLabel = offeringCostCurrency(offeringType) === "xp" ? "XP" : "Credit";
+  const currencyLabel = costCurrency === "xp" ? "XP" : "Credit";
   if (cost <= 0) return { error: `${currencyLabel} cost must be a whole number greater than zero.` };
   const costIncrement = intField(formData, "costIncrement", 0);
   if (costIncrement < 0) return { error: "Cost increment must be a whole number of 0 or more." };
@@ -131,6 +145,7 @@ export async function updateXpOffering(_prev: FormState, formData: FormData): Pr
       targetKey,
       amount,
       cost,
+      costCurrency,
       costIncrement,
       minLevel,
       updatedAt: new Date(),
